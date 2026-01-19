@@ -1,40 +1,63 @@
 (function () {
     'use strict';
 
-    const PLUGIN_NAME = 'Рейтинги MDBLists';
-    const VERSION = '1.0.0';
+    if (!window.Lampa) return;
 
-    /* ==============================
-       CONFIG
-    ============================== */
+    var plugin_name = 'mdblists';
 
-    const CONFIG = {
-        cacheKey: 'mdblists_ratings_cache',
-        cacheLimit: 500,
-        cacheLifetime: 24 * 60 * 60 * 1000,
-        requestTimeout: 15000
-    };
+    console.log('MDBLists plugin loaded');
 
-    /* ==============================
-       CACHE
-    ============================== */
+    // === ПЛАГІН ===
+    Lampa.Plugin.add(plugin_name, {
+        name: 'MDBLists',
+        description: 'Рейтинги з MDBLists',
+        version: '1.0.0',
+        author: 'bodya-elven',
 
-    class Cache {
-        static getAll() {
-            return Lampa.Storage.cache(CONFIG.cacheKey, CONFIG.cacheLimit, {});
+        start: function () {
+            console.log('MDBLists started');
         }
+    });
 
-        static get(id) {
-            const cache = this.getAll();
-            const item = cache[id];
+    // === ЕКРАН ПЛАГІНА ===
+    function openScreen() {
+        var html = `
+            <div class="mdblists-screen">
+                <h2>MDBLists</h2>
+                <p>Тут будуть рейтинги з MDBLists</p>
+            </div>
+        `;
 
-            if (!item) return null;
+        var activity = new Lampa.Activity({
+            title: 'MDBLists',
+            component: 'mdblists',
+            content: html
+        });
 
-            if (Date.now() - item.time > CONFIG.cacheLifetime) {
-                delete cache[id];
-                Lampa.Storage.set(CONFIG.cacheKey, cache);
-                return null;
-            }
+        activity.onBack = function () {
+            Lampa.Activity.close();
+        };
+
+        Lampa.Activity.push(activity);
+    }
+
+    // === ПУНКТ У НАЛАШТУВАННЯХ → РЕЙТИНГИ ===
+    Lampa.SettingsApi.addParam({
+        component: 'ratings',
+        param: {
+            name: plugin_name,
+            type: 'button'
+        },
+        field: {
+            name: 'MDBLists',
+            description: 'Рейтинги з MDBLists'
+        },
+        onChange: function () {
+            openScreen();
+        }
+    });
+
+})();            }
 
             return item.data;
         }
