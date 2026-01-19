@@ -1,39 +1,154 @@
 (function () {
     'use strict';
 
-    const CONFIG = {
-        api_url: 'https://api.mdblist.com/tmdb/',
-        cache_time: 60 * 60 * 24 * 7 * 1000, // Кеш на 7 днів
-        cache_key: 'mdblists_ratings_cache',
-        cache_limit: 500
+    const RATINGS_CONFIG = {
+        cacheLifetime: 60 * 60 * 24 * 7 * 1000,
+        cacheKey: 'applecation_ratings_cache',
+        cacheLimit: 500,
+        requestTimeout: 15000
     };
 
-    // --- КЕШУВАННЯ ---
-    class RatingsCache {
-        static get() { return Lampa.Storage.cache(CONFIG.cache_key, CONFIG.cache_limit, {}); }
-        static load(id) {
-            const cache = this.get();
-            const item = cache[id];
-            if (item && (Date.now() - item.time < CONFIG.cache_time)) return item.data;
-            return null;
-        }
-        static save(id, data) {
-            const cache = this.get();
-            cache[id] = { time: Date.now(), data };
-            Lampa.Storage.set(CONFIG.cache_key, cache);
+    // --- Допоміжні класи (Повна структура) ---
+    class RatingsRequestClient {
+        static getJson(url, onSuccess, onError) {
+            const network = new Lampa.Reguest();
+            network.timeout(RATINGS_CONFIG.requestTimeout);
+            network.silent(url, onSuccess, onError, false, { dataType: 'json' });
         }
     }
 
-    // --- ОТРИМАННЯ ДАНИХ ---
-    class MDBProvider {
+    class RatingsCacheManager {
+        get(id) {
+            const cache = Lampa.Storage.cache(RATINGS_CONFIG.cacheKey, RATINGS_CONFIG.cacheLimit, {});
+            const entry = cache[id];
+            if (!entry || (Date.now() - entry.timestamp) > RATINGS_CONFIG.cacheLifetime) return null;
+            return entry.data;
+        }
+        set(id, data) {
+            const cache = Lampa.Storage.cache(RATINGS_CONFIG.cacheKey, RATINGS_CONFIG.cacheLimit, {});
+            cache[id] = { timestamp: Date.now(), data: data };
+            Lampa.Storage.set(RATINGS_CONFIG.cacheKey, cache);
+        }
+    }
+
+    class MDBListProvider {
         static fetch(movie, callback) {
-            const apiKey = Lampa.Storage.get('mdblists_api_key', '');
-            if (!apiKey || !movie.id) return callback(null);
-
+            const apiKey = Lampa.Storage.get('applecation_mdblist_api_key', '');
+            if (!apiKey) return callback(null);
             const type = movie.number_of_seasons ? 'show' : 'movie';
-            const url = CONFIG.api_url + type + '/' + movie.id + '?apikey=' + apiKey;
+            const url = `https://api.mdblist.com/tmdb/${type}/${movie.id}?apikey=${apiKey}`;
+            RatingsRequestClient.getJson(url, (res) => {
+                const result = {};
+                if (res && res.ratings) {
+                    res.ratings.forEach(r => {
+                        const key = (r.source || '').toLowerCase().trim();
+                        if (key !== 'tmdb') result[key] = r.value;
+                    });
+                }
+                callback(result);
+            }, () => callback(null));
+        }
+    }
 
-            const req = new Lampa.Reguest();
+    class BuiltInRatingsManager {
+        constructor() {
+            this.cacheManager = new RatingsCacheManager();
+            this.pending = new Map();
+        }
+        fetch(movie, callback) {
+            const cached = this.cacheManager.get(movie.id);
+            if (cached) return callback(cached);
+            if (this.pending.has(movie.id)) return this.pending.get(movie.id).push(callback);
+            
+            this.pending.set(movie.id, [callback]);
+            MDBListProvider.fetch(movie, (data) => {
+                if (data) this.cacheManager.set(movie.id, data);
+                const waiters = this.pending.get(movie.id);
+                this.pending.delete(movie.id);
+                waiters.forEach(cb => cb(data));
+            });
+        }
+    }
+
+    const ratingsManager = new BuiltInRatingsManager();
+
+    // --- Відображення ---
+    function render(container, ratings) {
+        container.find('.mdb-ratings-row').remove();
+        if (!ratings) return;
+
+        const enabled = Lampa.Storage.get('applecation_rating_sources', ['imdb', 'tomatoes']);
+        const row = $('<div class="mdb-ratings-row" style="display: flex; gap: 15px; margin-top: 10px; font-weight: bold; font-size: 1.2em;"></div>');
+        
+        const styleMap = {
+            imdb: { label: 'IMDb', color: '#f5c518' },
+            tomatoes: { label: 'RT', color: '#fa320a' },
+            metacritic: { label: 'MC', color: '#333' },
+            letterboxd: { label: 'LB', color: '#00e676' }
+        };
+
+        Object.keys(ratings).forEach(key => {
+            if (enabled.includes(key) && ratings[key]) {
+                const style = styleMap[key] || { label: key.toUpperCase(), color: '#fff' };
+                row.append(`<span style="color: ${style.color}">${style.label}: ${ratings[key]}</span>`);
+            }
+        });
+        if (row.children().length > 0) container.append(row);
+    }
+
+    // --- Меню налаштувань ---
+    function initSettings() {
+        // Додаємо розділ у бічне меню налаштувань
+        Lampa.SettingsApi.addComponent({
+            component: 'apple_ratings_settings',
+            name: 'Рейтинги (MDBList)',
+            icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27Z" fill="currentColor"/></svg>'
+        });
+
+        // Створюємо логіку відображення параметрів
+        Lampa.Component.add('apple_ratings_settings', function (object, exam) {
+            this.create = function () {
+                const gui = new Lampa.Settings.Gui();
+                gui.create(exam);
+                return gui.render();
+            };
+        });
+
+        // Параметр: API Ключ
+        Lampa.SettingsApi.addParam({
+            component: 'apple_ratings_settings',
+            param: { name: 'applecation_mdblist_api_key', type: 'input', default: '' },
+            field: { name: 'API-ключ MDBList', description: 'Отримайте ключ на mdblist.com' }
+        });
+
+        // Параметр: Вибір джерел
+        Lampa.SettingsApi.addParam({
+            component: 'apple_ratings_settings',
+            param: {
+                name: 'applecation_rating_sources',
+                type: 'select',
+                multiple: true,
+                values: { imdb: 'IMDb', tomatoes: 'Rotten Tomatoes', metacritic: 'Metacritic', letterboxd: 'Letterboxd' },
+                default: ['imdb', 'tomatoes']
+            },
+            field: { name: 'Показувати рейтинги' }
+        });
+    }
+
+    // --- Запуск ---
+    function start() {
+        initSettings();
+        Lampa.Listener.follow('full', function (e) {
+            if (e.type === 'complite') {
+                const container = e.object.find('.full-start__title');
+                ratingsManager.fetch(e.data.movie, (data) => render(container, data));
+            }
+        });
+    }
+
+    if (window.appready) start();
+    else Lampa.Listener.follow('app', (e) => { if (e.type === 'ready') start(); });
+})();
             req.silent(url, (res) => {
                 const result = {};
                 if (res && res.ratings) {
