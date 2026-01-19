@@ -1,154 +1,31 @@
 (function () {
     'use strict';
 
-    if (!window.Lampa) return;
+    const PLUGIN_NAME = 'Рейтинги MDBLists';
+    const PLUGIN_KEY  = 'mdblists'; // Уніфікуємо ключ
+    const VERSION     = '1.1.0';
 
-    var plugin_name = 'mdblists';
+    const RATINGS_CONFIG = {
+        cacheKey: 'mdblists_ratings_cache',
+        cacheLifetime: 7 * 24 * 60 * 60 * 1000, // Встановив тиждень, як ви хотіли раніше
+        cacheLimit: 500,
+        requestTimeout: 15000
+    };
 
-    console.log('MDBLists plugin loaded');
-
-    // === ПЛАГІН ===
-    Lampa.Plugin.add(plugin_name, {
-        name: 'MDBLists',
-        description: 'Рейтинги з MDBLists',
-        version: '1.0.0',
-        author: 'bodya-elven',
-
-        start: function () {
-            console.log('MDBLists started');
-        }
-    });
-
-    // === ЕКРАН ПЛАГІНА ===
-    function openScreen() {
-        var html = `
-            <div class="mdblists-screen">
-                <h2>MDBLists</h2>
-                <p>Тут будуть рейтинги з MDBLists</p>
-            </div>
-        `;
-
-        var activity = new Lampa.Activity({
-            title: 'MDBLists',
-            component: 'mdblists',
-            content: html
-        });
-
-        activity.onBack = function () {
-            Lampa.Activity.close();
-        };
-
-        Lampa.Activity.push(activity);
-    }
-
-    // === ПУНКТ У НАЛАШТУВАННЯХ → РЕЙТИНГИ ===
-    Lampa.SettingsApi.addParam({
-        component: 'ratings',
-        param: {
-            name: plugin_name,
-            type: 'button'
-        },
-        field: {
-            name: 'MDBLists',
-            description: 'Рейтинги з MDBLists'
-        },
-        onChange: function () {
-            openScreen();
-        }
-    });
-
-})();            }
-
+    /* Кешування та Провайдер залишаємо без змін (вони працюють) */
+    class RatingsCache {
+        static get() { return Lampa.Storage.cache(RATINGS_CONFIG.cacheKey, RATINGS_CONFIG.cacheLimit, {}); }
+        static load(id) {
+            const cache = this.get();
+            const item = cache[id];
+            if (!item) return null;
+            if (Date.now() - item.time > RATINGS_CONFIG.cacheLifetime) {
+                delete cache[id];
+                Lampa.Storage.set(RATINGS_CONFIG.cacheKey, cache);
+                return null;
+            }
             return item.data;
         }
-
-        static set(id, data) {
-            const cache = this.getAll();
-            cache[id] = {
-                time: Date.now(),
-                data: data
-            };
-            Lampa.Storage.set(CONFIG.cacheKey, cache);
-        }
-    }
-
-    /* ==============================
-       MDBLIST PROVIDER
-    ============================== */
-
-    class MDBListProvider {
-        static fetch(movie, callback) {
-            const apiKey = Lampa.Storage.get('mdblists_api_key', '');
-            if (!apiKey || !movie || !movie.id) {
-                callback({});
-                return;
-            }
-
-            const type = movie.name ? 'show' : 'movie';
-            const url = `https://api.mdblist.com/tmdb/${type}/${movie.id}?apikey=${apiKey}`;
-
-            const req = new Lampa.Reguest();
-            req.timeout(CONFIG.requestTimeout);
-            req.silent(
-                url,
-                (json) => callback(this.parse(json)),
-                () => callback({}),
-                false,
-                { dataType: 'json' }
-            );
-        }
-
-        static parse(response) {
-            const enabled = Lampa.Storage.get('mdblists_sources', []);
-            const result = {};
-
-            if (!response || !Array.isArray(response.ratings)) return result;
-
-            response.ratings.forEach(r => {
-                const key = String(r.source || '').toLowerCase();
-                if (!enabled.includes(key)) return;
-
-                result[key] = {
-                    value: r.value || null,
-                    score: r.score || null,
-                    votes: r.votes || null,
-                    url: r.url || null
-                };
-            });
-
-            return result;
-        }
-    }
-
-    /* ==============================
-       PUBLIC API
-    ============================== */
-
-    class MDBListsRatings {
-        static fetch(movie, callback) {
-            const cached = Cache.get(movie.id);
-            if (cached) {
-                callback(cached);
-                return;
-            }
-
-            MDBListProvider.fetch(movie, (data) => {
-                Cache.set(movie.id, data);
-                callback(data);
-            });
-        }
-    }
-
-    window.MDBListsRatings = MDBListsRatings;
-
-    /* ==============================
-       SETTINGS
-    ============================== */
-
-    function initSettings()            }
-            return item.data;
-        }
-
         static save(id, data) {
             const cache = this.get();
             cache[id] = { time: Date.now(), data };
@@ -156,82 +33,66 @@
         }
     }
 
-    /* ==============================
-       MDBLIST PROVIDER
-    ============================== */
-
     class MDBListProvider {
         static fetch(movie, callback) {
             const apiKey = Lampa.Storage.get('mdblists_api_key', '');
             if (!apiKey || !movie || !movie.id) return callback({});
-
-            const type = movie.name ? 'show' : 'movie';
+            const type = movie.number_of_seasons ? 'show' : 'movie';
             const url  = `https://api.mdblist.com/tmdb/${type}/${movie.id}?apikey=${apiKey}`;
-
             const req = new Lampa.Reguest();
             req.timeout(RATINGS_CONFIG.requestTimeout);
-            req.silent(url, (json) => {
-                callback(this.parse(json));
-            }, () => callback({}), false, { dataType: 'json' });
+            req.silent(url, (json) => { callback(this.parse(json)); }, () => callback({}), false, { dataType: 'json' });
         }
-
         static parse(response) {
-            const enabled = Lampa.Storage.get('mdblists_sources', []);
-            const result = {};
-
+            const enabled = Lampa.Storage.get('mdblists_sources', ['imdb']);
+            const result = { logo: response.logo || null, ratings: {} };
             if (!response || !response.ratings) return result;
-
             response.ratings.forEach(r => {
                 const key = (r.source || '').toLowerCase();
-                if (!enabled.includes(key)) return;
-
-                result[key] = {
-                    value: r.value,
-                    score: r.score,
-                    votes: r.votes,
-                    url: r.url
-                };
+                if (enabled.includes(key)) {
+                    result.ratings[key] = r.value;
+                }
             });
-
             return result;
         }
     }
 
-    /* ==============================
-       MAIN MANAGER
-    ============================== */
+    /* РЕЄСТРАЦІЯ КОМПОНЕНТА (ВИПРАВЛЕННЯ ПУСТОГО МЕНЮ) */
+    Lampa.Component.add(PLUGIN_KEY, function (object, exam) {
+        this.create = function () {
+            // Gui створює список параметрів, які ми зареєстрували через addParam
+            var gui = new Lampa.Settings.Gui();
+            gui.create(exam); 
+            return gui.render();
+        };
+        
+        this.prepare = function () {
+            // Потрібно для коректного завантаження
+        };
+    });
 
-    class MDBListsRatings {
-        static fetch(movie, callback) {
-            const cached = RatingsCache.load(movie.id);
-            if (cached) return callback(cached);
-
-            MDBListProvider.fetch(movie, (data) => {
-                RatingsCache.save(movie.id, data);
-                callback(data);
-            });
-        }
-    }
-
-    /* ==============================
-       SETTINGS
-    ============================== */
-
+    /* НАЛАШТУВАННЯ */
     function initSettings() {
-        Lampa.SettingsApi.addParam({
-            component: 'mdblists',
-            param: {
-                name: 'mdblists_api_key',
-                type: 'input',
-                placeholder: 'MDBList API key'
-            },
-            field: {
-                name: 'API-ключ MDBList'
-            }
+        // Додаємо сам розділ у список налаштувань
+        Lampa.SettingsApi.addComponent({
+            component: PLUGIN_KEY,
+            name: PLUGIN_NAME,
+            icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor"/></svg>'
         });
 
         Lampa.SettingsApi.addParam({
-            component: 'mdblists',
+            component: PLUGIN_KEY,
+            param: {
+                name: 'mdblists_api_key',
+                type: 'input',
+                placeholder: 'MDBList API key',
+                default: ''
+            },
+            field: { name: 'API-ключ MDBList' }
+        });
+
+        Lampa.SettingsApi.addParam({
+            component: PLUGIN_KEY,
             param: {
                 name: 'mdblists_sources',
                 type: 'select',
@@ -242,27 +103,54 @@
                     tomatoes: 'Rotten Tomatoes',
                     popcorn: 'Audience',
                     letterboxd: 'Letterboxd'
-                }
+                },
+                default: ['imdb']
             },
-            field: {
-                name: 'Джерела рейтингів'
+            field: { name: 'Джерела рейтингів' }
+        });
+    }
+
+    /* ЗАПУСК */
+    function startPlugin() {
+        initSettings();
+        
+        // Тут ваша логіка відображення у картці фільму
+        Lampa.Listener.follow('full', function (e) {
+            if (e.type == 'complite') {
+                const movie = e.data.movie;
+                const container = e.object.find('.full-start__title');
+                
+                const cached = RatingsCache.load(movie.id);
+                if (cached) render(container, cached);
+                else {
+                    MDBListProvider.fetch(movie, (data) => {
+                        RatingsCache.save(movie.id, data);
+                        render(container, data);
+                    });
+                }
             }
         });
     }
 
-    /* ==============================
-       INIT
-    ============================== */
+    function render(container, data) {
+        if (!data) return;
+        container.find('.mdb-ext').remove();
+        
+        if (data.logo) {
+            container.find('.full-start__title-text').hide();
+            container.prepend(`<img class="mdb-ext" src="${data.logo}" style="max-height: 100px; margin-bottom: 15px; display: block;">`);
+        }
+        
+        if (data.ratings && Object.keys(data.ratings).length > 0) {
+            let row = $('<div class="mdb-ext" style="display: flex; gap: 15px; margin-top: 10px; font-weight: bold;"></div>');
+            Object.keys(data.ratings).forEach(k => {
+                row.append(`<span>${k.toUpperCase()}: ${data.ratings[k]}</span>`);
+            });
+            container.append(row);
+        }
+    }
 
-    Lampa.SettingsApi.addComponent({
-        id: 'mdblists',
-        name: PLUGIN_NAME,
-        icon: 'star'
-    });
-
-    initSettings();
-
-    // експорт для інших модулів / відображення
-    window.MDBListsRatings = MDBListsRatings;
+    if (window.appready) startPlugin();
+    else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') startPlugin(); });
 
 })();
