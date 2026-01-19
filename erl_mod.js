@@ -2,17 +2,16 @@
     'use strict';
 
     const PLUGIN_NAME = 'Рейтинги MDBLists';
-    const PLUGIN_KEY  = 'mdblists_ratings';
-    const VERSION     = '1.0.0';
+    const VERSION = '1.0.0';
 
     /* ==============================
        CONFIG
     ============================== */
 
-    const RATINGS_CONFIG = {
+    const CONFIG = {
         cacheKey: 'mdblists_ratings_cache',
-        cacheLifetime: 24 * 60 * 60 * 1000,
         cacheLimit: 500,
+        cacheLifetime: 24 * 60 * 60 * 1000,
         requestTimeout: 15000
     };
 
@@ -20,21 +19,110 @@
        CACHE
     ============================== */
 
-    class RatingsCache {
-        static get() {
-            return Lampa.Storage.cache(RATINGS_CONFIG.cacheKey, RATINGS_CONFIG.cacheLimit, {});
+    class Cache {
+        static getAll() {
+            return Lampa.Storage.cache(CONFIG.cacheKey, CONFIG.cacheLimit, {});
         }
 
-        static load(id) {
-            const cache = this.get();
+        static get(id) {
+            const cache = this.getAll();
             const item = cache[id];
 
             if (!item) return null;
-            if (Date.now() - item.time > RATINGS_CONFIG.cacheLifetime) {
+
+            if (Date.now() - item.time > CONFIG.cacheLifetime) {
                 delete cache[id];
-                Lampa.Storage.set(RATINGS_CONFIG.cacheKey, cache);
+                Lampa.Storage.set(CONFIG.cacheKey, cache);
                 return null;
             }
+
+            return item.data;
+        }
+
+        static set(id, data) {
+            const cache = this.getAll();
+            cache[id] = {
+                time: Date.now(),
+                data: data
+            };
+            Lampa.Storage.set(CONFIG.cacheKey, cache);
+        }
+    }
+
+    /* ==============================
+       MDBLIST PROVIDER
+    ============================== */
+
+    class MDBListProvider {
+        static fetch(movie, callback) {
+            const apiKey = Lampa.Storage.get('mdblists_api_key', '');
+            if (!apiKey || !movie || !movie.id) {
+                callback({});
+                return;
+            }
+
+            const type = movie.name ? 'show' : 'movie';
+            const url = `https://api.mdblist.com/tmdb/${type}/${movie.id}?apikey=${apiKey}`;
+
+            const req = new Lampa.Reguest();
+            req.timeout(CONFIG.requestTimeout);
+            req.silent(
+                url,
+                (json) => callback(this.parse(json)),
+                () => callback({}),
+                false,
+                { dataType: 'json' }
+            );
+        }
+
+        static parse(response) {
+            const enabled = Lampa.Storage.get('mdblists_sources', []);
+            const result = {};
+
+            if (!response || !Array.isArray(response.ratings)) return result;
+
+            response.ratings.forEach(r => {
+                const key = String(r.source || '').toLowerCase();
+                if (!enabled.includes(key)) return;
+
+                result[key] = {
+                    value: r.value || null,
+                    score: r.score || null,
+                    votes: r.votes || null,
+                    url: r.url || null
+                };
+            });
+
+            return result;
+        }
+    }
+
+    /* ==============================
+       PUBLIC API
+    ============================== */
+
+    class MDBListsRatings {
+        static fetch(movie, callback) {
+            const cached = Cache.get(movie.id);
+            if (cached) {
+                callback(cached);
+                return;
+            }
+
+            MDBListProvider.fetch(movie, (data) => {
+                Cache.set(movie.id, data);
+                callback(data);
+            });
+        }
+    }
+
+    window.MDBListsRatings = MDBListsRatings;
+
+    /* ==============================
+       SETTINGS
+    ============================== */
+
+    function initSettings()            }
             return item.data;
         }
 
