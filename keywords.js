@@ -4,28 +4,20 @@
     function TMDBKeywords() {
         var _this = this;
 
-        // Локалізація
+        // 1. Локалізація (Тільки UK та EN)
         if (Lampa.Lang) {
             Lampa.Lang.add({
                 tmdb_keywords: {
                     en: 'Tags',
-                    uk: 'Теги',
-                    ru: 'Теги'
+                    uk: 'Теги'
                 },
-                tmdb_keywords_popular: {
-                    en: 'Popular',
-                    uk: 'Популярні',
-                    ru: 'Популярные'
+                tmdb_keywords_movies: {
+                    en: 'Movies',
+                    uk: 'Фільми'
                 },
-                tmdb_keywords_new: {
-                    en: 'New Releases',
-                    uk: 'Новинки',
-                    ru: 'Новинки'
-                },
-                tmdb_keywords_top: {
-                    en: 'Top Rated',
-                    uk: 'Високий рейтинг',
-                    ru: 'Высокий рейтинг'
+                tmdb_keywords_tv: {
+                    en: 'TV Series',
+                    uk: 'Серіали'
                 }
             });
         }
@@ -36,6 +28,7 @@
             Lampa.Listener.follow('full', function (e) {
                 if (e.type == 'complite') {
                     var card = e.data.movie;
+                    // Перевірка джерела TMDB
                     if (card && (card.source == 'tmdb' || e.data.source == 'tmdb') && card.id) {
                         var render = e.object.activity.render();
                         _this.getKeywords(render, card);
@@ -46,8 +39,19 @@
             // Стилі
             var style = document.createElement('style');
             style.innerHTML = `
-                .keywords-icon-img { width: 1.6em; height: 1.6em; object-fit: contain; display: block; filter: invert(1); }
-                .button--keywords { display: flex; align-items: center; justify-content: center; gap: 0.4em; }
+                .keywords-icon-img { 
+                    width: 1.6em; 
+                    height: 1.6em; 
+                    object-fit: contain;
+                    display: block;
+                    filter: invert(1); /* Робить чорну іконку білою */
+                }
+                .button--keywords { 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    gap: 0.4em; 
+                }
                 @media screen and (max-width: 768px) {
                     .button--keywords { padding: 0.5em !important; }
                 }
@@ -57,9 +61,9 @@
 
         this.getKeywords = function (html, card) {
             var method = (card.original_name || card.name) ? 'tv' : 'movie';
-            // Запитуємо теги з мовою (хоча TMDB часто віддає англ)
-            var lang = Lampa.Storage.get('language', 'uk');
-            var url = Lampa.TMDB.api(method + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key() + '&language=' + lang);
+            
+            // Запит до API
+            var url = Lampa.TMDB.api(method + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
 
             $.ajax({
                 url: url,
@@ -68,20 +72,27 @@
                 success: function (resp) {
                     var tags = resp.keywords || resp.results || [];
                     if (tags.length > 0) {
-                        // Спочатку перекладаємо, потім малюємо
+                        // Переклад + Рендер
                         _this.translateTags(tags, function(translatedTags) {
-                            _this.renderButton(html, translatedTags, method);
+                            _this.renderButton(html, translatedTags);
                         });
                     }
                 },
-                error: function () {}
+                error: function () {
+                    // Тиха помилка
+                }
             });
         };
 
-        // Автопереклад (Google)
+        // Переклад через Google (UK only)
         this.translateTags = function (tags, callback) {
             var lang = Lampa.Storage.get('language', 'uk');
-            if (lang == 'en') { callback(tags); return; }
+            
+            // Якщо мова інтерфейсу не українська (наприклад англ), не перекладаємо
+            if (lang !== 'uk') {
+                callback(tags);
+                return;
+            }
 
             var originalNames = tags.map(function(t) { return t.name; });
             var textToTranslate = originalNames.join(' ||| '); 
@@ -109,24 +120,28 @@
             });
         };
 
-        this.renderButton = function (html, tags, method) {
+        this.renderButton = function (html, tags) {
             var container = html.find('.full-start-new__buttons, .full-start__buttons').first();
+            
             if (!container.length) {
                 var btn = html.find('.button--play, .button--trailer, .full-start__button').first();
                 if (btn.length) container = btn.parent();
             }
+
             if (!container.length || container.find('.button--keywords').length) return;
 
             var title = Lampa.Lang.translate('tmdb_keywords');
+            // Твоя іконка
             var icon = '<img src="https://bodya-elven.github.io/Different/tag.svg" class="keywords-icon-img" />';
+            
             var button = $('<div class="full-start__button selector view--category button--keywords">' + icon + '<span>' + title + '</span></div>');
 
             button.on('hover:enter click', function () {
-                // Відкриваємо список тегів
+                // 1. Список тегів
                 var items = tags.map(function(tag) {
                     return { 
                         title: tag.name, 
-                        tag_data: tag // Зберігаємо весь об'єкт тегу
+                        tag_data: tag 
                     };
                 });
 
@@ -134,8 +149,8 @@
                     title: title, 
                     items: items,
                     onSelect: function (selectedItem) {
-                        // Коли вибрали тег, показуємо меню сортування (Як у Networks)
-                        _this.showSortMenu(selectedItem.tag_data, method);
+                        // 2. Меню вибору: Фільми чи Серіали (сортування ЗАВЖДИ за популярністю)
+                        _this.showTypeMenu(selectedItem.tag_data);
                     }
                 });
             });
@@ -144,36 +159,26 @@
             Lampa.Controller.toggle('full_start');
         };
 
-        // Меню вибору сортування (Популярні / Новинки / Рейтинг)
-        this.showSortMenu = function(tag, method) {
+        this.showTypeMenu = function(tag) {
             var menu = [
                 {
-                    title: Lampa.Lang.translate('tmdb_keywords_popular'),
-                    sort: 'popularity.desc'
+                    title: Lampa.Lang.translate('tmdb_keywords_movies'),
+                    method: 'movie'
                 },
                 {
-                    title: Lampa.Lang.translate('tmdb_keywords_new'),
-                    sort: (method == 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc')
-                },
-                {
-                    title: Lampa.Lang.translate('tmdb_keywords_top'),
-                    sort: 'vote_average.desc',
-                    params: '&vote_count.gte=100' // Фільтр, щоб прибрати фільми з 1 голосом
+                    title: Lampa.Lang.translate('tmdb_keywords_tv'),
+                    method: 'tv'
                 }
             ];
 
             Lampa.Select.show({
-                title: tag.name,
+                title: tag.name, // Назва тегу в заголовку
                 items: menu,
-                onSelect: function(sortItem) {
-                    // Формуємо фінальне посилання
-                    var url = 'discover/' + method + '?with_keywords=' + tag.id + '&sort_by=' + sortItem.sort;
-                    
-                    if(sortItem.params) url += sortItem.params;
-
+                onSelect: function(item) {
+                    // Відкриваємо каталог з сортуванням POPULARITY
                     Lampa.Activity.push({ 
-                        url: url, 
-                        title: tag.name + ' - ' + sortItem.title, 
+                        url: 'discover/' + item.method + '?with_keywords=' + tag.id + '&sort_by=popularity.desc', 
+                        title: tag.name + ' - ' + item.title, 
                         component: 'category_full', 
                         source: 'tmdb', 
                         page: 1 
@@ -183,8 +188,8 @@
         };
     }
 
-    if (!window.plugin_tmdb_keywords_smart) {
-        window.plugin_tmdb_keywords_smart = new TMDBKeywords();
-        window.plugin_tmdb_keywords_smart.init();
+    if (!window.plugin_tmdb_keywords_pop) {
+        window.plugin_tmdb_keywords_pop = new TMDBKeywords();
+        window.plugin_tmdb_keywords_pop.init();
     }
 })();
