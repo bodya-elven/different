@@ -45,26 +45,15 @@
                 '.wiki-item__title { font-size: 1.1em; color: #fff; }' +
                 '.wiki-viewer-container { position: fixed; top: 5%; left: 5%; width: 90%; height: 90%; background: #121212; z-index: 2001; border-radius: 10px; overflow: hidden; box-shadow: 0 0 30px rgba(0,0,0,0.7); border: 1px solid #333; }' +
                 '.wiki-close-btn { position: absolute; top: 10px; right: 10px; width: 45px; height: 45px; background: #fff; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2002; font-size: 28px; font-weight: bold; border: none; line-height: 1; }' +
-                /* ТЕМНА ТЕМА ДЛЯ IFRAME */
-                '.wiki-dark-mode-frame { ' +
-                    'width: 100%; ' +
-                    'height: 10000px; ' +
-                    'border: none; ' +
-                    'background: #fff; ' +
-                    'filter: invert(0.9) hue-rotate(180deg) brightness(1.1) contrast(0.9); ' + // Робимо сторінку темною
-                '} ' +
+                '.wiki-dark-mode-frame { width: 100%; height: 10000px; border: none; background: #fff; filter: invert(0.9) hue-rotate(180deg) brightness(1.1) contrast(0.9); } ' +
                 '</style>';
 
             if (!$('style#wiki-plugin-style').length) $('head').append('<style id="wiki-plugin-style">' + style + '</style>');
 
             var buttons_container = container.find('.full-start-new__buttons, .full-start__buttons');
-            var neighbors = buttons_container.find('.selector');
             
-            if (neighbors.length >= 2) {
-                button.insertAfter(neighbors.eq(1));
-            } else {
-                buttons_container.append(button);
-            }
+            // Додаємо кнопку в самий кінець списку
+            buttons_container.append(button);
 
             button.on('hover:enter click', function() {
                 if (!isOpened) _this.startSearch(data.movie);
