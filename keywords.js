@@ -1,21 +1,24 @@
 (function () {
     'use strict';
 
-    function TMDBKeywords() {
+    function KeywordsPlugin() {
         var _this = this;
 
-        // 1. Локалізація (Тільки UK та EN)
+        // Посилання на іконку тегів
+        var ICON_TAG = 'https://bodya-elven.github.io/Different/tag.svg';
+
+        // Локалізація інтерфейсу
         if (Lampa.Lang) {
             Lampa.Lang.add({
-                tmdb_keywords: {
+                plugin_keywords_title: {
                     en: 'Tags',
                     uk: 'Теги'
                 },
-                tmdb_keywords_movies: {
+                plugin_keywords_movies: {
                     en: 'Movies',
                     uk: 'Фільми'
                 },
-                tmdb_keywords_tv: {
+                plugin_keywords_tv: {
                     en: 'TV Series',
                     uk: 'Серіали'
                 }
@@ -28,7 +31,7 @@
             Lampa.Listener.follow('full', function (e) {
                 if (e.type == 'complite') {
                     var card = e.data.movie;
-                    // Перевірка джерела TMDB
+                    // Перевірка джерела даних TMDB
                     if (card && (card.source == 'tmdb' || e.data.source == 'tmdb') && card.id) {
                         var render = e.object.activity.render();
                         _this.getKeywords(render, card);
@@ -36,19 +39,15 @@
                 }
             });
 
-            // Стилі
+            // Стилі інтерфейсу
             var style = document.createElement('style');
             style.innerHTML = `
-                /* Стилі для вбудованої SVG іконки */
-                .keywords-icon-svg { 
+                .keywords-icon-img { 
                     width: 1.6em; 
                     height: 1.6em; 
+                    object-fit: contain;
                     display: block;
-                    fill: none;
-                    stroke: currentColor; /* Бере колір тексту (білий) */
-                    stroke-width: 2;
-                    stroke-linecap: round;
-                    stroke-linejoin: round;
+                    filter: invert(1); 
                 }
                 .button--keywords { 
                     display: flex; 
@@ -65,7 +64,6 @@
 
         this.getKeywords = function (html, card) {
             var method = (card.original_name || card.name) ? 'tv' : 'movie';
-            
             var url = Lampa.TMDB.api(method + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
 
             $.ajax({
@@ -86,7 +84,6 @@
 
         this.translateTags = function (tags, callback) {
             var lang = Lampa.Storage.get('language', 'uk');
-            
             if (lang !== 'uk') {
                 callback(tags);
                 return;
@@ -94,7 +91,7 @@
 
             var originalNames = tags.map(function(t) { return t.name; });
             var textToTranslate = originalNames.join(' ||| '); 
-            var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + lang + '&dt=t&q=' + encodeURIComponent(textToTranslate);
+            var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=uk&dt=t&q=' + encodeURIComponent(textToTranslate);
 
             $.ajax({
                 url: url,
@@ -120,7 +117,6 @@
 
         this.renderButton = function (html, tags) {
             var container = html.find('.full-start-new__buttons, .full-start__buttons').first();
-            
             if (!container.length) {
                 var btn = html.find('.button--play, .button--trailer, .full-start__button').first();
                 if (btn.length) container = btn.parent();
@@ -128,11 +124,8 @@
 
             if (!container.length || container.find('.button--keywords').length) return;
 
-            var title = Lampa.Lang.translate('tmdb_keywords');
-            
-            // === ВБУДОВАНА SVG (Вирішує проблему з іконкою на ТБ) ===
-            // Це іконка "Tag" (схожа на ту, що ти скидав)
-            var icon = '<svg class="keywords-icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>';
+            var title = Lampa.Lang.translate('plugin_keywords_title');
+            var icon = '<img src="' + ICON_TAG + '" class="keywords-icon-img" />';
             
             var button = $('<div class="full-start__button selector view--category button--keywords">' + icon + '<span>' + title + '</span></div>');
 
@@ -144,15 +137,12 @@
                     };
                 });
 
-                // Відкриваємо список тегів
                 Lampa.Select.show({
                     title: title, 
                     items: items,
                     onSelect: function (selectedItem) {
                         _this.showTypeMenu(selectedItem.tag_data);
                     },
-                    // === ВИПРАВЛЕННЯ ЗАВИСАННЯ ===
-                    // Коли натискаємо "Назад", повертаємо керування картці фільму
                     onBack: function() {
                         Lampa.Controller.toggle('full_start');
                     }
@@ -166,11 +156,11 @@
         this.showTypeMenu = function(tag) {
             var menu = [
                 {
-                    title: Lampa.Lang.translate('tmdb_keywords_movies'),
+                    title: Lampa.Lang.translate('plugin_keywords_movies'),
                     method: 'movie'
                 },
                 {
-                    title: Lampa.Lang.translate('tmdb_keywords_tv'),
+                    title: Lampa.Lang.translate('plugin_keywords_tv'),
                     method: 'tv'
                 }
             ];
@@ -187,7 +177,6 @@
                         page: 1 
                     });
                 },
-                // Теж додаємо onBack для другого меню, про всяк випадок
                 onBack: function() {
                     Lampa.Controller.toggle('full_start');
                 }
@@ -195,8 +184,8 @@
         };
     }
 
-    if (!window.plugin_tmdb_keywords_fixed) {
-        window.plugin_tmdb_keywords_fixed = new TMDBKeywords();
-        window.plugin_tmdb_keywords_fixed.init();
+    if (!window.plugin_keywords_instance) {
+        window.plugin_keywords_instance = new KeywordsPlugin();
+        window.plugin_keywords_instance.init();
     }
 })();
