@@ -4,7 +4,7 @@
     function TMDBKeywords() {
         var _this = this;
 
-        // Локалізація меню
+        // Локалізація заголовка
         if (Lampa.Lang) {
             Lampa.Lang.add({
                 tmdb_keywords: {
@@ -21,15 +21,16 @@
             Lampa.Listener.follow('full', function (e) {
                 if (e.type == 'complite') {
                     var card = e.data.movie;
-                    
+                    // Перевіряємо чи це TMDB
                     if (card && (card.source == 'tmdb' || e.data.source == 'tmdb') && card.id) {
+                        // Отримуємо рендер
                         var render = e.object.activity.render();
                         _this.getKeywords(render, card);
                     }
                 }
             });
 
-            // Стилі для іконки
+            // Стилі
             var style = document.createElement('style');
             style.innerHTML = `
                 .keywords-icon-img { 
@@ -54,6 +55,8 @@
 
         this.getKeywords = function (html, card) {
             var method = (card.original_name || card.name) ? 'tv' : 'movie';
+            
+            // Запит до TMDB
             var url = Lampa.TMDB.api(method + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
 
             $.ajax({
@@ -63,7 +66,7 @@
                 success: function (resp) {
                     var tags = resp.keywords || resp.results || [];
                     if (tags.length > 0) {
-                        // Запускаємо переклад перед рендером
+                        // Запускаємо переклад, потім малюємо кнопку
                         _this.translateTags(tags, function(translatedTags) {
                             _this.renderButton(html, translatedTags, method);
                         });
@@ -73,9 +76,9 @@
             });
         };
 
-        // Функція перекладу через Google Translate API
+        // Функція перекладу (Google Translate)
         this.translateTags = function (tags, callback) {
-            var lang = Lampa.Storage.get('language', 'uk'); // Отримуємо мову інтерфейсу
+            var lang = Lampa.Storage.get('language', 'uk');
             
             // Якщо мова англійська - перекладати не треба
             if (lang == 'en') {
@@ -83,7 +86,7 @@
                 return;
             }
 
-            // Формуємо текст для перекладу (об'єднуємо через символ, щоб зробити 1 запит)
+            // Формуємо один великий рядок для перекладу (щоб зробити 1 запит замість 20)
             var originalNames = tags.map(function(t) { return t.name; });
             var textToTranslate = originalNames.join(' ||| '); 
 
@@ -94,7 +97,6 @@
                 dataType: 'json',
                 success: function (result) {
                     try {
-                        // Google повертає масив масивів. Збираємо перекладений текст.
                         var translatedText = '';
                         if (result && result[0]) {
                             result[0].forEach(function(item) {
@@ -102,28 +104,21 @@
                             });
                         }
 
-                        // Розбиваємо назад по роздільнику
                         var translatedArray = translatedText.split('|||');
 
-                        // Оновлюємо назви в об'єкті тегів
                         tags.forEach(function(tag, index) {
                             if (translatedArray[index]) {
-                                // Чистим від зайвих пробілів
                                 tag.name = translatedArray[index].trim();
                             }
                         });
 
                         callback(tags);
                     } catch (e) {
-                        // Якщо помилка парсингу - повертаємо оригінал
-                        console.log('Translation parse error', e);
-                        callback(tags);
+                        callback(tags); // Помилка парсингу -> оригінал
                     }
                 },
                 error: function () {
-                    // Якщо помилка запиту (блокування) - повертаємо оригінал
-                    console.log('Translation request error');
-                    callback(tags);
+                    callback(tags); // Помилка мережі -> оригінал
                 }
             });
         };
@@ -146,11 +141,13 @@
 
             button.on('hover:enter click', function () {
                 var items = tags.map(function(tag) {
-                    // tag.name тепер перекладений (або оригінал, якщо переклад не вдався)
-                    // tag.id залишається оригінальним, тому пошук правильний
+                    // Визначаємо сортування залежно від типу контенту
+                    var sort_by = (method == 'tv') ? 'first_air_date.desc' : 'primary_release_date.desc';
+                    
                     return { 
                         title: tag.name, 
-                        url: 'discover/' + method + '?with_keywords=' + tag.id 
+                        // Додаємо сортування до URL
+                        url: 'discover/' + method + '?with_keywords=' + tag.id + '&sort_by=' + sort_by
                     };
                 });
 
@@ -174,8 +171,8 @@
         };
     }
 
-    if (!window.plugin_tmdb_keywords_translate) {
-        window.plugin_tmdb_keywords_translate = new TMDBKeywords();
-        window.plugin_tmdb_keywords_translate.init();
+    if (!window.plugin_tmdb_keywords_full) {
+        window.plugin_tmdb_keywords_full = new TMDBKeywords();
+        window.plugin_tmdb_keywords_full.init();
     }
 })();
