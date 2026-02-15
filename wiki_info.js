@@ -2,7 +2,7 @@
     'use strict';
 
     function WikiInfoPlugin() {
-        // Посилання на іконку (не вшита)
+        // Твоя іконка
         var ICON_WIKI = 'https://bodya-elven.github.io/Different/wikipedia.svg';
         var isOpened = false;
 
@@ -33,7 +33,7 @@
             // Підпис Wikipedia
             var button = $('<div class="full-start__button selector lampa-wiki-button">' +
                                 '<img src="' + ICON_WIKI + '" class="wiki-icon-img">' +
-                                <span>Wikipedia</span>' +
+                                '<span>Wikipedia</span>' +
                             '</div>');
 
             var style = '<style>' +
@@ -81,7 +81,7 @@
             var isTV = !!(movie.first_air_date || movie.number_of_seasons);
             
             var results = [];
-            // Встановлено srlimit: 4
+            // Встановлено 4 запити на кожну мову (srlimit: 4)
             var p1 = $.ajax({ url: 'https://uk.wikipedia.org/w/api.php', data: { action: 'query', list: 'search', srsearch: titleUA + ' ' + year + (isTV ? ' серіал' : ' фільм'), srlimit: 4, format: 'json', origin: '*' }, dataType: 'json' });
             var p2 = $.ajax({ url: 'https://en.wikipedia.org/w/api.php', data: { action: 'query', list: 'search', srsearch: titleEN + ' ' + year + (isTV ? ' series' : ' film'), srlimit: 4, format: 'json', origin: '*' }, dataType: 'json' });
 
