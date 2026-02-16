@@ -3,144 +3,98 @@
 
     function KeywordsPlugin() {
         var _this = this;
-        var ICON_TAG = 'https://bodya-elven.github.io/Different/tag.svg';
+        var ICON = 'https://bodya-elven.github.io/Different/tag.svg';
 
-        if (Lampa.Lang) {
-            Lampa.Lang.add({
-                plugin_keywords_title: { en: 'Tags', uk: 'Теги' },
-                plugin_keywords_movies: { en: 'Movies', uk: 'Фільми' },
-                plugin_keywords_tv: { en: 'TV Series', uk: 'Серіали' }
-            });
-        }
+        Lampa.Lang.add({
+            plugin_keywords_title: { en: 'Tags', uk: 'Теги' },
+            plugin_keywords_movies: { en: 'Movies', uk: 'Фільми' },
+            plugin_keywords_tv: { en: 'TV Series', uk: 'Серіали' }
+        });
 
         this.init = function () {
-            if (!Lampa.Listener) return;
-
             Lampa.Listener.follow('full', function (e) {
-                if (e.type === 'complite' || e.type === 'complete') {
-                    var card = e.data.movie;
-                    if (card && (card.source === 'tmdb' || e.data.source === 'tmdb') && card.id) {
-                        var render = e.object.activity.render();
-                        _this.getKeywords(render, card);
-                    }
-                }
-            });
+                if (e.type !== 'complite' && e.type !== 'complete') return;
 
-            $('<style>').prop('type', 'text/css').html(
-                '.keywords-icon-img{width:1.4em;height:1.4em;object-fit:contain;filter:invert(1);margin-right:.5em}' +
-                '.button--keywords{display:flex;align-items:center}'
-            ).appendTo('head');
-        };
+                var card = e.data.movie;
+                if (!card || card.source !== 'tmdb') return;
 
-        this.getKeywords = function (render, card) {
-            var method = (card.original_name || card.name) ? 'tv' : 'movie';
-            var url = Lampa.TMDB.api(method + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
-
-            $.ajax({
-                url: url,
-                dataType: 'json',
-                success: function (resp) {
-                    var tags = resp.keywords || resp.results || [];
-                    if (!tags.length) return;
-
-                    _this.translateTags(tags, function (translated) {
-                        _this.renderButton(render, translated);
-                    });
-                }
+                _this.load(e.object.activity.render(), card);
             });
         };
 
-        this.translateTags = function (tags, callback) {
-            var lang = Lampa.Storage.get('language', 'uk');
-            if (lang !== 'uk') return callback(tags);
+        this.load = function (render, card) {
+            var type = card.name ? 'tv' : 'movie';
+            var url = Lampa.TMDB.api(type + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
 
-            var source = tags.map(function (t) {
-                return 'Movie tag: ' + t.name;
-            }).join(' ||| ');
-
-            var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=uk&dt=t&q=' + encodeURIComponent(source);
-
-            $.ajax({
-                url: url,
-                dataType: 'json',
-                success: function (res) {
-                    try {
-                        var text = '';
-                        res[0].forEach(function (i) {
-                            if (i[0]) text += i[0];
-                        });
-
-                        text.split('|||').forEach(function (name, i) {
-                            if (tags[i]) {
-                                tags[i].name = name
-                                    .replace(/movie tag[:\s]*/i, '')
-                                    .replace(/тег.*?[:\s]*/i, '')
-                                    .trim();
-                            }
-                        });
-                    } catch (e) {}
-                    callback(tags);
-                },
-                error: function () {
-                    callback(tags);
-                }
+            $.getJSON(url, function (r) {
+                var tags = r.keywords || r.results || [];
+                if (tags.length) _this.button(render, tags);
             });
         };
 
-        this.renderButton = function (render, tags) {
+        this.button = function (render, tags) {
             $('.button--keywords', render).remove();
-
-            var container = $('.full-start-new__buttons, .full-start__buttons', render).first();
-            if (!container.length) return;
 
             var btn = $(
                 '<div class="full-start__button selector button--keywords">' +
-                    '<img src="' + ICON_TAG + '" class="keywords-icon-img">' +
-                    '<span>' + Lampa.Lang.translate('plugin_keywords_title') + '</span>' +
+                '<img src="' + ICON + '" style="width:1.4em;margin-right:.5em;filter:invert(1)">' +
+                '<span>' + Lampa.Lang.translate('plugin_keywords_title') + '</span>' +
                 '</div>'
             );
 
-            btn.on('hover:enter click', function () {
-                _this.openTags(tags, this);
+            btn.on('hover:enter', function () {
+                _this.openTags(tags, btn);
             });
 
-            container.append(btn);
+            $('.full-start-new__buttons, .full-start__buttons', render)
+                .first()
+                .append(btn);
+
             Lampa.Activity.active().activity.toggle();
         };
 
-        /* =========================
-           НАВІГАЦІЯ (ГОЛОВНЕ)
+        /* ==========================
+           ВАЖЛИВА ЧАСТИНА
         ========================== */
 
-        this.openTags = function (tags, element) {
+        this.openTags = function (tags, btn) {
             var controller = Lampa.Controller.enabled().name;
             var render = Lampa.Activity.active().activity.render();
 
+            // 🔴 ЯВНО відключаємо controller
+            Lampa.Controller.toggle(false);
+
             Lampa.Select.show({
                 title: Lampa.Lang.translate('plugin_keywords_title'),
-                items: tags.map(function (tag) {
-                    return { title: tag.name, tag: tag };
+                items: tags.map(function (t) {
+                    return { title: t.name, tag: t };
                 }),
-                onSelect: function (item) {
-                    _this.openType(item.tag, tags, element, controller);
+                onSelect: function (i) {
+                    _this.openType(i.tag, tags, btn, controller);
                 },
                 onBack: function () {
+                    // 🟢 ЯВНО закриваємо Select
+                    Lampa.Select.hide();
+
+                    // 🟢 Повертаємо controller
                     Lampa.Controller.toggle(controller);
-                    Lampa.Controller.collectionFocus(element, render);
+
+                    // 🟢 Повертаємо фокус
+                    Lampa.Controller.collectionFocus(btn, render);
                 }
             });
         };
 
-        this.openType = function (tag, allTags, element, controller) {
+        this.openType = function (tag, tags, btn, controller) {
             Lampa.Select.show({
                 title: tag.name,
                 items: [
                     { title: Lampa.Lang.translate('plugin_keywords_movies'), type: 'movie' },
                     { title: Lampa.Lang.translate('plugin_keywords_tv'), type: 'tv' }
                 ],
-                onSelect: function (item) {
+                onSelect: function (i) {
                     Lampa.Activity.push({
-                        url: 'discover/' + item.type + '?with_keywords=' + tag.id + '&sort_by=popularity.desc',
+                        url: 'discover/' + i.type + '?with_keywords=' + tag.id,
                         title: tag.name,
                         component: 'category_full',
                         source: 'tmdb',
@@ -148,14 +102,15 @@
                     });
                 },
                 onBack: function () {
-                    _this.openTags(allTags, element);
+                    Lampa.Select.hide();
+                    _this.openTags(tags, btn);
                 }
             });
         };
     }
 
-    if (!window.plugin_keywords_instance) {
-        window.plugin_keywords_instance = new KeywordsPlugin();
-        window.plugin_keywords_instance.init();
+    if (!window.keywords_plugin_fixed) {
+        window.keywords_plugin_fixed = true;
+        new KeywordsPlugin().init();
     }
 })();
