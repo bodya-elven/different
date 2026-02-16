@@ -2,7 +2,7 @@
     'use strict';
 
     var pluginManifest = {
-        version: '2.0.4-UA-Fix',
+        version: '2.0.5-FocusFix',
         author: 'levende (mod)',
         docs: 'https://levende.github.io/lampa-plugins/docs/tmdb-networks',
         contact: ''
@@ -35,66 +35,21 @@
 
     function addLocalization() {
         Lampa.Lang.add({
-            tmdb_networks_open: {
-                en: 'Open',
-                uk: 'Відкрити'
-            },
-            tmdb_networks_top: {
-                en: 'Top',
-                uk: 'Популярні'
-            },
-            tmdb_networks_new: {
-                en: 'New',
-                uk: 'Новинки'
-            },
-            tmdb_networks_hide: {
-                en: 'Hide',
-                uk: 'Сховати'
-            },
-            tmdb_networks_plugin_platforms: {
-                en: 'Platforms',
-                uk: 'Платформи'
-            },
-            tmdb_networks_plugin_platforms_setting_descr: {
-                en: 'Display configuration settings for platforms in cards',
-                uk: 'Налаштування відображення платформ у картках'
-            },
-            tmdb_networks_plugin_about: {
-                en: 'About the plugin',
-                uk: 'Про плагін'
-            },
-            tmdb_networks_plugin_descr: {
-                en: 'The plugin adds buttons for streaming services and platforms to cards, showing where movies and series were released or sold, making them easier to find',
-                uk: 'Плагін додає в картки кнопки стримінгових сервісів і платформ, де виходили або продавалися фільми та серіали, що спрощує їх пошук'
-            },
-            platfroms_list: {
-                en: 'List',
-                uk: 'Перелік'
-            },
-            platfroms_list_limit: {
-                en: 'List limit',
-                uk: 'Ліміт переліку'
-            },
-            platform_display_hide: {
-                en: 'Do not show',
-                uk: 'Не показувати'
-            },
-            platform_display_logo: {
-                en: 'Logo',
-                uk: 'Логотип'
-            },
-            platform_display_name: {
-                en: 'Name',
-                uk: 'Назва'
-            },
-            platform_display_combo_btn: {
-                en: 'Select button',
-                uk: 'Кнопка з вибором'
-            },
-            platform_extra_btn: {
-                en: 'Extra button',
-                uk: 'Додаткова кнопка'
-            }
+            tmdb_networks_open: { en: 'Open', uk: 'Відкрити' },
+            tmdb_networks_top: { en: 'Top', uk: 'Популярні' },
+            tmdb_networks_new: { en: 'New', uk: 'Новинки' },
+            tmdb_networks_hide: { en: 'Hide', uk: 'Сховати' },
+            tmdb_networks_plugin_platforms: { en: 'Platforms', uk: 'Платформи' },
+            tmdb_networks_plugin_platforms_setting_descr: { en: 'Display configuration settings for platforms in cards', uk: 'Налаштування відображення платформ у картках' },
+            tmdb_networks_plugin_about: { en: 'About the plugin', uk: 'Про плагін' },
+            tmdb_networks_plugin_descr: { en: 'The plugin adds buttons for streaming services...', uk: 'Плагін додає кнопки стримінгових сервісів...' },
+            platfroms_list: { en: 'List', uk: 'Перелік' },
+            platfroms_list_limit: { en: 'List limit', uk: 'Ліміт переліку' },
+            platform_display_hide: { en: 'Do not show', uk: 'Не показувати' },
+            platform_display_logo: { en: 'Logo', uk: 'Логотип' },
+            platform_display_name: { en: 'Name', uk: 'Назва' },
+            platform_display_combo_btn: { en: 'Select button', uk: 'Кнопка з вибором' },
+            platform_extra_btn: { en: 'Extra button', uk: 'Додаткова кнопка' }
         });
     }
 
@@ -119,8 +74,8 @@
             networkBtn.addClass('hide');
         }
 
-        // ВИПРАВЛЕННЯ: Використовуємо 'click' для дії, щоб 'hover:enter' працював як фокус на пульті
-        networkBtn.on('click', function () {
+        // ВИПРАВЛЕННЯ: додано 'click' для надійності та збережено 'hover:enter' для пульта
+        networkBtn.on('hover:enter click', function () {
             onNetworkButtonClick(network, this, type);
         });
 
@@ -140,7 +95,7 @@
         moreBtn.on('hover:enter click', function () {
             $('.network-btn.hide').removeClass('hide');
             $(this).addClass('hide');
-            // Переводимо фокус на наступний елемент
+            // Оновлюємо фокус після розкриття
             Lampa.Controller.collectionFocus($('.network-btn', container).eq(limit + 1), Lampa.Activity.active().activity.render());
         });
 
@@ -168,10 +123,10 @@
     }
 
     function getMovieProviders(movie, callback) {
-        // ВИПРАВЛЕННЯ: Замінено RU на UA
+        // Тільки US та UA
         var allowedCountryCodes = ['US', 'UA'];
         var excludeKeywords = ['Free', 'Ad', 'With Ads', 'Free with Ads', 'Plex', 'Tubi', 'Pluto TV', 'Google Play', 'Youtube', 'Max Amazon Channel'];
-        var maxDisplayPriority = 25; // Трохи піднято ліміт
+        var maxDisplayPriority = 30;
 
         var url = Lampa.TMDB.api('movie/' + movie.id + '/watch/providers?api_key=' + Lampa.TMDB.key());
         network.silent(url, function (data) {
@@ -225,7 +180,7 @@
         var movie = object.card;
         if (!movie || movie.source !== 'tmdb') return callback([]);
 
-        var getFn = movie.networksList // cache
+        var getFn = movie.networksList 
             ? function() { callback(movie.networksList); }
             : movie.networks 
                 ? function() { callback(movie.networks); }
@@ -266,7 +221,7 @@
                     '</svg>' +
                     '<span>' + title + '</span>');
         
-                btn.on('click', function () {
+                btn.on('hover:enter click', function () {
                     var controllerName = Lampa.Controller.enabled().name;
                     Lampa.Select.show({
                         title: title,
@@ -335,8 +290,9 @@
 
             $('.items-line', render).eq(0).prepend(networksLine);
 
-            // ВИПРАВЛЕННЯ: Оновлюємо контролер, щоб пульт побачив нові кнопки
-            if(Lampa.Controller.enabled().name == 'full_start'){
+            // === КЛЮЧОВЕ ВИПРАВЛЕННЯ ФОКУСУ ===
+            // Оновлюємо контролер, щоб пульт побачив нові елементи
+            if (Lampa.Controller.enabled().name === 'full_start') {
                 Lampa.Controller.toggle('full_start');
             }
         });
