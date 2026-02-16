@@ -83,14 +83,12 @@
         };
 
         this.renderButton = function (html, tags) {
-            // Видаляємо стару кнопку, якщо вона є
             html.find('.button--keywords').remove();
 
             var container = html.find('.full-start-new__buttons, .full-start__buttons').first();
             if (!container.length) return;
 
             var title = Lampa.Lang.translate('plugin_keywords_title');
-            // Створюємо кнопку точно так само, як у tmdb-networks
             var button = $('<div class="full-start__button selector button--keywords"><img src="' + ICON_TAG + '" class="keywords-icon-img" /><span>' + title + '</span></div>');
 
             button.on('hover:enter click', function () {
@@ -106,23 +104,28 @@
                     title: title,
                     items: items,
                     onSelect: function (selectedItem) {
-                        _this.showTypeMenu(selectedItem.tag_data, controllerName, button);
+                        _this.showTypeMenu(selectedItem.tag_data, controllerName, button, html);
                     },
                     onBack: function () {
+                        // Точно як у твоєму прикладі: toggle + collectionFocus
                         Lampa.Controller.toggle(controllerName);
+                        Lampa.Controller.collectionFocus(button[0], html[0]);
                     }
                 });
             });
 
             container.append(button);
             
-            // Важливий момент з твого прикладу: оновлюємо активність
-            if (Lampa.Activity.active().activity.toggle) {
-                Lampa.Activity.active().activity.toggle();
-            }
+            // Оновлення активності для реєстрації нових селекторів
+            Lampa.Controller.add('full_start', {
+                toggle: function () {
+                    Lampa.Controller.collectionSet(html);
+                    Lampa.Controller.collectionFocus(html.find('.selector')[0], html[0]);
+                }
+            });
         };
 
-        this.showTypeMenu = function(tag, prevController, btnElement) {
+        this.showTypeMenu = function(tag, prevController, btnElement, renderElement) {
             Lampa.Select.show({
                 title: tag.name,
                 items: [
@@ -139,9 +142,8 @@
                     });
                 },
                 onBack: function() {
-                    // Повертаємо фокус назад на кнопку тегів
-                    Lampa.Controller.toggle(prevController);
-                    Lampa.Controller.collectionFocus(btnElement[0], btnElement.parent()[0]);
+                    // Повернення до селекту тегів
+                    Lampa.Controller.toggle('select');
                 }
             });
         };
