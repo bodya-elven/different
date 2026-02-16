@@ -77,11 +77,12 @@
                         var translatedArray = translatedText.split('|||');
                         tags.forEach(function(tag, index) {
                             if (translatedArray[index]) {
-                                // ПОКРАЩЕНО: Видаляємо всі варіанти префікса (з двокрапкою, пробілами, різним регістром)
+                                // ПОКРАЩЕНО: Видаляємо всі варіанти префікса (тег до фільму, тег фільму, movie tag)
                                 var cleanName = translatedArray[index]
-                                    .replace(/movie tag[:\s]*/gi, '')
+                                    .replace(/тег до фільму[:\s]*/gi, '')
                                     .replace(/тег фільму[:\s]*/gi, '')
-                                    .replace(/^[:\s\-]*/, '') // Видаляємо зайві символи на початку
+                                    .replace(/movie tag[:\s]*/gi, '')
+                                    .replace(/^[:\s\-]*/, '')
                                     .trim();
                                 tag.name = cleanName;
                             }
@@ -118,7 +119,7 @@
                         _this.showTypeMenu(selectedItem.tag_data);
                     },
                     onBack: function() {
-                        // Повернення фокусу на кнопку картки
+                        // ПРИМУСОВЕ ПОВЕРНЕННЯ ФОКУСУ
                         Lampa.Controller.toggle('full_start');
                     }
                 });
@@ -146,7 +147,6 @@
                     });
                 },
                 onBack: function() {
-                    // Повернення фокусу до списку тегів
                     Lampa.Controller.toggle('select'); 
                 }
             });
