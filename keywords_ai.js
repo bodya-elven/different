@@ -17,7 +17,7 @@
             if (!Lampa.Listener) return;
 
             Lampa.Listener.follow('full', function (e) {
-                if (e.type == 'complite') {
+                if (e.type == 'complite' || e.type == 'complete') {
                     var card = e.data.movie;
                     if (card && (card.source == 'tmdb' || e.data.source == 'tmdb') && card.id) {
                         var render = e.object.activity.render();
@@ -77,7 +77,6 @@
                         var translatedArray = translatedText.split('|||');
                         tags.forEach(function(tag, index) {
                             if (translatedArray[index]) {
-                                // ПОКРАЩЕНО: Видаляємо всі варіанти префікса (тег до фільму, тег фільму, movie tag)
                                 var cleanName = translatedArray[index]
                                     .replace(/тег до фільму[:\s]*/gi, '')
                                     .replace(/тег фільму[:\s]*/gi, '')
@@ -93,13 +92,9 @@
                 error: function () { callback(tags); }
             });
         };
+
         this.renderButton = function (html, tags) {
             var container = html.find('.full-start-new__buttons, .full-start__buttons').first();
-            if (!container.length) {
-                var btn = html.find('.button--play, .button--trailer, .full-start__button').first();
-                if (btn.length) container = btn.parent();
-            }
-
             if (!container.length || container.find('.button--keywords').length) return;
 
             var title = Lampa.Lang.translate('plugin_keywords_title');
@@ -107,6 +102,7 @@
             var button = $('<div class="full-start__button selector view--category button--keywords">' + icon + '<span>' + title + '</span></div>');
 
             button.on('hover:enter click', function () {
+                var controller_enabled = Lampa.Controller.enabled().name;
                 var items = tags.map(function(tag) {
                     var niceName = tag.name.charAt(0).toUpperCase() + tag.name.slice(1);
                     return { title: niceName, tag_data: tag };
@@ -119,8 +115,7 @@
                         _this.showTypeMenu(selectedItem.tag_data);
                     },
                     onBack: function() {
-                        // ПРИМУСОВЕ ПОВЕРНЕННЯ ФОКУСУ
-                        Lampa.Controller.toggle('full_start');
+                        Lampa.Controller.toggle(controller_enabled);
                     }
                 });
             });
