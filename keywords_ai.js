@@ -3,35 +3,22 @@
 
     function KeywordsAIPlugin() {
         var _this = this;
+        
+        // === НАЛАШТУВАННЯ ===
+        // Встав свій ключ всередину лапок
+        var GEMINI_API_KEY = 'AIzaSyA7txXLnMtCdUvKFde9W-tXYJHVxXOW4_Q'; 
+        
         var ICON_TAG = 'https://bodya-elven.github.io/Different/tag.svg';
 
-        // Локалізація
         if (Lampa.Lang) {
             Lampa.Lang.add({
                 plugin_keywords_title: { en: 'Tags', uk: 'Теги' },
                 plugin_keywords_movies: { en: 'Movies', uk: 'Фільми' },
-                plugin_keywords_tv: { en: 'TV Series', uk: 'Серіали' },
-                keywords_api_key: { en: 'Gemini API Key', uk: 'Gemini API Key' },
-                keywords_api_descr: { en: 'Key from Google AI Studio for smart translation', uk: 'Ключ від Google AI Studio для розумного перекладу' }
+                plugin_keywords_tv: { en: 'TV Series', uk: 'Серіали' }
             });
         }
 
         this.init = function () {
-            // Додаємо налаштування для API ключа
-            Lampa.SettingsApi.addParam({
-                component: 'interface',
-                param: {
-                    name: 'keywords_gemini_key',
-                    type: 'input',
-                    default: '',
-                    placeholder: 'AIzaSy...'
-                },
-                field: {
-                    name: Lampa.Lang.translate('keywords_api_key'),
-                    description: Lampa.Lang.translate('keywords_api_descr')
-                }
-            });
-
             if (!Lampa.Listener) return;
 
             Lampa.Listener.follow('full', function (e) {
@@ -62,6 +49,7 @@
                 success: function (resp) {
                     var tags = resp.keywords || resp.results || [];
                     if (tags.length > 0) {
+                        // Запускаємо процес перекладу
                         _this.processTranslation(tags, function(finalTags) {
                             _this.renderButton(html, finalTags);
                         });
@@ -72,27 +60,28 @@
 
         this.processTranslation = function (tags, callback) {
             var lang = Lampa.Storage.get('language', 'uk');
+            
+            // Якщо мова не українська - не перекладаємо
             if (lang !== 'uk') return callback(tags);
 
-            var apiKey = Lampa.Storage.get('keywords_gemini_key', '');
-
-            // Якщо є ключ - пробуємо AI, якщо ні - Google Translate
-            if (apiKey && apiKey.length > 10) {
-                _this.translateWithGemini(tags, apiKey, callback);
+            // Якщо ключ є і він не пустий - пробуємо Gemini
+            if (GEMINI_API_KEY && GEMINI_API_KEY.length > 10 && GEMINI_API_KEY !== 'ВСТАВ_СВІЙ_КЛЮЧ_СЮДИ') {
+                _this.translateWithGemini(tags, callback);
             } else {
+                console.log('Gemini Key missing, using Google Translate');
                 _this.translateWithGoogle(tags, callback);
             }
         };
 
-        this.translateWithGemini = function(tags, apiKey, callback) {
+        this.translateWithGemini = function(tags, callback) {
             var originalNames = tags.map(function(t) { return t.name; });
             
-            // Промпт для AI
-            var prompt = "Translate these movie tags from English to Ukrainian. Context: cinema metadata. " +
-                         "Rules: 'based on comic' -> 'за мотивами коміксів', 'anime' -> 'аніме', 'short' -> 'короткометражка'. " +
-                         "Return ONLY a JSON array of strings. Input: " + JSON.stringify(originalNames);
+            // Промпт для AI: просимо перекласти масив і повернути JSON
+            var prompt = "Translate these movie tags from English to Ukrainian. Context: cinema metadata keywords. " +
+                         "Strict rules: 'based on comic' -> 'за мотивами коміксів', 'anime' -> 'аніме', 'short' -> 'короткометражка', 'stand-up comedy' -> 'стендап'. " +
+                         "Output format: JSON array of strings only. No markdown. Input: " + JSON.stringify(originalNames);
 
-            var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+            var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_API_KEY;
 
             var payload = {
                 contents: [{ parts: [{ text: prompt }] }]
@@ -105,26 +94,29 @@
                 contentType: 'application/json',
                 success: function(resp) {
                     try {
+                        // Отримуємо текст відповіді
                         var text = resp.candidates[0].content.parts[0].text;
-                        // Очищення відповіді від markdown ```json ... ```
+                        // Чистимо від можливих ```json ... ```
                         text = text.replace(/```json|```/g, '').trim();
                         var translatedArray = JSON.parse(text);
 
+                        // Перевіряємо, чи кількість слів збігається
                         if (Array.isArray(translatedArray) && translatedArray.length === tags.length) {
                             tags.forEach(function(tag, index) {
                                 tag.name = translatedArray[index];
                             });
                             callback(tags);
                         } else {
-                            // Якщо AI повернув щось дивне, фолбек на Google
+                            // Якщо AI повернув щось не те - фолбек
                             _this.translateWithGoogle(tags, callback);
                         }
                     } catch (e) {
-                        console.error('Gemini Parse Error', e);
+                        console.error('Gemini Error:', e);
                         _this.translateWithGoogle(tags, callback);
                     }
                 },
-                error: function() {
+                error: function(err) {
+                    console.error('Gemini API Error:', err);
                     _this.translateWithGoogle(tags, callback);
                 }
             });
@@ -168,10 +160,12 @@
 
             var title = Lampa.Lang.translate('plugin_keywords_title');
             var icon = '<img src="' + ICON_TAG + '" class="keywords-icon-img" />';
+            
             var button = $('<div class="full-start__button selector view--category button--keywords">' + icon + '<span>' + title + '</span></div>');
 
             button.on('hover:enter click', function () {
                 var items = tags.map(function(tag) {
+                    // Робимо першу літеру великою
                     var niceName = tag.name.charAt(0).toUpperCase() + tag.name.slice(1);
                     return { title: niceName, tag_data: tag };
                 });
