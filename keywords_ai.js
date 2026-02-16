@@ -2,7 +2,6 @@
     'use strict';
 
     function KeywordsPlugin() {
-        var _this = this;
         var ICON = 'https://bodya-elven.github.io/Different/tag.svg';
 
         Lampa.Lang.add({
@@ -18,32 +17,32 @@
                 var card = e.data.movie;
                 if (!card || card.source !== 'tmdb') return;
 
-                _this.load(e.object.activity.render(), card);
+                _this.loadTags(e.object.activity.render(), card);
             });
         };
 
-        this.load = function (render, card) {
+        this.loadTags = function (render, card) {
             var type = card.name ? 'tv' : 'movie';
             var url = Lampa.TMDB.api(type + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
 
-            $.getJSON(url, function (r) {
-                var tags = r.keywords || r.results || [];
-                if (tags.length) _this.button(render, tags);
+            $.getJSON(url, function (resp) {
+                var tags = resp.keywords || resp.results || [];
+                if (tags.length) _this.renderButton(render, tags);
             });
         };
 
-        this.button = function (render, tags) {
+        this.renderButton = function (render, tags) {
             $('.button--keywords', render).remove();
 
             var btn = $(
                 '<div class="full-start__button selector button--keywords">' +
-                '<img src="' + ICON + '" style="width:1.4em;margin-right:.5em;filter:invert(1)">' +
-                '<span>' + Lampa.Lang.translate('plugin_keywords_title') + '</span>' +
+                    '<img src="' + ICON + '" style="width:1.4em;filter:invert(1);margin-right:.5em">' +
+                    '<span>' + Lampa.Lang.translate('plugin_keywords_title') + '</span>' +
                 '</div>'
             );
 
-            btn.on('hover:enter', function () {
-                _this.openTags(tags, btn);
+            btn.on('hover:enter click', function () {
+                _this.showTagsActivity(tags);
             });
 
             $('.full-start-new__buttons, .full-start__buttons', render)
@@ -53,64 +52,64 @@
             Lampa.Activity.active().activity.toggle();
         };
 
-        /* ==========================
-           ВАЖЛИВА ЧАСТИНА
-        ========================== */
-
-        this.openTags = function (tags, btn) {
-            var controller = Lampa.Controller.enabled().name;
-            var render = Lampa.Activity.active().activity.render();
-
-            // 🔴 ЯВНО відключаємо controller
-            Lampa.Controller.toggle(false);
-
-            Lampa.Select.show({
+        this.showTagsActivity = function (tags) {
+            Lampa.Activity.push({
                 title: Lampa.Lang.translate('plugin_keywords_title'),
-                items: tags.map(function (t) {
-                    return { title: t.name, tag: t };
-                }),
-                onSelect: function (i) {
-                    _this.openType(i.tag, tags, btn, controller);
-                },
-                onBack: function () {
-                    // 🟢 ЯВНО закриваємо Select
-                    Lampa.Select.hide();
+                component: {
+                    render: function () {
+                        var body = $('<div class="tags-list"></div>');
 
-                    // 🟢 Повертаємо controller
-                    Lampa.Controller.toggle(controller);
+                        tags.forEach(function (tag) {
+                            var item = $('<div class="selector">' + tag.name + '</div>');
+                            item.on('hover:enter', function () {
+                                _this.showTypeActivity(tag);
+                            });
+                            body.append(item);
+                        });
 
-                    // 🟢 Повертаємо фокус
-                    Lampa.Controller.collectionFocus(btn, render);
+                        return body;
+                    },
+                    infinite: false,
+                    destroy: function () {}
                 }
             });
         };
 
-        this.openType = function (tag, tags, btn, controller) {
-            Lampa.Select.show({
+        this.showTypeActivity = function (tag) {
+            Lampa.Activity.push({
                 title: tag.name,
-                items: [
-                    { title: Lampa.Lang.translate('plugin_keywords_movies'), type: 'movie' },
-                    { title: Lampa.Lang.translate('plugin_keywords_tv'), type: 'tv' }
-                ],
-                onSelect: function (i) {
-                    Lampa.Activity.push({
-                        url: 'discover/' + i.type + '?with_keywords=' + tag.id,
-                        title: tag.name,
-                        component: 'category_full',
-                        source: 'tmdb',
-                        page: 1
-                    });
-                },
-                onBack: function () {
-                    Lampa.Select.hide();
-                    _this.openTags(tags, btn);
+                component: {
+                    render: function () {
+                        var body = $('<div class="type-list"></div>');
+
+                        [
+                            { title: Lampa.Lang.translate('plugin_keywords_movies'), type: 'movie' },
+                            { title: Lampa.Lang.translate('plugin_keywords_tv'), type: 'tv' }
+                        ].forEach(function (opt) {
+                            var itm = $('<div class="selector">' + opt.title + '</div>');
+                            itm.on('hover:enter', function () {
+                                Lampa.Activity.push({
+                                    url: 'discover/' + opt.type + '?with_keywords=' + tag.id + '&sort_by=popularity.desc',
+                                    title: tag.name + ' ' + opt.title,
+                                    component: 'category_full',
+                                    source: 'tmdb',
+                                    page: 1
+                                });
+                            });
+                            body.append(itm);
+                        });
+
+                        return body;
+                    },
+                    infinite: false,
+                    destroy: function () {}
                 }
             });
         };
     }
 
-    if (!window.keywords_plugin_fixed) {
-        window.keywords_plugin_fixed = true;
+    if (!window.plugin_keywords_fixed) {
+        window.plugin_keywords_fixed = true;
         new KeywordsPlugin().init();
     }
 })();
