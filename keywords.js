@@ -5,7 +5,7 @@
         var _this = this;
 
         // Посилання на іконку тегів
-        var ICON_TAG = 'https://bodya-elven.github.io/Different/tag.svg';
+        var ICON_TAG = 'https://bodya-elven.github.io/different/tag.svg';
 
         // Локалізація інтерфейсу
         if (Lampa.Lang) {
