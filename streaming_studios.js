@@ -2,8 +2,8 @@
     'use strict';
 
     /**
-     * STUDIOS MASTER v3.3
-     * Custom Icons | Trending All | Logic 2026
+     * STUDIOS MASTER v3.5
+     * Amazon Fix | Trending Mix | White Icons
      */
 
     var ICON_BASE = 'https://bodya-elven.github.io/different/icons/';
@@ -13,20 +13,18 @@
             title: 'Netflix',
             icon: '<img class="studios_icon" src="' + ICON_BASE + 'netflix.svg" />',
             categories: [
-                { title: "Сьогодні в тренді", type: "all", params: { "with_networks": "213", "sort_by": "popularity.desc" } },
-                { title: "Нові фільми", type: "movie", params: { "with_watch_providers": "8", "watch_region": "UA", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
+                { title: "Сьогодні в тренді", type: "mixed", params: { "with_networks": "213", "sort_by": "popularity.desc" } },
+                { title: "Нові фільми", type: "movie", params: { "with_networks": "213", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Нові серіали", type: "tv", params: { "with_networks": "213", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
-                { title: "Топ фільмів", type: "movie", params: { "with_watch_providers": "8", "watch_region": "UA", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Топ серіалів", type: "tv", params: { "with_networks": "213", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Анімація", type: "tv", params: { "with_networks": "213", "with_genres": "16", "sort_by": "popularity.desc" } },
-                { title: "Документалістика", type: "tv", params: { "with_networks": "213", "with_genres": "99", "sort_by": "popularity.desc" } }
+                { title: "Топ фільмів", type: "movie", params: { "with_networks": "213", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
+                { title: "Топ серіалів", type: "tv", params: { "with_networks": "213", "vote_count.gte": "400", "sort_by": "vote_average.desc" } }
             ]
         },
         'apple': {
             title: 'Apple TV+',
             icon: '<img class="studios_icon" src="' + ICON_BASE + 'apple.svg" />',
             categories: [
-                { title: "Сьогодні в тренді", type: "all", params: { "with_watch_providers": "350", "watch_region": "UA", "sort_by": "popularity.desc" } },
+                { title: "Сьогодні в тренді", type: "mixed", params: { "with_watch_providers": "350", "watch_region": "UA", "sort_by": "popularity.desc" } },
                 { title: "Нові фільми", type: "movie", params: { "with_watch_providers": "350", "watch_region": "UA", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Нові серіали", type: "tv", params: { "with_watch_providers": "350", "watch_region": "UA", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Топ фільмів", type: "movie", params: { "with_watch_providers": "350", "watch_region": "UA", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
@@ -37,42 +35,40 @@
             title: 'HBO',
             icon: '<img class="studios_icon" src="' + ICON_BASE + 'hbo.svg" />',
             categories: [
-                { title: "Сьогодні в тренді", type: "all", params: { "with_companies": "174", "sort_by": "popularity.desc" } },
+                { title: "Сьогодні в тренді", type: "mixed", params: { "with_companies": "174", "sort_by": "popularity.desc" } },
                 { title: "Нові фільми", type: "movie", params: { "with_companies": "174", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Нові серіали", type: "tv", params: { "with_networks": "49", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Топ фільмів", type: "movie", params: { "with_companies": "174", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Топ серіалів", type: "tv", params: { "with_networks": "49", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Всесвіт DC", type: "movie", params: { "with_companies": "174", "with_keywords": "9715", "sort_by": "popularity.desc" } }
+                { title: "Топ серіалів", type: "tv", params: { "with_networks": "49", "vote_count.gte": "400", "sort_by": "vote_average.desc" } }
             ]
         },
         'prime': {
             title: 'Prime Video',
             icon: '<img class="studios_icon" src="' + ICON_BASE + 'primevideo.svg" />',
             categories: [
-                { title: "Сьогодні в тренді", type: "all", params: { "with_watch_providers": "119", "watch_region": "UA", "sort_by": "popularity.desc" } },
-                { title: "Нові фільми", type: "movie", params: { "with_watch_providers": "119", "watch_region": "UA", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
-                { title: "Нові серіали", type: "tv", params: { "with_watch_providers": "119", "watch_region": "UA", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
-                { title: "Топ фільмів", type: "movie", params: { "with_watch_providers": "119", "watch_region": "UA", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Топ серіалів", type: "tv", params: { "with_watch_providers": "119", "watch_region": "UA", "vote_count.gte": "400", "sort_by": "vote_average.desc" } }
+                { title: "Сьогодні в тренді", type: "mixed", params: { "with_companies": "20580", "sort_by": "popularity.desc" } },
+                { title: "Нові фільми", type: "movie", params: { "with_companies": "20580", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
+                { title: "Нові серіали", type: "tv", params: { "with_networks": "1024", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
+                { title: "Топ фільмів", type: "movie", params: { "with_companies": "20580", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
+                { title: "Топ серіалів", type: "tv", params: { "with_networks": "1024", "vote_count.gte": "400", "sort_by": "vote_average.desc" } }
             ]
         },
         'disney': {
             title: 'Disney+',
             icon: '<img class="studios_icon" src="' + ICON_BASE + 'disneyplus.svg" />',
             categories: [
-                { title: "Сьогодні в тренді", type: "all", params: { "with_watch_providers": "337", "watch_region": "UA", "sort_by": "popularity.desc" } },
-                { title: "Нові фільми", type: "movie", params: { "with_watch_providers": "337", "watch_region": "UA", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
-                { title: "Нові серіали", type: "tv", params: { "with_watch_providers": "337", "watch_region": "UA", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
-                { title: "Топ фільмів", type: "movie", params: { "with_watch_providers": "337", "watch_region": "UA", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Топ серіалів", type: "tv", params: { "with_watch_providers": "337", "watch_region": "UA", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Всесвіт Marvel", type: "movie", params: { "with_companies": "420", "sort_by": "primary_release_date.desc" } }
+                { title: "Сьогодні в тренді", type: "mixed", params: { "with_companies": "2", "sort_by": "popularity.desc" } },
+                { title: "Нові фільми", type: "movie", params: { "with_companies": "2", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
+                { title: "Нові серіали", type: "tv", params: { "with_networks": "2739", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
+                { title: "Топ фільмів", type: "movie", params: { "with_companies": "2", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
+                { title: "Топ серіалів", type: "tv", params: { "with_networks": "2739", "vote_count.gte": "400", "sort_by": "vote_average.desc" } }
             ]
         },
         'hulu': {
             title: 'Hulu',
             icon: '<img class="studios_icon" src="' + ICON_BASE + 'hulu.svg" />',
             categories: [
-                { title: "Сьогодні в тренді", type: "all", params: { "with_networks": "453", "sort_by": "popularity.desc" } },
+                { title: "Сьогодні в тренді", type: "mixed", params: { "with_networks": "453", "sort_by": "popularity.desc" } },
                 { title: "Нові фільми", type: "movie", params: { "with_networks": "453", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Нові серіали", type: "tv", params: { "with_networks": "453", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Топ фільмів", type: "movie", params: { "with_networks": "453", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
@@ -83,7 +79,7 @@
             title: 'Paramount+',
             icon: '<img class="studios_icon" src="' + ICON_BASE + 'paramount.svg" />',
             categories: [
-                { title: "Сьогодні в тренді", type: "all", params: { "with_networks": "4330", "sort_by": "popularity.desc" } },
+                { title: "Сьогодні в тренді", type: "mixed", params: { "with_companies": "4", "sort_by": "popularity.desc" } },
                 { title: "Нові фільми", type: "movie", params: { "with_companies": "4", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Нові серіали", type: "tv", params: { "with_networks": "4330", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Топ фільмів", type: "movie", params: { "with_companies": "4", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
@@ -96,15 +92,14 @@
             categories: [
                 { title: "Сьогодні в тренді", type: "tv", params: { "with_networks": "77", "sort_by": "popularity.desc" } },
                 { title: "Нові серіали", type: "tv", params: { "with_networks": "77", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
-                { title: "Топ серіалів", type: "tv", params: { "with_networks": "77", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Фантастика", type: "tv", params: { "with_networks": "77", "with_genres": "10765" } }
+                { title: "Топ серіалів", type: "tv", params: { "with_networks": "77", "vote_count.gte": "400", "sort_by": "vote_average.desc" } }
             ]
         },
         'peacock': {
             title: 'Peacock',
             icon: '<img class="studios_icon" src="' + ICON_BASE + 'peacock.svg" />',
             categories: [
-                { title: "Сьогодні в тренді", type: "all", params: { "with_networks": "6", "sort_by": "popularity.desc" } },
+                { title: "Сьогодні в тренді", type: "mixed", params: { "with_networks": "6", "sort_by": "popularity.desc" } },
                 { title: "Нові фільми", type: "movie", params: { "with_companies": "33", "sort_by": "primary_release_date.desc", "primary_release_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Нові серіали", type: "tv", params: { "with_networks": "6", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
                 { title: "Топ фільмів", type: "movie", params: { "with_companies": "33", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
@@ -117,8 +112,7 @@
             categories: [
                 { title: "Сьогодні в тренді", type: "tv", params: { "with_networks": "4|2", "sort_by": "popularity.desc" } },
                 { title: "Нові серіали", type: "tv", params: { "with_networks": "4|2", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
-                { title: "Топ серіалів", type: "tv", params: { "with_networks": "4|2", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Детективи", type: "tv", params: { "with_networks": "4|2", "with_genres": "80" } }
+                { title: "Топ серіалів", type: "tv", params: { "with_networks": "4|2", "vote_count.gte": "400", "sort_by": "vote_average.desc" } }
             ]
         },
         'amc': {
@@ -127,8 +121,7 @@
             categories: [
                 { title: "Сьогодні в тренді", type: "tv", params: { "with_networks": "174", "sort_by": "popularity.desc" } },
                 { title: "Нові серіали", type: "tv", params: { "with_networks": "174", "sort_by": "first_air_date.desc", "first_air_date.lte": "{current_date}", "vote_count.gte": "10" } },
-                { title: "Топ серіалів", type: "tv", params: { "with_networks": "174", "vote_count.gte": "400", "sort_by": "vote_average.desc" } },
-                { title: "Жахи від Shudder", type: "tv", params: { "with_networks": "174", "with_keywords": "3335" } }
+                { title: "Топ серіалів", type: "tv", params: { "with_networks": "174", "vote_count.gte": "400", "sort_by": "vote_average.desc" } }
             ]
         },
         'educational': {
@@ -138,8 +131,7 @@
                 { title: "Сьогодні в тренді", type: "tv", params: { "with_networks": "64|91|43|2696|4|65", "sort_by": "popularity.desc" } },
                 { title: "Всі проекти (Нові)", type: "tv", params: { "with_networks": "64|91|43|2696|4|65", "sort_by": "first_air_date.desc", "vote_count.gte": "10" } },
                 { title: "BBC Earth", type: "tv", params: { "with_networks": "4", "with_genres": "99", "sort_by": "vote_average.desc" } },
-                { title: "National Geographic", type: "tv", params: { "with_networks": "43", "sort_by": "popularity.desc" } },
-                { title: "Discovery Channel", type: "tv", params: { "with_networks": "64", "sort_by": "popularity.desc" } }
+                { title: "National Geographic", type: "tv", params: { "with_networks": "43", "sort_by": "popularity.desc" } }
             ]
         }
     };
@@ -176,7 +168,7 @@
                     if (data && data.results && data.results.length) {
                         var cat = categories[parseInt(key)];
                         Lampa.Utils.extendItemsParams(data.results, { style: { name: 'wide' } });
-                        fulldata.push({ title: cat.title, results: data.results, url: (cat.type === 'movie' ? 'discover/movie' : (cat.type === 'all' ? 'trending/all/day' : 'discover/tv')), params: cat.params });
+                        fulldata.push({ title: cat.title, results: data.results, url: (cat.type === 'movie' ? 'discover/movie' : (cat.type === 'tv' ? 'discover/tv' : 'mixed')), params: cat.params });
                     }
                 });
                 if (fulldata.length) { _this.build(fulldata); _this.activity.loader(false); } 
@@ -184,12 +176,27 @@
             };
             categories.forEach(function (cat, index) {
                 var p = processParams(cat.params);
-                var path = cat.type === 'movie' ? 'discover/movie' : (cat.type === 'all' ? 'trending/all/day' : 'discover/tv');
-                network.silent(Lampa.TMDB.api(path + '?' + p.join('&')), function (json) { status.append(index.toString(), json); }, status.error.bind(status));
+                if (cat.type === 'mixed') {
+                    var m_res = { results: [] };
+                    network.silent(Lampa.TMDB.api('discover/movie?' + p.join('&')), function (j1) {
+                        if (j1.results) m_res.results = m_res.results.concat(j1.results.slice(0, 10));
+                        network.silent(Lampa.TMDB.api('discover/tv?' + p.join('&')), function (j2) {
+                            if (j2.results) m_res.results = m_res.results.concat(j2.results.slice(0, 10));
+                            m_res.results.sort(function (a, b) { return b.popularity - a.popularity; });
+                            status.append(index.toString(), m_res);
+                        }, status.error.bind(status));
+                    }, status.error.bind(status));
+                } else {
+                    var path = cat.type === 'movie' ? 'discover/movie' : 'discover/tv';
+                    network.silent(Lampa.TMDB.api(path + '?' + p.join('&')), function (json) { status.append(index.toString(), json); }, status.error.bind(status));
+                }
             });
             return this.render();
         };
-        comp.onMore = function (data) { Lampa.Activity.push({ url: data.url, params: data.params, title: data.title, component: 'studios_view', page: 1 }); };
+        comp.onMore = function (data) { 
+            var path = data.url === 'mixed' ? 'discover/movie' : data.url;
+            Lampa.Activity.push({ url: path, params: data.params, title: data.title, component: 'studios_view', page: 1 }); 
+        };
         return comp;
     }
 
@@ -211,8 +218,8 @@
     }
 
     function startPlugin() {
-        if (window.plugin_studios_master_v3_3_ready) return;
-        window.plugin_studios_master_v3_3_ready = true;
+        if (window.plugin_studios_master_v3_5_ready) return;
+        window.plugin_studios_master_v3_5_ready = true;
         Lampa.Component.add('studios_main', StudiosMain);
         Lampa.Component.add('studios_view', StudiosView);
         if (!$('#studios-unified-css').length) {
