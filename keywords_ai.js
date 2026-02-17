@@ -3,7 +3,7 @@
 
     function KeywordsPlugin() {
         var _this = this;
-        var ICON_TAG = 'https://bodya-elven.github.io/Different/tag.svg';
+        var ICON_TAG = 'https://bodya-elven.github.io/different/tag.svg';
 
         if (Lampa.Lang) {
             Lampa.Lang.add({
