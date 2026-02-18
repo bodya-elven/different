@@ -3,13 +3,16 @@
 
     function KeywordsPlugin() {
         var _this = this;
-        var ICON_TAG = 'https://bodya-elven.github.io/Different/tag.svg';
+        
+        // Вбудована SVG іконка
+        var ICON_TAG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
 
         if (Lampa.Lang) {
             Lampa.Lang.add({
                 plugin_keywords_title: { en: 'Tags', uk: 'Теги' },
                 plugin_keywords_movies: { en: 'Movies', uk: 'Фільми' },
-                plugin_keywords_tv: { en: 'TV Series', uk: 'Серіали' }
+                plugin_keywords_tv: { en: 'TV Series', uk: 'Серіали' },
+                plugin_keywords_none: { en: 'No tags', uk: 'Теги відсутні' }
             });
         }
 
@@ -21,30 +24,29 @@
                     var card = e.data.movie;
                     if (card && (card.source == 'tmdb' || e.data.source == 'tmdb') && card.id) {
                         var render = e.object.activity.render();
-                        // 1. Спочатку малюємо пусту кнопку-заглушку, щоб зайняти місце
-                        _this.drawPlaceholder(render);
-                        // 2. Потім вантажимо дані
+                        // Малюємо кнопку відразу
+                        _this.drawButton(render);
+                        // Запускаємо пошук тегів
                         _this.getKeywords(render, card);
                     }
                 }
             });
 
             $('<style>').prop('type', 'text/css').html(
-                '.keywords-icon-img { width: 1.4em; height: 1.4em; object-fit: contain; filter: invert(1); margin-right: 0.5em; } ' +
-                '.button--keywords { display: none; align-items: center; } ' + // Спочатку display: none
-                '.button--keywords.visible { display: flex; }' // Показуємо тільки коли готові
+                '.keywords-icon-svg { width: 1.4em; height: 1.4em; margin-right: 0.5em; } ' +
+                '.button--keywords { display: flex; align-items: center; opacity: 0.5; pointer-events: none; } ' + // Спочатку напівпрозора і неактивна
+                '.button--keywords.ready { opacity: 1; pointer-events: auto; }' // Коли готова - стає нормальною
             ).appendTo('head');
         };
 
-        // Функція створення кнопки-заглушки в правильному місці
-        this.drawPlaceholder = function (render) {
+        this.drawButton = function (render) {
             var container = render.find('.full-start-new__buttons, .full-start__buttons').first();
             if (!container.length || container.find('.button--keywords').length) return;
 
             var title = Lampa.Lang.translate('plugin_keywords_title');
-            var btn = $('<div class="full-start__button selector button--keywords"><img src="' + ICON_TAG + '" class="keywords-icon-img" /><span>' + title + '</span></div>');
+            var btn = $('<div class="full-start__button selector button--keywords"><div class="keywords-icon-svg">' + ICON_TAG + '</div><span>' + title + '</span></div>');
 
-            // Спроба вставити кнопку ПЕРЕД закладками (book) або лайком, щоб вона була на місці "дірки"
+            // Вставляємо перед кнопкою закладок/лайків
             var bookmarkBtn = container.find('.button--book, .button--like').first();
             if (bookmarkBtn.length) {
                 bookmarkBtn.before(btn);
@@ -66,7 +68,12 @@
                         _this.translateTags(tags, function(translatedTags) {
                             _this.activateButton(render, translatedTags);
                         });
+                    } else {
+                        // Якщо тегів немає, можна видалити кнопку або лишити неактивною.
                     }
+                },
+                error: function() {
+                    // Помилка завантаження - кнопка лишається неактивною
                 }
             });
         };
@@ -105,23 +112,17 @@
 
         this.activateButton = function (render, tags) {
             var btn = render.find('.button--keywords');
-            if (!btn.length) return; // Якщо раптом заглушка зникла
+            if (!btn.length) return; 
 
-            // Робимо кнопку видимою
-            btn.addClass('visible');
+            // Робимо активною
+            btn.addClass('ready');
 
-            // Навішуємо події
-            btn.on('hover:enter click', function () {
+            // Знімаємо старі події (на всяк випадок) і вішаємо нові
+            btn.off('hover:enter click').on('hover:enter click', function () {
                 _this.openTagsMenu(tags, btn, render);
             });
-
-            // Оновлюємо навігацію, щоб пульт побачив нову кнопку
-            if (Lampa.Activity.active().activity.toggle) {
-                Lampa.Activity.active().activity.toggle();
-            }
         };
 
-        // Логіка відкриття меню винесена окремо для повторного використання (кнопка Назад)
         this.openTagsMenu = function(tags, btnElement, renderContainer) {
             var controllerName = Lampa.Controller.enabled().name;
             var items = tags.map(function(tag) {
@@ -135,11 +136,14 @@
                 title: Lampa.Lang.translate('plugin_keywords_title'),
                 items: items,
                 onSelect: function (selectedItem) {
-                    _this.openTypeMenu(selectedItem.tag_data, tags, btnElement, renderContainer, controllerName);
+                    _this.openTypeMenu(selectedItem.tag_data, tags, btnElement, renderContainer);
                 },
                 onBack: function () {
-                    // Виправлення для телефону: не чіпаємо фокус, якщо це тач-інтерфейс
-                    if (!Lampa.Platform.is('android') || Lampa.Platform.is('tv')) {
+                    // === ВИПРАВЛЕННЯ ДЛЯ ТЕЛЕФОНУ ===
+                    // Якщо це тач-скрін (телефон/планшет), ми НЕ ліземо у фокус.
+                    // Lampa сама закриє меню.
+                    if (!Lampa.Platform.is('touch')) {
+                        // А ось для пульта (ТВ) ми відновлюємо фокус
                         Lampa.Controller.toggle(controllerName);
                         Lampa.Controller.collectionFocus(btnElement[0], renderContainer[0]);
                     }
@@ -147,8 +151,7 @@
             });
         };
 
-        // Меню вибору типу (Фільм/Серіал)
-        this.openTypeMenu = function(tag, allTags, btnElement, renderContainer, prevController) {
+        this.openTypeMenu = function(tag, allTags, btnElement, renderContainer) {
             Lampa.Select.show({
                 title: tag.name,
                 items: [
@@ -165,7 +168,7 @@
                     });
                 },
                 onBack: function() {
-                    // ТУТ ВИПРАВЛЕННЯ: Повертаємося до списку всіх тегів
+                    // Повертаємося до списку тегів
                     _this.openTagsMenu(allTags, btnElement, renderContainer);
                 }
             });
