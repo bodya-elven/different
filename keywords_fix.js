@@ -93,16 +93,13 @@
             var button = $('<div class="full-start__button selector view--category button--keywords">' + icon + '<span>' + title + '</span></div>');
 
             button.on('hover:enter click', function () {
-                // 1. ЗАПАМ'ЯТОВУЄМО АКТИВНИЙ КОНТРОЛЕР
-                var currentController = Lampa.Controller.enabled().name;
-                _this.showTagsMenu(tags, button, html, currentController);
+                _this.showTagsMenu(tags, button, html);
             });
 
             container.append(button);
         };
 
-        // Передаємо currentController далі
-        this.showTagsMenu = function(tags, btnElement, renderContainer, prevController) {
+        this.showTagsMenu = function(tags, btnElement, renderContainer) {
             var title = Lampa.Lang.translate('plugin_keywords_title');
             var items = tags.map(function(tag) {
                 return { title: tag.name, tag_data: tag };
@@ -112,13 +109,20 @@
                 title: title, 
                 items: items,
                 onSelect: function (selectedItem) {
-                    _this.showTypeMenu(selectedItem.tag_data, tags, btnElement, renderContainer, prevController);
+                    _this.showTypeMenu(selectedItem.tag_data, tags, btnElement, renderContainer);
                 },
                 onBack: function() {
-                    // 2. ВІДНОВЛЮЄМО САМЕ ТОЙ КОНТРОЛЕР, ЩО БУВ
-                    Lampa.Controller.toggle(prevController);
+                    // === ВИПРАВЛЕННЯ ===
+                    // Замість ручного перемикання контролера, ми змушуємо Активність (картку фільму)
+                    // "пересмикнути" свій стан. Це відновлює всі стандартні слухачі, включаючи свайп.
+                    if (Lampa.Activity.active() && Lampa.Activity.active().activity) {
+                        Lampa.Activity.active().activity.toggle();
+                    } else {
+                        // Фоллбек, якщо активності чомусь немає
+                        Lampa.Controller.toggle('full_start'); 
+                    }
 
-                    // Фокус тільки для ТВ
+                    // Повертаємо фокус тільки для пультів
                     if (!Lampa.Platform.is('touch')) {
                         if (btnElement && renderContainer) {
                             Lampa.Controller.collectionFocus(btnElement[0], renderContainer[0]);
@@ -128,7 +132,7 @@
             });
         };
 
-        this.showTypeMenu = function(tag, allTags, btnElement, renderContainer, prevController) {
+        this.showTypeMenu = function(tag, allTags, btnElement, renderContainer) {
             var menu = [
                 { title: Lampa.Lang.translate('plugin_keywords_movies'), method: 'movie' },
                 { title: Lampa.Lang.translate('plugin_keywords_tv'), method: 'tv' }
@@ -147,8 +151,8 @@
                     });
                 },
                 onBack: function() {
-                    // Повертаємось до списку тегів, передаючи контролер далі
-                    _this.showTagsMenu(allTags, btnElement, renderContainer, prevController);
+                    // Повертаємось до попереднього меню
+                    _this.showTagsMenu(allTags, btnElement, renderContainer);
                 }
             });
         };
