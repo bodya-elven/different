@@ -40,7 +40,6 @@
                 '.lampa-wiki-button.ready { opacity: 1; } ' +
                 '.wiki-icon-img { width: 1.6em; height: 1.6em; object-fit: contain; margin-right: 5px; filter: grayscale(100%) brightness(2); } ' +
                 
-                // Меню вибору
                 '.wiki-select-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; display: flex; align-items: center; justify-content: center; }' +
                 '.wiki-select-body { width: 90%; max-width: 600px; background: #1a1a1a; border-radius: 10px; padding: 20px; border: 1px solid #333; max-height: 80%; display: flex; flex-direction: column; position: relative; z-index: 2002; }' +
                 '.wiki-items-list { overflow-y: auto; flex: 1; }' +
@@ -49,7 +48,6 @@
                 '.wiki-item__lang { font-size: 1.5em; }' +
                 '.wiki-item__title { font-size: 1.2em; color: #fff; font-weight: 500; }' +
                 
-                // Переглядач
                 '.wiki-viewer-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2001; display: flex; align-items: center; justify-content: center; }' +
                 '.wiki-viewer-body { width: 100%; height: 100%; background: #121212; display: flex; flex-direction: column; position: relative; z-index: 2002; }' +
                 '.wiki-header { padding: 15px; background: #1f1f1f; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
@@ -57,11 +55,9 @@
                 '.wiki-close-btn { width: 40px; height: 40px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 2px solid transparent; }' +
                 '.wiki-close-btn.focus { border-color: #fff; background: #555; }' +
                 
-                // Контент
                 '.wiki-content-scroll { flex: 1; overflow-y: auto; padding: 20px 5%; color: #d0d0d0; line-height: 1.6; font-size: 1.1em; }' +
                 '.wiki-loader { text-align: center; margin-top: 50px; color: #888; }' +
                 
-                // Стилізація статті
                 '.wiki-content-scroll h1, .wiki-content-scroll h2 { color: #fff; border-bottom: 1px solid #333; margin-top: 1.5em; padding-bottom: 0.3em; }' +
                 '.wiki-content-scroll p { margin-bottom: 1em; text-align: justify; }' +
                 '.wiki-content-scroll a { color: #8ab4f8; text-decoration: none; pointer-events: none; }' +
@@ -173,10 +169,14 @@
 
             $('body').append(menu);
 
-            // --- ЗАКРИТТЯ (Функція) ---
+            // --- ФУНКЦІЯ ЗАКРИТТЯ ---
             var closeMenu = function() {
+                // Перевірка, щоб не викликати двічі (якщо натиснули і свайпнули одночасно)
+                if ($('.wiki-select-container').length === 0) return;
+                
                 menu.remove();
-                // "Смикаємо" активність, щоб свайп запрацював знову
+                
+                // ГОЛОВНЕ: "Смикаємо" активність, щоб відновити нормальні свайпи
                 if (Lampa.Activity.active() && Lampa.Activity.active().activity) {
                     Lampa.Activity.active().activity.toggle();
                 } else {
@@ -184,15 +184,14 @@
                 }
             };
 
-            // 1. Закриття по кліку на темний фон (якщо свайп промахнувся)
+            // 1. Закриття по кліку на темний фон
             menu.on('click', function(e) {
-                // Якщо клік саме по контейнеру (фон), а не по вікну меню
                 if ($(e.target).is('.wiki-select-container')) {
                     closeMenu();
                 }
             });
 
-            // 2. Закриття через контролер (кнопка Назад)
+            // 2. Закриття через контролер (кнопка Назад / Свайп)
             Lampa.Controller.add('wiki_menu', {
                 toggle: function() {
                     Lampa.Controller.collectionSet(menu);
@@ -206,9 +205,13 @@
                     var index = menu.find('.wiki-item').index(menu.find('.wiki-item.focus'));
                     if (index < items.length - 1) Lampa.Controller.collectionFocus(menu.find('.wiki-item')[index + 1], menu);
                 },
-                back: closeMenu // Використовуємо ту саму функцію
+                back: closeMenu
             });
-            Lampa.Controller.toggle('wiki_menu');
+
+            // === ВИПРАВЛЕННЯ: Додаємо затримку, щоб перехопити фокус після тапу ===
+            setTimeout(function() {
+                Lampa.Controller.toggle('wiki_menu');
+            }, 100);
         };
 
         this.showViewer = function (lang, key, title, prev_controller) {
@@ -224,6 +227,8 @@
             $('body').append(viewer);
 
             var closeViewer = function() {
+                if ($('.wiki-viewer-container').length === 0) return;
+                
                 viewer.remove();
                 if (Lampa.Activity.active() && Lampa.Activity.active().activity) {
                     Lampa.Activity.active().activity.toggle();
@@ -232,7 +237,7 @@
                 }
             };
 
-            // Закриття по кліку на фон (для читалки)
+            // Клік на фон закриває статтю
             viewer.on('click', function(e) {
                 if ($(e.target).is('.wiki-viewer-container')) {
                     closeViewer();
@@ -254,7 +259,11 @@
                 },
                 back: closeViewer
             });
-            Lampa.Controller.toggle('wiki_viewer');
+
+            // Теж затримка для гарантії перехоплення свайпу
+            setTimeout(function() {
+                Lampa.Controller.toggle('wiki_viewer');
+            }, 100);
 
             var apiUrl = 'https://' + (lang === 'ua' ? 'uk' : 'en') + '.wikipedia.org/api/rest_v1/page/html/' + encodeURIComponent(key);
 
