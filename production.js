@@ -4,8 +4,8 @@
     function TMDBStudios() {
         var _this = this;
 
-        // Вбудована SVG іконка (кіноплівка)
-        var ICON_FILM = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4zM8 17H5v-2h3v2zm0-4H5v-2h3v2zm0-4H5V7h3v2zm11 8h-3v-2h3v2zm0-4h-3v-2h3v2zm0-4h-3V7h3v2z"/></svg>';
+        // Посилання на зовнішню іконку
+        var ICON_STUDIOS = 'https://bodya-elven.github.io/different/icons/film.svg';
 
         // Локалізація
         if (Lampa.Lang) {
@@ -33,9 +33,9 @@
                 }
             });
 
-            // Стилі
+            // Стилі (повернуто стилі для зображення)
             $('<style>').prop('type', 'text/css').html(
-                '.studios-icon-svg { width: 1.4em; height: 1.4em; margin-right: 0.5em; } ' +
+                '.studios-icon-img { width: 1.4em; height: 1.4em; object-fit: contain; display: block; filter: invert(1); margin-right: 0.5em; } ' +
                 '.button--studios { display: flex; align-items: center; opacity: 0.5; pointer-events: none; } ' + 
                 '.button--studios.ready { opacity: 1; pointer-events: auto; }'
             ).appendTo('head');
@@ -46,7 +46,8 @@
             if (!container.length || container.find('.button--studios').length) return;
 
             var title = Lampa.Lang.translate('tmdb_studios');
-            var btn = $('<div class="full-start__button selector view--category button--studios"><div class="studios-icon-svg">' + ICON_FILM + '</div><span>' + title + '</span></div>');
+            var icon = '<img src="' + ICON_STUDIOS + '" class="studios-icon-img" />';
+            var btn = $('<div class="full-start__button selector view--category button--studios">' + icon + '<span>' + title + '</span></div>');
 
             // Вставляємо перед кнопкою закладок/лайків
             var bookmarkBtn = container.find('.button--book, .button--like').first();
@@ -106,12 +107,11 @@
                     });
                 },
                 onBack: function() {
-                    // === ВИПРАВЛЕННЯ (ТЕПЕР ПРАВИЛЬНО) ===
-                    // Використовуємо activity.toggle(), щоб Lampa відновила слухачі подій (свайпи)
+                    // === ПРАВИЛЬНЕ ВИПРАВЛЕННЯ ДЛЯ СВАЙПУ ===
+                    // Використовуємо activity.toggle(), щоб Lampa відновила слухачі подій
                     if (Lampa.Activity.active() && Lampa.Activity.active().activity) {
                         Lampa.Activity.active().activity.toggle();
                     } else {
-                        // Резервний варіант
                         Lampa.Controller.toggle('full_start');
                     }
 
