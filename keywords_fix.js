@@ -130,11 +130,15 @@
                     _this.openTypeMenu(selectedItem.tag_data, tags, btnElement, renderContainer);
                 },
                 onBack: function () {
-                    // === ВИПРАВЛЕННЯ ===
-                    // 1. Повертаємо управління картці фільму ЗАВЖДИ (для телефону це полагодить свайп)
-                    Lampa.Controller.toggle(controllerName);
-                    
-                    // 2. А ось фокус (рамку) ставимо ТІЛЬКИ якщо це НЕ тач (ТВ/пульт)
+                    // === ТУТ САМЕ ТОЙ КОД, ЩО ПРАЦЮВАВ ===
+                    // Пересмикуємо активність, щоб відновити свайпи на телефоні
+                    if (Lampa.Activity.active() && Lampa.Activity.active().activity) {
+                        Lampa.Activity.active().activity.toggle();
+                    } else {
+                        Lampa.Controller.toggle(controllerName);
+                    }
+
+                    // А фокус ставимо тільки для ТБ (щоб не було рамок на телефоні)
                     if (!Lampa.Platform.is('touch')) {
                         Lampa.Controller.collectionFocus(btnElement[0], renderContainer[0]);
                     }
@@ -159,6 +163,7 @@
                     });
                 },
                 onBack: function() {
+                    // Повертаємося до списку тегів
                     _this.openTagsMenu(allTags, btnElement, renderContainer);
                 }
             });
