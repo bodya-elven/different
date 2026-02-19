@@ -1,14 +1,20 @@
 (function () {
     'use strict';
 
-    var plugin_name = 'Toloka Dub Badges';
+    var plugin_name = 'Toloka Dub Badges PRO';
     
-    // Налаштування черги
-    var maxConcurrent = 2; // Максимальна кількість одночасних запитів
-    var activeRequests = 0; // Поточна кількість активних запитів
-    var requestQueue = []; // Сама черга завдань
+    // ==========================================
+    // ⚙️ НАЛАШТУВАННЯ КУКІ (ВСТАВ СЮДИ СВІЙ COOKIE)
+    // ==========================================
+    // Заміни текст 'ВАШ_КУКІ_ТУТ' на те, що ти знайшов.
+    // Приклад: 'toloka_u=12345; toloka_sid=abc123def456'
+    var myTolokaCookie = 'toloka_sid=c1ec5b94c00970b6cc396f70b898d9c9'; 
+    // ==========================================
 
-    // Додаємо стилі для бейджів
+    var maxConcurrent = 2; // Максимум 2 запити одночасно
+    var activeRequests = 0; 
+    var requestQueue = []; 
+
     var css = `
         .toloka-badge {
             display: inline-flex;
@@ -23,6 +29,9 @@
             font-weight: bold;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
+        .toloka-badge-error {
+            background: rgba(183, 28, 28, 0.8); /* Червоний колір для помилки */
+        }
         .toloka-badge-container {
             margin-top: 5px;
             margin-bottom: 5px;
@@ -32,7 +41,6 @@
     `;
     $('head').append('<style>' + css + '</style>');
 
-    // Функція пошуку студій у тексті
     function extractStudios(html) {
         var studios = [];
         var regex = /переклад:.*?\|\s*([^<\n\r]+)/g;
@@ -47,14 +55,11 @@
         return studios;
     }
 
-    // Головний контролер черги
     function processQueue() {
-        // Якщо черга порожня або ліміт запитів вичерпано, чекаємо
         if (requestQueue.length === 0 || activeRequests >= maxConcurrent) {
             return;
         }
 
-        // Беремо завдання з черги та збільшуємо лічильник активних запитів
         activeRequests++;
         var task = requestQueue.shift();
 
@@ -63,34 +68,39 @@
 
         network.native('https://toloka.to/t' + task.topicId, function (html) {
             task.loadingBadge.remove();
-            var studios = extractStudios(html);
             
-            if (studios.length > 0) {
-                studios.forEach(function(studio) {
-                    task.badgeContainer.append('<span class="toloka-badge">🎤 UKR - ' + studio + '</span>');
-                });
+            // Перевіряємо, чи пустила нас Толока, чи видала форму входу
+            if (html.indexOf('name="login"') !== -1 || html.indexOf('Введіть ім\'я користувача') !== -1) {
+                task.badgeContainer.append('<span class="toloka-badge toloka-badge-error">❌ Кукі не працюють (потрібен логін)</span>');
+            } else {
+                var studios = extractStudios(html);
+                if (studios.length > 0) {
+                    studios.forEach(function(studio) {
+                        task.badgeContainer.append('<span class="toloka-badge">🎤 UKR - ' + studio + '</span>');
+                    });
+                }
             }
             
-            // Звільняємо слот і запускаємо наступний запит із невеличкою затримкою
             activeRequests--;
             setTimeout(processQueue, 500); 
 
         }, function (a, c) {
-            task.loadingBadge.text('❌ Помилка');
+            task.loadingBadge.text('❌ Помилка мережі');
             setTimeout(function() { task.loadingBadge.remove(); }, 3000);
             
-            // Навіть у разі помилки звільняємо слот
             activeRequests--;
             setTimeout(processQueue, 500); 
         }, false, {
-            dataType: 'text'
+            dataType: 'text',
+            // ОСЬ ТУТ Lampa передає твої кукі на сервер Толоки
+            headers: {
+                'Cookie': myTolokaCookie
+            }
         });
         
-        // Одразу намагаємося запустити ще один запит (щоб їх було 2)
         processQueue(); 
     }
 
-    // Обробка окремого торрента в списку
     function processTorrentItem(item_dom, torrent_data) {
         var tracker = (torrent_data.tracker || '').toLowerCase();
         if (tracker.indexOf('toloka') === -1) return;
@@ -109,18 +119,15 @@
         var loadingBadge = $('<span class="toloka-badge" style="background: #555;">⏳ Шукаю...</span>');
         badgeContainer.append(loadingBadge);
 
-        // Додаємо завдання в чергу
         requestQueue.push({
             topicId: topicId,
             badgeContainer: badgeContainer,
             loadingBadge: loadingBadge
         });
 
-        // "Штурхаємо" чергу, щоб вона почала працювати
         processQueue();
     }
 
-    // Відстеження появи нових елементів на екрані
     var observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.addedNodes && mutation.addedNodes.length > 0) {
@@ -143,7 +150,6 @@
         });
     });
 
-    // Ініціалізація
     Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') {
             observer.observe(document.body, { childList: true, subtree: true });
