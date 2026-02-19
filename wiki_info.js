@@ -357,6 +357,7 @@
                 success: function(htmlContent) {
                     htmlContent = htmlContent.replace(/src="\/\//g, 'src="https://');
                     htmlContent = htmlContent.replace(/href="\//g, 'href="https://wikipedia.org/');
+                    htmlContent = htmlContent.replace(/srcset=/g, 'data-srcset=');
                     htmlContent = htmlContent.replace(/style="[^"]*"/g, ""); 
                     htmlContent = htmlContent.replace(/bgcolor="[^"]*"/g, "");
                     
