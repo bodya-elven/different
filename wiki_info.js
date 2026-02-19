@@ -60,7 +60,7 @@
                 '.wiki-close-btn { width: 50px; height: 50px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; border: 2px solid transparent; cursor: pointer; }' +
                 '.wiki-close-btn.focus { border-color: #fff; background: #555; outline: none; }' +
                 
-                '.wiki-content-scroll { flex: 1; overflow-y: auto; padding: 20px 5%; color: #efefef; line-height: 1.6; font-size: 1.3em; -webkit-overflow-scrolling: touch; }' +
+                '.wiki-content-scroll { flex: 1; overflow-y: auto; padding: 20px 5%; color: #d0d0d0; line-height: 1.6; font-size: 1.3em; -webkit-overflow-scrolling: touch; }' +
                 '.wiki-loader { text-align: center; margin-top: 50px; color: #888; }' +
                 
                 /* Таблиці тепер наслідують розмір шрифту статті */
@@ -69,7 +69,7 @@
                 '.wiki-content-scroll h1, .wiki-content-scroll h2 { color: #fff; border-bottom: 1px solid #333; margin-top: 1.5em; padding-bottom: 0.3em; }' +
                 '.wiki-content-scroll p { margin-bottom: 1em; text-align: justify; }' +
                 /* Колір посилань змінено на світло-сірий для читабельності */
-                '.wiki-content-scroll a { color: #aaa; text-decoration: none; pointer-events: none; }' +
+                '.wiki-content-scroll a { color: #bbb; text-decoration: none; pointer-events: none; }' +
                 '.wiki-content-scroll .infobox { background: #1a1a1a !important; border: 1px solid #333; color: #ccc; margin-bottom: 20px; box-sizing: border-box; }' +
                 '.wiki-content-scroll .infobox td, .wiki-content-scroll .infobox th { padding: 5px; border-bottom: 1px solid #333; vertical-align: top; }' +
                 '.wiki-content-scroll img { max-width: 100%; height: auto; border-radius: 5px; }' +
