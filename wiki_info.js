@@ -43,10 +43,9 @@
                 '.wiki-icon-img { width: 1.6em; height: 1.6em; object-fit: contain; margin-right: 5px; filter: grayscale(100%) brightness(2); } ' +
                 
                 '.wiki-select-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 5000; display: flex; align-items: center; justify-content: center; }' +
-                '.wiki-select-body { width: 95%; max-width: 1000px; background: #1a1a1a; border-radius: 10px; padding: 20px; border: 1px solid #333; max-height: 80vh; display: flex; flex-direction: column; position: relative; overflow: hidden; }' +
+                '.wiki-select-body { width: 95%; max-width: 1200px; background: #1a1a1a; border-radius: 10px; padding: 20px; border: 1px solid #333; max-height: 80vh; display: flex; flex-direction: column; position: relative; overflow: hidden; }' +
                 
-                /* Налаштування списку статей */
-                '.wiki-items-list { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; display: block; }' +
+                '.wiki-items-list { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }' +
                 '.wiki-item { padding: 12px 15px; margin: 8px 5px; background: #252525; border-radius: 8px; display: flex; align-items: center; gap: 15px; border: 2px solid transparent; cursor: pointer; box-sizing: border-box; }' +
                 '.wiki-item.focus { border-color: #fff; background: #333; outline: none; }' +
                 '.wiki-item__lang { font-size: 1.5em; width: 40px; text-align: center; }' +
@@ -61,19 +60,21 @@
                 '.wiki-close-btn { width: 50px; height: 50px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; border: 2px solid transparent; cursor: pointer; }' +
                 '.wiki-close-btn.focus { border-color: #fff; background: #555; outline: none; }' +
                 
-                /* Текст статті (повертаємо одну колонку) */
                 '.wiki-content-scroll { flex: 1; overflow-y: auto; padding: 25px 5%; color: #d0d0d0; line-height: 1.7; font-size: 1.3em; -webkit-overflow-scrolling: touch; }' +
                 '.wiki-loader { text-align: center; margin-top: 50px; color: #888; }' +
                 
                 '.wiki-content-scroll h2 { border-bottom: 1px solid #333; margin-top: 1.5em; padding-bottom: 0.3em; color: #fff; }' +
                 '.wiki-content-scroll p { margin-bottom: 1.2em; text-align: justify; }' +
-                '.wiki-content-scroll table { background: #1a1a1a !important; color: #ccc !important; width: 100% !important; margin: 20px 0; border-collapse: collapse; font-size: 0.8em !important; display: block; overflow-x: auto; }' +
+                /* Колір посилань змінено на світло-сірий */
+                '.wiki-content-scroll a { color: #bbb; text-decoration: none; pointer-events: none; }' +
+                /* Таблиці тепер наслідують розмір шрифту 1.3em */
+                '.wiki-content-scroll table { background: #1a1a1a !important; color: #ccc !important; width: 100% !important; margin: 20px 0; border-collapse: collapse; display: block; overflow-x: auto; font-size: inherit !important; }' +
                 '.wiki-content-scroll table td, .wiki-content-scroll table th { border: 1px solid #444; padding: 10px; }' +
                 '.wiki-content-scroll .infobox { background: #1a1a1a !important; border: 1px solid #333; padding: 15px; margin-bottom: 25px; width: 100%; box-sizing: border-box; }' +
                 '.wiki-content-scroll img { max-width: 100%; height: auto; border-radius: 8px; }' +
                 '.wiki-content-scroll .mw-empty-elt, .wiki-content-scroll .hatnote, .wiki-content-scroll .ambox, .wiki-content-scroll .navbox { display: none; }' +
 
-                /* Тільки для ТВ (дві колонки в списку статей) */
+                /* Дві колонки для списку статей на ТБ */
                 '@media (min-width: 1100px) {' +
                     '.wiki-items-list { display: flex; flex-wrap: wrap; align-content: flex-start; }' +
                     '.wiki-item { width: calc(50% - 10px); }' +
@@ -212,7 +213,7 @@
                                 '<div class="wiki-item__info">' +
                                     '<div class="wiki-item__type">' + item.typeTitle + '</div>' +
                                     '<div class="wiki-item__title">' + item.title + '</div>' +
-                                '</div>' +
+                                </div>' +
                             '</div>');
                 el.on('hover:enter click', function() {
                     menu.remove();
