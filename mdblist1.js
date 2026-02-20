@@ -396,36 +396,41 @@
   |==========================================================================
   */
 
-  // Базовий список рейтингів
+  // Базовий список рейтингів (Виправлені ID для Rotten Tomatoes та Metacritic)
   var DEFAULT_SOURCES_ORDER = [
     { id: 'imdb', name: 'IMDb', enabled: true },
     { id: 'tmdb', name: 'TMDB', enabled: true },
     { id: 'trakt', name: 'Trakt', enabled: true },
     { id: 'letterboxd', name: 'Letterboxd', enabled: true },
-    { id: 'rt', name: 'Rotten Tomatoes', enabled: true },
+    { id: 'rottentomatoes', name: 'Rotten Tomatoes', enabled: true },
     { id: 'popcorn', name: 'Popcornmeter', enabled: true },
-    { id: 'mc', name: 'Metacritic', enabled: true }
+    { id: 'metacritic', name: 'Metacritic', enabled: true }
   ];
 
   function getCfg() {
     var parseIntDef = function(key, def) { var v = parseInt(Lampa.Storage.get(key, def), 10); return isNaN(v) ? def : v; };
     var parseFloatDef = function(key, def) { var v = parseFloat(Lampa.Storage.get(key, def)); return isNaN(v) ? def : v; };
     
-    // Зчитуємо кастомний порядок з пам'яті, або беремо дефолтний
     var savedConfig = Lampa.Storage.get('ratings_sources_config', null);
-    if (!savedConfig || !Array.isArray(savedConfig)) {
+    
+    if (savedConfig && Array.isArray(savedConfig)) {
+      // Міграція для старих некоректних ID, якщо вони вже встигли зберегтися в пам'ять
+      savedConfig.forEach(function(s) {
+        if (s.id === 'rt') s.id = 'rottentomatoes';
+        if (s.id === 'mc') s.id = 'metacritic';
+      });
+    } else {
       savedConfig = DEFAULT_SOURCES_ORDER;
     }
 
-    // Додаємо іконки та класи до збереженого конфігу для рендеру
     var iconsMap = {
       'imdb': { icon: ICONS.imdb, class: 'rate--imdb' },
       'tmdb': { icon: ICONS.tmdb, class: 'rate--tmdb' },
       'trakt': { icon: ICONS.trakt, class: 'rate--trakt' },
       'letterboxd': { icon: ICONS.letterboxd, class: 'rate--letterboxd' },
-      'rt': { class: 'rate--rt' }, // Іконка визначається динамічно (свіжий/гнилий)
+      'rottentomatoes': { class: 'rate--rt' }, // Іконка визначається динамічно (свіжий/гнилий)
       'popcorn': { icon: ICONS.popcorn, class: 'rate--popcorn' },
-      'mc': { icon: ICONS.metacritic, class: 'rate--mc' }
+      'metacritic': { icon: ICONS.metacritic, class: 'rate--mc' }
     };
 
     var fullSourcesConfig = savedConfig.map(function(s) {
@@ -494,10 +499,8 @@
     });
   }
 
-  // Створення модального вікна редактора джерел
   function openSourcesEditor() {
     var cfg = getCfg();
-    // Робимо глибоку копію поточного конфігу
     var currentOrder = JSON.parse(JSON.stringify(cfg.sourcesConfig));
     var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
 
@@ -520,10 +523,8 @@
           </div>
         `);
 
-        // Встановлюємо стан галочки
         itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
 
-        // Обробники подій
         if (index > 0) {
           itemSort.find('.move-up').on('hover:enter click', function() {
             var temp = currentOrder[index];
@@ -559,7 +560,6 @@
       size: 'small',
       scroll_to_center: true,
       onBack: function() {
-        // Зберігаємо змінений масив
         var configToSave = currentOrder.map(function(s) {
           return { id: s.id, name: s.name, enabled: s.enabled };
         });
@@ -567,7 +567,6 @@
         Lampa.Modal.close();
         Lampa.Controller.toggle('settings_component');
         
-        // Оновлюємо картку, якщо вона відкрита
         setTimeout(function() {
           if (typeof currentRatingsData !== 'undefined' && currentRatingsData) {
             insertRatings(currentRatingsData);
@@ -590,7 +589,6 @@
 
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_mdblist_key', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_mdblist_key }, field: { name: 'API ключ (MDBList)', description: 'Введи свій ключ з mdblist.com' }, onRender: function() {} });
     
-    // Кнопка, яка викликає модальне вікно редактора
     Lampa.SettingsApi.addParam({
       component: 'lmp_ratings',
       param: { type: 'button', name: 'lmp_edit_sources_btn' },
