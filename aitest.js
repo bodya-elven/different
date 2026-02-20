@@ -6,15 +6,13 @@
 
     var manifest = {
         type: "other",
-        version: "1.1.0",
+        version: "1.2.0",
         name: "AI Search",
-        description: "Розумний пошук фільмів з інтеграцією TMDB",
+        description: "Розумний пошук фільмів з інтеграцією у вкладки пошуку",
         component: "ai_search"
     };
 
-    // --- УТИЛІТИ З НОВОГО ПЛАГІНА ---
-    
-    // Розумний парсер (витягує JSON, навіть якщо ШІ додав зайвий текст)
+    // --- РОЗУМНИЙ ПАРСЕР ---
     function parseJsonFromResponse(response) {
         if (!response || typeof response !== 'string') return null;
         response = response.trim();
@@ -41,7 +39,6 @@
         return null;
     }
 
-    // Витягування масиву рекомендацій
     function extractRecommendations(parsedData) {
         var recommendations = [];
         if (!parsedData) return recommendations;
@@ -61,7 +58,7 @@
         return recommendations;
     }
 
-    // Пошук реальних фільмів у базі TMDB
+    // --- ПОШУК ПОСТЕРІВ ЧЕРЕЗ TMDB ---
     function fetchTmdbData(recommendations, callback) {
         var results = [];
         var processed = 0;
@@ -69,7 +66,7 @@
         
         if (limit === 0) return callback([]);
 
-        var request = new Lampa.Reguest(); // Системний мережевий клас Lampa
+        var request = new Lampa.Reguest();
 
         function checkDone() {
             processed++;
@@ -84,7 +81,6 @@
             request.silent(url, function (data) {
                 if (data && data.results && data.results.length > 0) {
                     var best = data.results[0];
-                    // Спроба знайти точний збіг за роком випуску
                     if (item.year) {
                         for (var i = 0; i < data.results.length; i++) {
                             var r = data.results[i];
@@ -94,9 +90,12 @@
                     }
                     if (best.media_type === 'movie' || best.media_type === 'tv') {
                         results.push({
-                            title: (best.title || best.name) + (item.year ? ' (' + item.year + ')' : ''),
+                            title: best.title || best.name,
                             id: best.id,
-                            type: best.media_type
+                            type: best.media_type,
+                            poster_path: best.poster_path,
+                            vote_average: best.vote_average || 0,
+                            year: (best.release_date || best.first_air_date || '').substring(0, 4)
                         });
                     }
                 }
@@ -105,10 +104,136 @@
         });
     }
 
-    // --- ГОЛОВНА ЛОГІКА ПЛАГІНА ---
+    // --- ЗАПИТ ДО OPENROUTER ---
+    function askAI(query) {
+        var apiKey = Lampa.Storage.get('ai_search_api_key');
+        var model = Lampa.Storage.get('ai_search_model') || 'google/gemini-2.0-flash-lite-preview-02-05:free';
+        var limit = Lampa.Storage.get('ai_search_limit') || 15;
 
+        var prompt = 'Запит: "' + query + '"\n' +
+            'Запропонуй рівно ' + limit + ' фільмів/серіалів.\n' +
+            'Формат СУВОРО JSON: {"recommendations":[{"title":"Назва","year":2023}]}\n' +
+            'ТОЛЬКО JSON, без жодного тексту.';
+
+        return new Promise(function(resolve) {
+            $.ajax({
+                url: 'https://openrouter.ai/api/v1/chat/completions',
+                type: 'POST',
+                timeout: 60000, 
+                headers: {
+                    'Authorization': 'Bearer ' + apiKey,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://github.com/lampa-app',
+                    'X-Title': 'Lampa AI Search'
+                },
+                data: JSON.stringify({
+                    model: model,
+                    messages: [
+                        { role: "system", content: "Ти кіноексперт. Відповідай ТІЛЬКИ валідним JSON." },
+                        { role: "user", content: prompt }
+                    ],
+                    response_format: { type: "json_object" } 
+                }),
+                success: function(response) {
+                    if (response && response.choices && response.choices.length > 0) {
+                        var rawText = response.choices[0].message.content;
+                        var parsed = parseJsonFromResponse(rawText);
+                        resolve(extractRecommendations(parsed));
+                    } else {
+                        resolve([]);
+                    }
+                },
+                error: function(jqXHR, textStatus) {
+                    var status = jqXHR.status;
+                    if (textStatus === 'timeout') Lampa.Noty.show('Помилка: ШІ думає занадто довго (таймаут).');
+                    else if (status === 429) Lampa.Noty.show('Помилка 429: Сервер AI перевантажений.');
+                    else if (status === 404) Lampa.Noty.show('Помилка 404: Модель не знайдено.');
+                    resolve(null);
+                }
+            });
+        });
+    }
+
+    // --- ІНТЕГРАЦІЯ У ВКЛАДКУ ПОШУКУ LAMPA ---
+    var AiSearchSource = {
+        title: 'AI Пошук',
+        search: function (params, oncomplite) {
+            var query = decodeURIComponent(params.query || '').trim();
+            if (!query) return oncomplite([]);
+
+            var apiKey = Lampa.Storage.get('ai_search_api_key');
+            if (!apiKey) {
+                Lampa.Noty.show('Введіть API ключ OpenRouter у Налаштуваннях!');
+                return oncomplite([]);
+            }
+
+            Lampa.Noty.show('AI генерує підбірку (зачекайте)...');
+
+            askAI(query).then(function(recs) {
+                if (!recs || recs.length === 0) {
+                    Lampa.Noty.show('AI нічого не знайшов або сталася помилка.');
+                    return oncomplite([]);
+                }
+
+                Lampa.Noty.show('Завантаження постерів...');
+                
+                fetchTmdbData(recs, function(tmdbResults) {
+                    if (tmdbResults.length === 0) {
+                        Lampa.Noty.show('Фільми знайдені AI відсутні в базі TMDB.');
+                        return oncomplite([]);
+                    }
+
+                    // Форматуємо результати для відмальовки карток Lampa
+                    var formattedResults = tmdbResults.map(function(item) {
+                        return {
+                            id: item.id,
+                            title: item.title,
+                            name: item.title,
+                            poster_path: item.poster_path ? Lampa.TMDB.image('t/p/w200' + item.poster_path) : '',
+                            release_year: item.year,
+                            vote_average: item.vote_average,
+                            type: item.type,
+                            method: item.type,
+                            source: 'tmdb'
+                        };
+                    });
+
+                    oncomplite([{
+                        title: 'Знайдено штучним інтелектом',
+                        results: formattedResults,
+                        total: formattedResults.length
+                    }]);
+                });
+            });
+        },
+        params: {
+            save: true,
+            lazy: true,
+            nofound: 'За цим запитом AI нічого не рекомендує'
+        },
+        onSelect: function (params, close) {
+            close();
+            if (params.element) {
+                Lampa.Activity.push({
+                    url: '',
+                    title: params.element.type === 'tv' ? 'Сериал' : 'Фильм',
+                    component: 'full',
+                    id: params.element.id,
+                    method: params.element.method,
+                    source: 'tmdb'
+                });
+            }
+        }
+    };
+
+    // --- ГОЛОВНА ЛОГІКА ІНІЦІАЛІЗАЦІЇ ---
     function startPlugin() {
-        // Налаштування (безпечний варіант)
+        // Додаємо вкладку пошуку
+        if (Lampa.Search) {
+            Lampa.Search.addSource(AiSearchSource);
+        }
+
+        // Налаштування меню
         Lampa.SettingsApi.addComponent({
             component: 'ai_search',
             name: 'AI Search',
@@ -120,7 +245,7 @@
             param: { type: 'button', component: 'ai_search_key_btn' },
             field: { 
                 name: 'API ключ OpenRouter', 
-                description: Lampa.Storage.get('ai_search_api_key') ? 'Ключ встановлено' : 'Не встановлено (натисніть, щоб ввести)'
+                description: Lampa.Storage.get('ai_search_api_key') ? 'Ключ встановлено' : 'Не встановлено'
             },
             onChange: function () {
                 Lampa.Input.edit({
@@ -144,7 +269,7 @@
             },
             onChange: function () {
                 Lampa.Input.edit({
-                    title: 'Введіть назву моделі',
+                    title: 'Назва моделі',
                     value: Lampa.Storage.get('ai_search_model', 'google/gemini-2.0-flash-lite-preview-02-05:free'),
                     free: true,
                     nosave: true
@@ -166,130 +291,15 @@
             field: { name: 'Кількість результатів', description: 'Скільки варіантів показувати' },
             onChange: function (val) { Lampa.Storage.set('ai_search_limit', val); }
         });
-
-        // Додавання кнопки в головне меню
-        if (!$('.menu__item.ai-search-btn').length) {
-            var btn = $('<div class="menu__item selector ai-search-btn">' +
-                '<div class="menu__icons">' +
-                    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/></svg>' +
-                '</div>' +
-                '<div class="menu__title">AI Search</div>' +
-            '</div>');
-
-            btn.on('hover:enter', function () {
-                var apiKey = Lampa.Storage.get('ai_search_api_key');
-                if (!apiKey) {
-                    Lampa.Noty.show('Спочатку введіть API ключ у Налаштуваннях!');
-                    return;
-                }
-
-                Lampa.Input.edit({
-                    title: 'Що хочете подивитися?',
-                    value: '',
-                    free: true,
-                    nosave: true
-                }, function (query) {
-                    if (query) {
-                        Lampa.Noty.show('AI генерує підбірку (може зайняти до 30с)...');
-                        
-                        askAI(query).then(function(recs) {
-                            if (recs && recs.length > 0) {
-                                Lampa.Noty.show('Пошук постерів у базі...');
-                                
-                                fetchTmdbData(recs, function(tmdbResults) {
-                                    if (tmdbResults.length > 0) {
-                                        Lampa.Select.show({
-                                            title: 'AI рекомендує:',
-                                            items: tmdbResults,
-                                            onSelect: function (item) {
-                                                // ВАУ-ефект: одразу відкриваємо картку фільму!
-                                                Lampa.Activity.push({
-                                                    url: '',
-                                                    title: item.title,
-                                                    component: 'full',
-                                                    id: item.id,
-                                                    method: item.type,
-                                                    source: 'tmdb'
-                                                });
-                                            },
-                                            onBack: function () { Lampa.Controller.toggle('menu'); }
-                                        });
-                                    } else {
-                                        Lampa.Noty.show('AI знайшов фільми, але їх немає у базі TMDB.');
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
-            });
-
-            $('.menu .menu__list').append(btn);
-        }
     }
 
-    // Запит до OpenRouter з примусом до JSON
-    function askAI(query) {
-        var apiKey = Lampa.Storage.get('ai_search_api_key');
-        var model = Lampa.Storage.get('ai_search_model') || 'google/gemini-2.0-flash-lite-preview-02-05:free';
-        var limit = Lampa.Storage.get('ai_search_limit') || 15;
-
-        // Строгий промпт, як у плагіні-прикладі
-        var prompt = 'Запит: "' + query + '"\n' +
-            'Запропонуй рівно ' + limit + ' фільмів/серіалів.\n' +
-            'Формат СУВОРО JSON: {"recommendations":[{"title":"Назва","year":2023}]}\n' +
-            'ТОЛЬКО JSON, без жодного тексту.';
-
-        return new Promise(function(resolve) {
-            $.ajax({
-                url: 'https://openrouter.ai/api/v1/chat/completions',
-                type: 'POST',
-                timeout: 60000, // 60 секунд на "подумати"
-                headers: {
-                    'Authorization': 'Bearer ' + apiKey,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://github.com/lampa-app',
-                    'X-Title': 'Lampa AI Search'
-                },
-                data: JSON.stringify({
-                    model: model,
-                    messages: [
-                        { role: "system", content: "Ти кіноексперт. Відповідай ТІЛЬКИ валідним JSON." },
-                        { role: "user", content: prompt }
-                    ],
-                    response_format: { type: "json_object" } // Змушуємо OpenRouter віддати JSON
-                }),
-                success: function(response) {
-                    if (response && response.choices && response.choices.length > 0) {
-                        var rawText = response.choices[0].message.content;
-                        var parsed = parseJsonFromResponse(rawText);
-                        var recs = extractRecommendations(parsed);
-                        
-                        if (recs.length > 0) {
-                            resolve(recs);
-                        } else {
-                            Lampa.Noty.show('Помилка: ШІ не зміг сформувати список.');
-                            resolve([]);
-                        }
-                    } else {
-                        Lampa.Noty.show('Порожня відповідь від сервера.');
-                        resolve([]);
-                    }
-                },
-                error: function(jqXHR, textStatus) {
-                    var status = jqXHR.status;
-                    if (textStatus === 'timeout') Lampa.Noty.show('Помилка: ШІ думає занадто довго.');
-                    else if (status === 429) Lampa.Noty.show('Помилка 429: Сервер AI перевантажений.');
-                    else Lampa.Noty.show('Помилка ' + status + '. Див. консоль.');
-                    
-                    resolve(null);
-                }
-            });
+    if (window.appready) {
+        setTimeout(startPlugin, 500); // Таймут потрібен, щоб Lampa.Search встиг завантажитись
+    } else {
+        Lampa.Listener.follow('app', function (e) { 
+            if (e.type === 'ready') setTimeout(startPlugin, 500); 
         });
     }
-
-    if (window.appready) startPlugin();
-    else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') startPlugin(); });
 
     if (Lampa.Manifest) Lampa.Manifest.plugins = manifest;
 })();
