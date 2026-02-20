@@ -6,7 +6,7 @@
 
     var manifest = {
         type: "other",
-        version: "1.3.2",
+        version: "1.3.3",
         name: "AI Search (Gemini)",
         description: "Розумний пошук фільмів через Google Gemini 1.5",
         component: "ai_search"
@@ -107,16 +107,21 @@
     // --- ЗАПИТ ДО GEMINI API ---
     function askAI(query) {
         var apiKey = (Lampa.Storage.get('ai_search_api_key') || '').trim();
-        var rawModel = Lampa.Storage.get('ai_search_model') || 'gemini-1.5-flash';
+        var rawModel = Lampa.Storage.get('ai_search_model') || '';
         var limit = parseInt(Lampa.Storage.get('ai_search_limit')) || 15;
 
         if (apiKey.indexOf('sk-') === 0) {
-            Lampa.Noty.show('Помилка: Ви використовуєте ключ OpenRouter. Потрібен ключ Google (AIza...)');
+            Lampa.Noty.show('Помилка: Це ключ від OpenRouter! Отримайте ключ в Google AI Studio (починається з AIza...)');
             return Promise.resolve([]);
         }
 
-        // Жорстка очистка назви моделі
-        var model = rawModel.replace('models/', '').replace(/\s+/g, '').trim();
+        // ЖОРСТКА ОЧИСТКА: Видаляємо всі неанглійські букви, пробіли, лапки. Залишаємо тільки a-z, 0-9, крапку та дефіс.
+        var model = rawModel.replace(/[^a-zA-Z0-9.\-]/g, '');
+        
+        // Якщо після очистки нічого не залишилось, використовуємо гарантовано правильний дефолт
+        if (!model) {
+            model = 'gemini-1.5-flash';
+        }
 
         var prompt = 'Дій як професійний кінокритик. Користувач шукає: "' + query + '".\n' +
             'Знайди рівно ' + limit + ' найкращих фільмів або серіалів, які ідеально підходять під цей запит.\n' +
@@ -125,6 +130,8 @@
 
         return new Promise(function(resolve) {
             var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
+            
+            console.log("Відправка запиту до моделі:", model); // Лог для перевірки
 
             $.ajax({
                 url: apiUrl,
@@ -168,13 +175,13 @@
                     } else if (status === 403) {
                         Lampa.Noty.show('Помилка 403: Доступ заборонено. Перевірте API ключ.');
                     } else if (status === 404) {
-                        Lampa.Noty.show('Помилка 404: Модель "' + model + '" не знайдено в Google.');
+                        Lampa.Noty.show('Помилка 404: Модель "' + model + '" не знайдено. Перевірте консоль.');
                     } else if (status === 429) {
                         Lampa.Noty.show('Помилка 429: Перевищено ліміт запитів до Gemini.');
                     } else {
                         Lampa.Noty.show('Помилка сервера: ' + status);
                     }
-                    console.error('Помилка Gemini API:', jqXHR.responseText);
+                    console.error('Помилка Gemini API (Текст):', jqXHR.responseText);
                     resolve(null);
                 }
             });
@@ -288,16 +295,16 @@
             param: { type: 'button', component: 'ai_search_model_btn' },
             field: { 
                 name: 'Модель', 
-                description: Lampa.Storage.get('ai_search_model', 'gemini-1.5-flash') 
+                description: Lampa.Storage.get('ai_search_model') || 'gemini-1.5-flash (За замовчуванням)' 
             },
             onChange: function () {
                 Lampa.Input.edit({
-                    title: 'Назва моделі Gemini',
-                    value: Lampa.Storage.get('ai_search_model', 'gemini-1.5-flash'),
+                    title: 'Назва моделі (залиште пустим для стандарту)',
+                    value: Lampa.Storage.get('ai_search_model', ''),
                     free: true,
                     nosave: true
                 }, function (new_val) {
-                    Lampa.Storage.set('ai_search_model', new_val.replace(/\s+/g, '').trim());
+                    Lampa.Storage.set('ai_search_model', new_val.trim());
                     Lampa.Settings.update(); 
                 });
             }
