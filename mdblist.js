@@ -397,7 +397,7 @@
     if (!rateLine || !rateLine.length) return;
     rateLine.removeClass('lmp-is-loading-ratings');
   }
-  /*
+    /*
   |==========================================================================
   | НАЛАШТУВАННЯ ТА СТИЛІ
   |==========================================================================
@@ -480,31 +480,37 @@
     if (window.lmp_ratings_add_param_ready) return;
     window.lmp_ratings_add_param_ready = true;
 
-    Lampa.SettingsApi.addComponent({ component: 'lmp_ratings', name: 'Рейтинги (MDBList)', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l3.09 6.26L22 10.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 15.14l-5-4.87 6.91-1.01L12 3z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>' });
+    Lampa.SettingsApi.addComponent({
+      component: 'lmp_ratings',
+      name: 'Рейтинги (MDBList)',
+      icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l3.09 6.26L22 10.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 15.14l-5-4.87 6.91-1.01L12 3z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>'
+    });
 
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_mdblist_key', type: 'input', "default": RCFG_DEFAULT.ratings_mdblist_key }, field: { name: 'API ключ (MDBList)', description: 'Введи свій ключ з mdblist.com' } });
+    Lampa.SettingsApi.addParam({
+      component: 'lmp_ratings',
+      param: { name: 'ratings_mdblist_key', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_mdblist_key },
+      field: { name: 'API ключ (MDBList)', description: 'Введи свій ключ з mdblist.com' },
+      onRender: function() {}
+    });
     
     Lampa.SettingsApi.addParam({ 
-        component: 'lmp_ratings', 
-        param: { 
-            name: 'ratings_cache_days', 
-            type: 'select', 
-            values: { '1': '1 день', '3': '3 дні', '5': '5 днів', '7': '7 днів' },
-            "default": RCFG_DEFAULT.ratings_cache_days 
-        }, 
-        field: { name: 'Термін зберігання рейтингів (у кеші)', description: 'Скільки часу зберігати дані фільму перед повторним запитом.' } 
+      component: 'lmp_ratings', 
+      param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, 
+      field: { name: 'Термін зберігання рейтингів', description: 'Введи кількість днів (наприклад: 3). Кеш очищується після цього часу.' },
+      onRender: function() {}
     });
 
     Lampa.SettingsApi.addParam({ 
-        component: 'lmp_ratings', 
-        param: { type: 'button', component: 'lmp_clear_cache' }, 
-        field: { name: 'Очистити кеш рейтингів', description: 'Примусово видалити всі збережені рейтинги з пам\'яті пристрою.' }, 
-        onChange: function() { lmpRatingsClearCache(); } 
+      component: 'lmp_ratings', 
+      param: { type: 'button', component: 'lmp_clear_cache' }, 
+      field: { name: 'Очистити кеш рейтингів', description: 'Примусово видалити всі збережені рейтинги з пам\'яті пристрою.' }, 
+      onChange: function() { lmpRatingsClearCache(); },
+      onRender: function() {}
     });
 
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', "default": RCFG_DEFAULT.ratings_rate_border }, field: { name: 'Рамка плиток рейтингів' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів' } });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_rate_border }, field: { name: 'Рамка плиток рейтингів' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів' }, onRender: function() {} });
 
     var sources = [
       { id: 'imdb', name: 'IMDb' }, { id: 'tmdb', name: 'TMDB' }, { id: 'trakt', name: 'Trakt' }, 
@@ -513,8 +519,18 @@
     ];
 
     sources.forEach(function(s) {
-      Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_enable_' + s.id, type: 'trigger', "default": true }, field: { name: 'Показувати ' + s.name } });
-      Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_order_' + s.id, type: 'input', "default": RCFG_DEFAULT['ratings_order_' + s.id] }, field: { name: 'Порядок ' + s.name, description: 'Чим менша цифра, тим лівіше стоїть плитка.' } });
+      Lampa.SettingsApi.addParam({
+        component: 'lmp_ratings',
+        param: { name: 'ratings_enable_' + s.id, type: 'trigger', values: '', "default": true },
+        field: { name: 'Показувати ' + s.name },
+        onRender: function() {}
+      });
+      Lampa.SettingsApi.addParam({
+        component: 'lmp_ratings',
+        param: { name: 'ratings_order_' + s.id, type: 'input', values: '', "default": RCFG_DEFAULT['ratings_order_' + s.id] },
+        field: { name: 'Порядок ' + s.name, description: 'Чим менша цифра, тим лівіше стоїть плитка.' },
+        onRender: function() {}
+      });
     });
   }
 
