@@ -390,7 +390,7 @@
     if (!rateLine || !rateLine.length) return;
     rateLine.removeClass('lmp-is-loading-ratings');
   }
-  /*
+   /*
   |==========================================================================
   | НАЛАШТУВАННЯ ТА СТИЛІ
   |==========================================================================
@@ -398,42 +398,8 @@
   function getCfg() {
     var parseIntDef = function(key, def) { var v = parseInt(Lampa.Storage.get(key, def), 10); return isNaN(v) ? def : v; };
     var parseFloatDef = function(key, def) { var v = parseFloat(Lampa.Storage.get(key, def)); return isNaN(v) ? def : v; };
-    
-    // Отримуємо масив порядку з пам'яті, або створюємо дефолтний
-    var savedOrder = Lampa.Storage.get('ratings_sources_config', null);
-    if (!savedOrder || !Array.isArray(savedOrder)) {
-      savedOrder = [
-        { id: 'imdb', enabled: true }, { id: 'tmdb', enabled: true },
-        { id: 'trakt', enabled: true }, { id: 'letterboxd', enabled: true },
-        { id: 'rottentomatoes', enabled: true }, { id: 'popcorn', enabled: true },
-        { id: 'metacritic', enabled: true }
-      ];
-    }
 
-    // Словник постійних даних для джерел
-    var sourceDefs = {
-      'imdb': { name: 'IMDb', icon: ICONS.imdb, class: 'rate--imdb' },
-      'tmdb': { name: 'TMDB', icon: ICONS.tmdb, class: 'rate--tmdb' },
-      'trakt': { name: 'Trakt', icon: ICONS.trakt, class: 'rate--trakt' },
-      'letterboxd': { name: 'Letterboxd', icon: ICONS.letterboxd, class: 'rate--letterboxd' },
-      'rottentomatoes': { name: 'Rotten Tomatoes', class: 'rate--rt' },
-      'popcorn': { name: 'Popcornmeter', icon: ICONS.popcorn, class: 'rate--popcorn' },
-      'metacritic': { name: 'Metacritic', icon: ICONS.metacritic, class: 'rate--mc' }
-    };
-
-    // Формуємо фінальний масив конфігурації для рендеру
-    var sourcesConfig = savedOrder.map(function(s) {
-      var def = sourceDefs[s.id] || {};
-      return {
-        id: s.id,
-        enabled: s.enabled !== false,
-        name: def.name,
-        icon: def.icon,
-        class: def.class
-      };
-    });
-    
-    return {
+    var cfgObj = {
       mdblistKey: Lampa.Storage.get('ratings_mdblist_key', RCFG_DEFAULT.ratings_mdblist_key),
       cacheDays: parseIntDef('ratings_cache_days', parseInt(RCFG_DEFAULT.ratings_cache_days)),
       bwLogos: !!Lampa.Storage.field('ratings_bw_logos', RCFG_DEFAULT.ratings_bw_logos),
@@ -443,9 +409,37 @@
       badgeTone: parseIntDef('ratings_badge_tone', RCFG_DEFAULT.ratings_badge_tone),
       gapStep: parseIntDef('ratings_gap_step', RCFG_DEFAULT.ratings_gap_step),
       colorizeAll: !!Lampa.Storage.field('ratings_colorize_all', RCFG_DEFAULT.ratings_colorize_all),
-      rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border),
-      sourcesConfig: sourcesConfig
+      rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border)
     };
+
+    var sources = [
+      { id: 'imdb', name: 'IMDb', icon: ICONS.imdb, class: 'rate--imdb', defOrder: 1 },
+      { id: 'tmdb', name: 'TMDB', icon: ICONS.tmdb, class: 'rate--tmdb', defOrder: 2 },
+      { id: 'trakt', name: 'Trakt', icon: ICONS.trakt, class: 'rate--trakt', defOrder: 3 },
+      { id: 'letterboxd', name: 'Letterboxd', icon: ICONS.letterboxd, class: 'rate--letterboxd', defOrder: 4 },
+      { id: 'rottentomatoes', name: 'Rotten Tomatoes', class: 'rate--rt', defOrder: 5 },
+      { id: 'popcorn', name: 'Popcornmeter', icon: ICONS.popcorn, class: 'rate--popcorn', defOrder: 6 },
+      { id: 'metacritic', name: 'Metacritic', icon: ICONS.metacritic, class: 'rate--mc', defOrder: 7 }
+    ];
+
+    var sourcesConfig = sources.map(function(s) {
+      var isEnabled = !!Lampa.Storage.field('ratings_enable_' + s.id, true);
+      var order = parseIntDef('ratings_order_' + s.id, s.defOrder);
+      return {
+        id: s.id,
+        enabled: isEnabled,
+        name: s.name,
+        icon: s.icon,
+        class: s.class,
+        order: order
+      };
+    });
+
+    // Сортуємо масив згідно з цифрами, які ввів користувач
+    sourcesConfig.sort(function(a, b) { return a.order - b.order; });
+    cfgObj.sourcesConfig = sourcesConfig;
+
+    return cfgObj;
   }
 
   function refreshConfigFromStorage() {
@@ -498,97 +492,40 @@
       icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l3.09 6.26L22 10.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 15.14l-5-4.87 6.91-1.01L12 3z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>' 
     });
 
+    // --- Основні налаштування ---
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_mdblist_key', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_mdblist_key }, field: { name: 'API ключ (MDBList)', description: 'Введи свій ключ з mdblist.com' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'select', values: { '1': '1 день', '3': '3 дні', '5': '5 днів', '7': '7 днів' }, "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання рейтингів (у кеші)', description: 'Скільки часу зберігати дані фільму.' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', component: 'lmp_clear_cache' }, field: { name: 'Очистити кеш рейтингів', description: 'Примусово видалити всі збережені рейтинги з пам\'яті пристрою.' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання кешу', description: 'Кількість днів (наприклад: 3).' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити кеш рейтингів', description: 'Примусово видалити всі збережені рейтинги з пам\'яті пристрою.' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
+
+    // --- Візуальне оформлення ---
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_rate_border }, field: { name: 'Рамка плиток рейтингів' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів' }, onRender: function() {} });
 
-    // === КАСТОМНИЙ БЛОК НАЛАШТУВАННЯ ПОРЯДКУ ТА ВИДИМОСТІ ===
-    Lampa.SettingsApi.addParam({
-      component: 'lmp_ratings',
-      param: { name: 'ratings_sources_editor', type: 'button' },
-      field: { name: '', description: '' }, // Пусті поля, оскільки ми малюємо власний інтерфейс
-      onRender: function(item) {
-        item.empty(); // Видаляємо стандартну верстку
-        
-        var wrap = $('<div class="lmp-sources-editor" style="margin: 15px 0; background: rgba(255,255,255,0.05); border-radius: 8px; overflow:hidden;"></div>');
-        var title = $('<div style="padding: 15px; background: rgba(0,0,0,0.2); font-size: 18px; font-weight: 500;">Порядок та видимість рейтингів</div>');
-        wrap.append(title);
-        
-        var listContainer = $('<div></div>');
-        wrap.append(listContainer);
-        
-        // Іконки кнопок керування
-        var svgUp = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>';
-        var svgDown = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
-        var svgChecked = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 11 12 14 22 4"></polyline></svg>';
-        var svgUnchecked = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>';
-        
-        var sourceNames = { 'imdb': 'IMDb', 'tmdb': 'TMDB', 'trakt': 'Trakt', 'letterboxd': 'Letterboxd', 'rottentomatoes': 'Rotten Tomatoes', 'popcorn': 'Popcornmeter', 'metacritic': 'Metacritic' };
+    // --- Блок видимості та сортування ---
+    // Створюємо заголовок-розділювач, щоб було видно, де починаються джерела
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_sources_title', type: 'title' }, field: { name: 'Видимість та сортування джерел' }, onRender: function() {} });
 
-        function renderList() {
-          listContainer.empty();
-          var cfg = getCfg();
-          var currentOrder = Lampa.Storage.get('ratings_sources_config', null) || cfg.sourcesConfig; // Беремо актуальний стейт
+    var sources = [
+      { id: 'imdb', name: 'IMDb', defOrder: 1 }, { id: 'tmdb', name: 'TMDB', defOrder: 2 }, 
+      { id: 'trakt', name: 'Trakt', defOrder: 3 }, { id: 'letterboxd', name: 'Letterboxd', defOrder: 4 }, 
+      { id: 'rt', name: 'RottenTomatoes', defOrder: 5 }, { id: 'popcorn', name: 'Popcornmeter', defOrder: 6 }, 
+      { id: 'mc', name: 'Metacritic', defOrder: 7 }
+    ];
 
-          currentOrder.forEach(function(src, idx) {
-            var row = $('<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 15px; border-bottom:1px solid rgba(255,255,255,0.05);"></div>');
-            
-            var nameEl = $('<div style="font-size:16px;">' + (sourceNames[src.id] || src.id) + '</div>');
-            if (!src.enabled) nameEl.css('opacity', '0.4'); // Робимо тьмяним, якщо вимкнено
-            
-            var controls = $('<div style="display:flex; gap:8px;"></div>');
-            
-            var btnUp = $('<div class="selector" style="padding:6px; background:rgba(255,255,255,0.1); border-radius:4px; cursor:pointer; display:flex;">' + svgUp + '</div>');
-            var btnDown = $('<div class="selector" style="padding:6px; background:rgba(255,255,255,0.1); border-radius:4px; cursor:pointer; display:flex;">' + svgDown + '</div>');
-            var btnToggle = $('<div class="selector" style="padding:6px; background:rgba(255,255,255,0.1); border-radius:4px; cursor:pointer; display:flex; margin-left: 10px;">' + (src.enabled ? svgChecked : svgUnchecked) + '</div>');
-            
-            // Якщо перший - не можна підняти вище, якщо останній - нижче
-            if (idx === 0) btnUp.css({opacity: 0.3, pointerEvents: 'none'});
-            if (idx === currentOrder.length - 1) btnDown.css({opacity: 0.3, pointerEvents: 'none'});
-            
-            btnUp.on('hover:enter click', function() {
-              var temp = currentOrder[idx];
-              currentOrder[idx] = currentOrder[idx - 1];
-              currentOrder[idx - 1] = temp;
-              saveAndRefresh(currentOrder);
-            });
-            
-            btnDown.on('hover:enter click', function() {
-              var temp = currentOrder[idx];
-              currentOrder[idx] = currentOrder[idx + 1];
-              currentOrder[idx + 1] = temp;
-              saveAndRefresh(currentOrder);
-            });
-            
-            btnToggle.on('hover:enter click', function() {
-              src.enabled = !src.enabled;
-              saveAndRefresh(currentOrder);
-            });
-            
-            controls.append(btnUp, btnDown, btnToggle);
-            row.append(nameEl, controls);
-            listContainer.append(row);
-          });
-        }
-        
-        function saveAndRefresh(newOrder) {
-          Lampa.Storage.set('ratings_sources_config', newOrder);
-          renderList();
-          // Одразу оновлюємо карточку, якщо вона відкрита
-          setTimeout(function() {
-            if (typeof currentRatingsData !== 'undefined' && currentRatingsData) {
-              insertRatings(currentRatingsData);
-              applyStylesToAll();
-            }
-          }, 150);
-        }
-        
-        renderList();
-        item.append(wrap);
-      }
+    sources.forEach(function(s) {
+      Lampa.SettingsApi.addParam({ 
+        component: 'lmp_ratings', 
+        param: { name: 'ratings_enable_' + s.id, type: 'trigger', values: '', "default": true }, 
+        field: { name: 'Показувати ' + s.name }, 
+        onRender: function() {} 
+      });
+      Lampa.SettingsApi.addParam({ 
+        component: 'lmp_ratings', 
+        param: { name: 'ratings_order_' + s.id, type: 'input', values: '', "default": s.defOrder }, 
+        field: { name: 'Порядок: ' + s.name, description: 'Чим менша цифра, тим лівіше відображається рейтинг.' }, 
+        onRender: function() {} 
+      });
     });
   }
 
@@ -597,9 +534,7 @@
     var _set = Lampa.Storage.set;
     Lampa.Storage.set = function(k, v) {
       var out = _set.apply(this, arguments);
-      if (typeof k === 'string' && k.indexOf('ratings_') === 0 && k !== 'ratings_sources_config') {
-         setTimeout(function(){ if(currentRatingsData) insertRatings(currentRatingsData); applyStylesToAll(); }, 150);
-      }
+      if (typeof k === 'string' && k.indexOf('ratings_') === 0) setTimeout(function(){ if(currentRatingsData) insertRatings(currentRatingsData); applyStylesToAll(); }, 150);
       return out;
     };
     applyStylesToAll();
