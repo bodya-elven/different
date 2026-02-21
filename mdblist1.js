@@ -114,7 +114,6 @@
       return null;
     };
   }
-
   /*
   |==========================================================================
   | КОНФІГУРАЦІЯ ТА ЗМІННІ
@@ -141,6 +140,12 @@
   };
 
   var pluginStyles = "<style>" +
+    /* ЗМІННІ ДЛЯ МАСШТАБУВАННЯ (Пікселі) */
+    ":root{" +
+    "  --lmp-logo-offset: 0px;" +
+    "  --lmp-text-offset: 0px;" +
+    "}" +
+
     /* ЛОАДЕР */
     ".loading-dots-container { display: inline-flex; align-items: center; font-size: 0.85em; color: #ccc; padding: 0.6em 1em; border-radius: 0.5em; margin-right: 0.5em; margin-bottom: 0.4em; }" +
     ".loading-dots__text { margin-right: 1em; }" +
@@ -152,30 +157,18 @@
     /* СТИЛІ ПЛИТОК РЕЙТИНГІВ (Без ламання кнопок, з тінями) */
     ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s; margin-right: 0.5em !important; margin-bottom: 0.4em !important; }" +
     ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; }" +
-    ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 2; color: transparent; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
+    
+    /* ІКОНКИ (Жорстко 22px базова висота + зсув) */
+    ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 2; color: transparent; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); height: calc(22px + var(--lmp-logo-offset)) !important; }" +
+    
+    /* ТЕКСТ (Динамічний базовий em + зсув у пікселях) */
     ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); }" +
-    ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: 1.1em; transition: color 0.2s; }" +
+    ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: calc(1.1em + var(--lmp-text-offset)); transition: color 0.2s; }" +
     ".lmp-custom-rate .rate--votes { font-size: 0.6em; opacity: 0.8; margin-left: 0.25em; line-height: 1; }" +
 
     /* ПОЗИЦІЯ ІКОНКИ (Зліва чи справа) */
     ".lmp-dir-right { flex-direction: row-reverse; }" +
     ".lmp-dir-left { flex-direction: row; }" +
-
-    /* СТАБІЛЬНІ РОЗМІРИ ІКОНОК */
-    ":root{" +
-    "  --lmp-h-imdb: 22px; --lmp-h-mc: 22px; --lmp-h-rt: 22px;" +
-    "  --lmp-h-popcorn: 22px; --lmp-h-tmdb: 22px; --lmp-h-mdblist: 22px;" +
-    "  --lmp-h-trakt: 22px; --lmp-h-letterboxd: 22px; --lmp-h-mal: 22px;" +
-    "}" +
-    ".lmp-rate-imdb .source--name img { height: var(--lmp-h-imdb) !important; }" +
-    ".lmp-rate-mc .source--name img { height: var(--lmp-h-mc) !important; }" +
-    ".lmp-rate-rt .source--name img { height: var(--lmp-h-rt) !important; }" +
-    ".lmp-rate-popcorn .source--name img { height: var(--lmp-h-popcorn) !important; }" +
-    ".lmp-rate-tmdb .source--name img { height: var(--lmp-h-tmdb) !important; }" +
-    ".lmp-rate-trakt .source--name img { height: var(--lmp-h-trakt) !important; }" +
-    ".lmp-rate-letterboxd .source--name img { height: var(--lmp-h-letterboxd) !important; }" +
-    ".lmp-rate-mdblist .source--name img { height: var(--lmp-h-mdblist) !important; }" +
-    ".lmp-rate-mal .source--name img { height: var(--lmp-h-mal) !important; }" +
 
     /* КОЛЬОРОВІ ОЦІНКИ (Застосовується ТІЛЬКИ до цифр) */
     ".lmp-color-green { color: #2ecc71 !important; }" +
@@ -188,7 +181,6 @@
     
     ".settings-param__descr,.settings-param__subtitle{white-space:pre-line;}" +
     "</style>";
-
   var RATING_CACHE_KEY = 'lmp_enh_rating_cache';
 
   var RCFG_DEFAULT = {
@@ -196,6 +188,8 @@
     ratings_cache_days: '3',
     ratings_icon_left: true, 
     ratings_show_votes: true,
+    ratings_logo_scale_val: '0', 
+    ratings_text_scale_val: '0',
     ratings_bw_logos: false,
     ratings_badge_alpha: 0,
     ratings_badge_tone: 0,
@@ -248,7 +242,6 @@
     Lampa.Storage.set(RATING_CACHE_KEY, {});
     lmpToast('Кеш рейтингів успішно очищено');
   }
-
   /*
   |==========================================================================
   | ПАРСИНГ ТА ЖОРСТКА НОРМАЛІЗАЦІЯ ДО 10-БАЛЬНОЇ ШКАЛИ (Використання SCORE)
@@ -272,7 +265,7 @@
         rottentomatoes: null, popcorn: null, mal: null
       };
 
-      // 1. Отримуємо рейтинг MDBList: SCORE (не score_average)
+      // 1. Отримуємо рейтинг MDBList: SCORE
       var mdbScore = response.score;
       if (mdbScore) {
           var normMdb = parseFloat(mdbScore);
@@ -372,7 +365,7 @@
       var dirClass = cfg.iconLeft ? 'lmp-dir-left' : 'lmp-dir-right';
 
       var cont = $(
-        '<div class="lmp-custom-rate ' + dirClass + ' ' + src.class + '">' +
+        '<div class="lmp-custom-rate ' + dirClass + '">' +
             '<div class="source--name" title="' + src.name + '">' + iconImg(iconUrl, src.name) + '</div>' +
             '<div class="rate--text-block">' + 
                 '<span class="rate--value ' + colorClass + '">' + itemData.display + '</span>' + 
@@ -430,7 +423,6 @@
       }
     });
   }
-
   /*
   |==========================================================================
   | НАЛАШТУВАННЯ ТА СТИЛІ
@@ -466,26 +458,32 @@
     }
 
     var iconsMap = {
-      'imdb': { icon: ICONS.imdb, class: 'lmp-rate-imdb' },
-      'tmdb': { icon: ICONS.tmdb, class: 'lmp-rate-tmdb' },
-      'trakt': { icon: ICONS.trakt, class: 'lmp-rate-trakt' },
-      'letterboxd': { icon: ICONS.letterboxd, class: 'lmp-rate-letterboxd' },
-      'rottentomatoes': { class: 'lmp-rate-rt' }, 
-      'popcorn': { icon: ICONS.popcorn, class: 'lmp-rate-popcorn' },
-      'metacritic': { icon: ICONS.metacritic, class: 'lmp-rate-mc' },
-      'mdblist': { icon: ICONS.mdblist, class: 'lmp-rate-mdblist' },
-      'mal': { icon: ICONS.mal, class: 'lmp-rate-mal' }
+      'imdb': { icon: ICONS.imdb },
+      'tmdb': { icon: ICONS.tmdb },
+      'trakt': { icon: ICONS.trakt },
+      'letterboxd': { icon: ICONS.letterboxd },
+      'rottentomatoes': {  }, 
+      'popcorn': { icon: ICONS.popcorn },
+      'metacritic': { icon: ICONS.metacritic },
+      'mdblist': { icon: ICONS.mdblist },
+      'mal': { icon: ICONS.mal }
     };
 
     var fullSourcesConfig = savedConfig.map(function(s) {
       var extra = iconsMap[s.id] || {};
-      return { id: s.id, name: s.name, enabled: s.enabled, icon: extra.icon, class: extra.class };
+      return { id: s.id, name: s.name, enabled: s.enabled, icon: extra.icon };
     });
     
+    // 1 крок у виборі = 2 пікселі зміни (для кращої видимості на ТБ)
+    var logoInput = parseInt(Lampa.Storage.get('ratings_logo_scale_val', '0'), 10);
+    var textInput = parseInt(Lampa.Storage.get('ratings_text_scale_val', '0'), 10);
+
     return {
       mdblistKey: Lampa.Storage.get('ratings_mdblist_key', RCFG_DEFAULT.ratings_mdblist_key),
       cacheDays: parseIntDef('ratings_cache_days', parseInt(RCFG_DEFAULT.ratings_cache_days)),
       iconLeft: !!Lampa.Storage.field('ratings_icon_left', RCFG_DEFAULT.ratings_icon_left),
+      logoOffset: (logoInput * 2) + 'px',
+      textOffset: (textInput * 2) + 'px',
       showVotes: !!Lampa.Storage.field('ratings_show_votes', RCFG_DEFAULT.ratings_show_votes),
       bwLogos: !!Lampa.Storage.field('ratings_bw_logos', RCFG_DEFAULT.ratings_bw_logos),
       badgeAlpha: parseFloatDef('ratings_badge_alpha', RCFG_DEFAULT.ratings_badge_alpha),
@@ -505,6 +503,10 @@
 
   function applyStylesToAll() {
     var cfg = getCfg();
+    
+    // Встановлюємо піксельні відступи для масштабу
+    document.documentElement.style.setProperty('--lmp-logo-offset', cfg.logoOffset);
+    document.documentElement.style.setProperty('--lmp-text-offset', cfg.textOffset);
 
     cfg.bwLogos ? $('body').addClass('lmp-enh--mono') : $('body').removeClass('lmp-enh--mono');
     cfg.rateBorder ? $('body').addClass('lmp-enh--rate-border') : $('body').removeClass('lmp-enh--rate-border');
@@ -617,6 +619,20 @@
       field: { name: 'Налаштувати джерела', description: 'Зміна порядку та видимості рейтингів' },
       onChange: function() { openSourcesEditor(); },
       onRender: function() {}
+    });
+
+    Lampa.SettingsApi.addParam({ 
+        component: 'lmp_ratings', 
+        param: { name: 'ratings_logo_scale_val', type: 'select', values: { '-2': '-2', '-1': '-1', '0': '0', '1': '1', '2': '2' }, "default": '0' }, 
+        field: { name: 'Розмір логотипів', description: 'Збільшення/зменшення іконок.' }, 
+        onRender: function() {} 
+    });
+
+    Lampa.SettingsApi.addParam({ 
+        component: 'lmp_ratings', 
+        param: { name: 'ratings_text_scale_val', type: 'select', values: { '-2': '-2', '-1': '-1', '0': '0', '1': '1', '2': '2' }, "default": '0' }, 
+        field: { name: 'Розмір тексту рейтингу', description: 'Збільшення/зменшення цифр.' }, 
+        onRender: function() {} 
     });
 
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_show_votes', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_show_votes }, field: { name: 'Кількість голосів', description: 'Показувати кількість тих, хто проголосував.' }, onRender: function() {} });
