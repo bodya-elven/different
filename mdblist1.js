@@ -95,7 +95,6 @@
 (function() {
   'use strict';
 
-  /* Шими для старих Webview */
   if (window.NodeList && !NodeList.prototype.forEach) {
     NodeList.prototype.forEach = function(callback, thisArg) {
       thisArg = thisArg || window;
@@ -141,58 +140,53 @@
   };
 
   var pluginStyles = "<style>" +
-    ".loading-dots-container { display: flex; align-items: center; font-size: 0.85em; color: #ccc; padding: 0.6em 1em; border-radius: 0.5em; }" +
+    ".loading-dots-container { display: flex; align-items: center; font-size: 0.85em; color: #ccc; padding: 0.6em 1em; border-radius: 0.5em; margin-right: 0.5em; }" +
     ".loading-dots__text { margin-right: 1em; }" +
     ".loading-dots__dot { width: 0.5em; height: 0.5em; border-radius: 50%; background-color: currentColor; animation: loading-dots-bounce 1.4s infinite ease-in-out both; }" +
     ".loading-dots__dot:nth-child(1) { animation-delay: -0.32s; }" +
     ".loading-dots__dot:nth-child(2) { animation-delay: -0.16s; }" +
     "@keyframes loading-dots-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.6; } 40% { transform: translateY(-0.5em); opacity: 1; } }" +
 
-    /* ФІКСИ ІКОНОК: Ховаємо текст alt та дублікати нативних іконок */
-    ".full-start__rate .source--name img:not(:first-child) { display: none !important; }" +
-    ".full-start__rate .source--name { background: none !important; position: relative; display: inline-flex; align-items: center; justify-content: center; }" +
-    ".full-start__rate .source--name img { position: relative; z-index: 2; display: block !important; color: transparent; }" +
+    /* БЕЗПЕЧНІ ВІДСТУПИ ТІЛЬКИ ДЛЯ НАШИХ ПЛИТОК (фікс для кнопок Applecation) */
+    ".lmp-custom-rate { margin-right: 0.5em !important; margin-bottom: 0.3em !important; display: inline-flex !important; flex-direction: row; align-items: center; justify-content: center; min-width: unset !important; height: auto !important; padding: 0.3em 0.5em !important; border-radius: 0.4em; }" +
+    ".lmp-custom-rate:last-of-type { margin-right: 1em !important; }" + /* Відступ від наших плиток до тегу 13+ */
 
-    /* РОЗТАШУВАННЯ ІКОНКИ (Зліва чи справа) */
+    /* ФІКС ІКОНОК (Бронебійний захист від приховування мобільними темами) */
+    ".lmp-custom-rate .source--name { display: inline-flex !important; align-items: center; justify-content: center; font-size: 0; margin-left: 0.25em; }" +
+    ".lmp-custom-rate .source--name img { display: block !important; width: auto !important; min-width: 18px; position: relative; z-index: 2; object-fit: contain; }" +
+
+    /* РОЗТАШУВАННЯ ІКОНКИ ЗЛІВА */
     "body.lmp-enh--icon-left .lmp-custom-rate { flex-direction: row-reverse; }" +
-    "body.lmp-enh--icon-left .lmp-custom-rate > div:first-child { margin-left: 0.3em; margin-right: 0; }" +
+    "body.lmp-enh--icon-left .lmp-custom-rate .source--name { margin-left: 0; margin-right: 0.3em; }" +
 
     /* ГОЛОСИ */
-    ".lmp-rate-votes { font-size: 0.55em; opacity: 0.6; margin-top: -0.1em; display: block; line-height: 1; }" +
+    ".lmp-rate-votes { font-size: 0.52em; opacity: 0.6; margin-top: 0.1em; display: block; line-height: 1; text-align: center; }" +
 
-    /* СТАБІЛЬНІ РОЗМІРИ ІКОНОК */
+    /* СТАБІЛЬНІ РОЗМІРИ ІКОНОК В PX */
     ":root{" +
     "  --lmp-h-imdb: 22px; --lmp-h-mc: 22px; --lmp-h-rt: 24px;" +
     "  --lmp-h-popcorn: 24px; --lmp-h-tmdb: 20px;" +
     "  --lmp-h-trakt: 22px; --lmp-h-letterboxd: 22px;" +
     "}" +
 
-    ".rate--imdb .source--name img { height: var(--lmp-h-imdb); }" +
-    ".rate--mc .source--name img { height: var(--lmp-h-mc); }" +
-    ".rate--rt .source--name img { height: var(--lmp-h-rt); }" +
-    ".rate--popcorn .source--name img { height: var(--lmp-h-popcorn); }" +
-    ".rate--tmdb .source--name img { height: var(--lmp-h-tmdb); }" +
-    ".rate--trakt .source--name img { height: var(--lmp-h-trakt); }" +
-    ".rate--letterboxd .source--name img { height: var(--lmp-h-letterboxd); }" +
+    ".rate--imdb .source--name img { height: var(--lmp-h-imdb) !important; }" +
+    ".rate--mc .source--name img { height: var(--lmp-h-mc) !important; }" +
+    ".rate--rt .source--name img { height: var(--lmp-h-rt) !important; }" +
+    ".rate--popcorn .source--name img { height: var(--lmp-h-popcorn) !important; }" +
+    ".rate--tmdb .source--name img { height: var(--lmp-h-tmdb) !important; }" +
+    ".rate--trakt .source--name img { height: var(--lmp-h-trakt) !important; }" +
+    ".rate--letterboxd .source--name img { height: var(--lmp-h-letterboxd) !important; }" +
 
     /* КОЛЬОРИ ТА РАМКИ */
-    "body:not(.lmp-enh--mono) .full-start__rate.rating--green  { color: #2ecc71; }" +
-    "body:not(.lmp-enh--mono) .full-start__rate.rating--blue   { color: #60a5fa; }" +
-    "body:not(.lmp-enh--mono) .full-start__rate.rating--orange { color: #f59e0b; }" +
-    "body:not(.lmp-enh--mono) .full-start__rate.rating--red    { color: #ef4444; }" +
-    "body.lmp-enh--mono .rating--green, body.lmp-enh--mono .rating--blue, body.lmp-enh--mono .rating--orange, body.lmp-enh--mono .rating--red, body.lmp-enh--mono .full-start__rate { color: inherit !important; }" +
+    "body:not(.lmp-enh--mono) .lmp-custom-rate.rating--green  { color: #2ecc71; }" +
+    "body:not(.lmp-enh--mono) .lmp-custom-rate.rating--blue   { color: #60a5fa; }" +
+    "body:not(.lmp-enh--mono) .lmp-custom-rate.rating--orange { color: #f59e0b; }" +
+    "body:not(.lmp-enh--mono) .lmp-custom-rate.rating--red    { color: #ef4444; }" +
+    "body.lmp-enh--mono .rating--green, body.lmp-enh--mono .rating--blue, body.lmp-enh--mono .rating--orange, body.lmp-enh--mono .rating--red, body.lmp-enh--mono .lmp-custom-rate { color: inherit !important; }" +
 
-    "body.lmp-enh--rate-border .full-start__rate{ border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 0.3em; box-sizing: border-box; }" +
+    "body.lmp-enh--rate-border .lmp-custom-rate { border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 0.3em; box-sizing: border-box; }" +
 
-    /* СТРУКТУРА ПЛИТКИ */
-    ".full-start-new__rate-line .full-start__rate { margin-right: 0.3em !important; display: flex; flex-direction: row; align-items: center; justify-content: center; }" +
-    ".full-start-new__rate-line .full-start__rate:last-child { margin-right: 0 !important; }" +
-    ".full-start__rate .source--name { display:inline-flex; align-items:center; justify-content:center; }" +
-
-    ".full-start-new__rate-line.lmp-is-loading-ratings > :not(#lmp-search-loader)," +
-    ".full-start__rate-line.lmp-is-loading-ratings > :not(#lmp-search-loader) { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.15s; }" +
-
-    ".settings-param__descr,.settings-param__subtitle{white-space:pre-line;}" +
+    ".lmp-is-loading-ratings > :not(#lmp-search-loader) { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.15s; }" +
     "</style>";
 
   var RATING_CACHE_KEY = 'lmp_enh_rating_cache';
@@ -200,12 +194,11 @@
   var RCFG_DEFAULT = {
     ratings_mdblist_key: '',
     ratings_cache_days: '3',
-    ratings_icon_position: 'right',
+    ratings_icon_left: false,
     ratings_show_votes: true,
     ratings_bw_logos: false,
     ratings_badge_alpha: 0.15,
     ratings_badge_tone: 0,
-    ratings_gap_step: 0,
     ratings_colorize_all: false,
     ratings_rate_border: false
   };
@@ -229,22 +222,36 @@
     return 'rating--red';
   }
 
-  function iconImg(url, alt, sizePx, extraStyle) {
-    return '<img style="width:auto; display:inline-block; vertical-align:middle; object-fit:contain; ' + (extraStyle || '') + '" src="' + url + '" alt="' + (alt || '') + '">';
+  function iconImg(url, alt, extraStyle) {
+    return '<img style="' + (extraStyle || '') + '" src="' + url + '" alt="' + (alt || '') + '">';
   }
 
+  /* ФУНКЦІЯ АДАПТОВАНА ПІД APPLE-ТЕМУ ТА ІНШІ ПЛАГІНИ */
   function getPrimaryRateLine(render){
     if (!render || !render.length) return $();
-    var $left = $('.cardify__left .full-start-new__rate-line.rate-fix:not([data-lmp-fake]), .cardify__left .full-start__rate-line.rate-fix:not([data-lmp-fake])', render).first();
+    
+    // 1. Спочатку шукаємо, де Lampa або стороння тема відрендерила нативні рейтинги
+    var $nativeRate = render.find('.full-start__rate, .rate--imdb, .rate--tmdb, .rate--kp').first();
+    if ($nativeRate.length && $nativeRate.parent().length) {
+        return $nativeRate.parent(); // Повертаємо контейнер, де лежить нативний рейтинг
+    }
+
+    // 2. Якщо рейтингів нема взагалі, шукаємо стандартний рядок Lampa
+    var $left = $('.cardify__left .full-start-new__rate-line:not([data-lmp-fake])', render).first();
     if ($left.length) return $left;
-    var $any = $('.full-start-new__rate-line:not([data-lmp-fake]), .full-start__rate-line:not([data-lmp-fake])', render)
-      .filter(function(){ return !$(this).closest('.cardify__right').length; }).first();
+
+    var $any = $('.full-start-new__rate-line:not([data-lmp-fake]), .full-start__rate-line:not([data-lmp-fake])', render).first();
     return $any;
   }
 
   function cleanupRtgInjected(render){
     if (!render || !render.length) return;
-    render.find('.lmp-custom-rate').remove(); 
+    var rateLine = getPrimaryRateLine(render);
+    
+    // Жорстке видалення УСІХ нативних рейтингів (включаючи ті, що генерує Applecation)
+    rateLine.find('.full-start__rate:not(.lmp-custom-rate), .rate--imdb, .rate--tmdb, .rate--kp').remove();
+    // Видаляємо старі кастомні перед оновленням
+    rateLine.find('.lmp-custom-rate').remove(); 
   }
 
   function lmpToast(msg) {
@@ -320,15 +327,6 @@
     return num.toString();
   }
 
-  function cleanupRtgInjected(render){
-    if (!render || !render.length) return;
-    var rateLine = getPrimaryRateLine(render);
-    // Жорстке видалення нативних рейтингів Lampa
-    rateLine.find('.rate--imdb:not(.lmp-custom-rate), .rate--tmdb:not(.lmp-custom-rate), .rate--kp').remove();
-    // Видаляємо наші старі кастомні перед оновленням
-    rateLine.find('.lmp-custom-rate').remove(); 
-  }
-
   function insertRatings(data) {
     var render = Lampa.Activity.active().activity.render();
     if (!render) return;
@@ -336,7 +334,7 @@
     var rateLine = getPrimaryRateLine(render);
     if (!rateLine.length) return;
     
-    // Чистимо лінію перед відмальовуванням
+    // Очищаємо контейнер від нативних рейтингів
     cleanupRtgInjected(render);
 
     var cfg = getCfg();
@@ -364,11 +362,11 @@
 
       var cont = $(
         '<div class="full-start__rate lmp-custom-rate ' + src.class + ' ' + colorClass + '">' +
-        '<div>' + 
+        '<div style="display:flex; flex-direction:column; align-items:center;">' + 
             '<span>' + itemData.display + '</span>' + 
             votesHtml + 
         '</div>' +
-        '<div class="source--name" title="' + src.name + '">' + iconImg(iconUrl, src.name, 22, extraStyle) + '</div>' +
+        '<div class="source--name" title="' + src.name + '">' + iconImg(iconUrl, src.name, extraStyle) + '</div>' +
         '</div>'
       );
       
@@ -484,12 +482,11 @@
     return {
       mdblistKey: Lampa.Storage.get('ratings_mdblist_key', RCFG_DEFAULT.ratings_mdblist_key),
       cacheDays: parseIntDef('ratings_cache_days', parseInt(RCFG_DEFAULT.ratings_cache_days)),
-      iconPos: Lampa.Storage.get('ratings_icon_position', RCFG_DEFAULT.ratings_icon_position),
+      iconLeft: !!Lampa.Storage.field('ratings_icon_left', RCFG_DEFAULT.ratings_icon_left),
       showVotes: !!Lampa.Storage.field('ratings_show_votes', RCFG_DEFAULT.ratings_show_votes),
       bwLogos: !!Lampa.Storage.field('ratings_bw_logos', RCFG_DEFAULT.ratings_bw_logos),
       badgeAlpha: parseFloatDef('ratings_badge_alpha', RCFG_DEFAULT.ratings_badge_alpha),
       badgeTone: parseIntDef('ratings_badge_tone', RCFG_DEFAULT.ratings_badge_tone),
-      gapStep: parseIntDef('ratings_gap_step', RCFG_DEFAULT.ratings_gap_step),
       colorizeAll: !!Lampa.Storage.field('ratings_colorize_all', RCFG_DEFAULT.ratings_colorize_all),
       rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border),
       sourcesConfig: fullSourcesConfig
@@ -508,25 +505,16 @@
 
     cfg.bwLogos ? $('body').addClass('lmp-enh--mono') : $('body').removeClass('lmp-enh--mono');
     cfg.rateBorder ? $('body').addClass('lmp-enh--rate-border') : $('body').removeClass('lmp-enh--rate-border');
-    cfg.iconPos === 'left' ? $('body').addClass('lmp-enh--icon-left') : $('body').removeClass('lmp-enh--icon-left');
+    cfg.iconLeft ? $('body').addClass('lmp-enh--icon-left') : $('body').removeClass('lmp-enh--icon-left');
     
-    var tiles = document.querySelectorAll('.full-start__rate');
+    var tiles = document.querySelectorAll('.lmp-custom-rate');
     var rgba = 'rgba(' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeAlpha + ')';
     
     tiles.forEach(function(tile) {
       tile.style.background = rgba;
-      if (tile.firstElementChild) tile.firstElementChild.style.background = rgba;
     });
 
-    var lines = document.querySelectorAll('.full-start-new__rate-line');
-    var totalEm = (0.3 + cfg.gapStep * 0.1);
-    lines.forEach(function(line) {
-      for (var i = 0; i < line.children.length; i++) line.children[i].style.setProperty('margin-right', totalEm + 'em', 'important');
-      if (line.lastElementChild) line.lastElementChild.style.setProperty('margin-right', '0', 'important');
-    });
-
-    // Монохром для іконок
-    document.querySelectorAll('.full-start__rate .source--name img').forEach(function(img) {
+    document.querySelectorAll('.lmp-custom-rate .source--name img').forEach(function(img) {
       img.style.filter = cfg.bwLogos ? 'grayscale(100%)' : '';
     });
   }
@@ -631,7 +619,7 @@
 
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_show_votes', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_show_votes }, field: { name: 'Кількість голосів', description: 'Показувати кількість тих, хто проголосував.' }, onRender: function() {} });
 
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_position', type: 'select', values: { 'right': 'Справа від цифри', 'left': 'Зліва від цифри' }, "default": RCFG_DEFAULT.ratings_icon_position }, field: { name: 'Розташування іконки', description: 'З якого боку від оцінки буде знаходитись логотип.' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_left', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_icon_left }, field: { name: 'Іконка зліва від цифри', description: 'Перемістити логотип джерела на лівий бік.' }, onRender: function() {} });
 
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання кешу', description: 'Кількість днів (наприклад: 3).' }, onRender: function() {} });
 
@@ -647,7 +635,6 @@
     var _set = Lampa.Storage.set;
     Lampa.Storage.set = function(k, v) {
       var out = _set.apply(this, arguments);
-      // Уникаємо нескінченного циклу при збереженні конфігу сортування
       if (typeof k === 'string' && k.indexOf('ratings_') === 0 && k !== 'ratings_sources_config') {
         setTimeout(function(){ if(currentRatingsData) insertRatings(currentRatingsData); applyStylesToAll(); }, 150);
       }
