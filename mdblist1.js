@@ -115,7 +115,7 @@
       return null;
     };
   }
-  /*
+   /*
   |==========================================================================
   | КОНФІГУРАЦІЯ ТА ЗМІННІ
   |==========================================================================
@@ -154,10 +154,10 @@
 
     /* РОЗТАШУВАННЯ ІКОНКИ */
     "body.lmp-enh--icon-left .lmp-custom-rate { flex-direction: row-reverse; }" +
-    "body.lmp-enh--icon-left .lmp-custom-rate > div:first-child { margin-left: 0.4em; margin-right: 0; }" +
+    "body.lmp-enh--icon-left .lmp-custom-rate > div:first-child { margin-left: 0.3em; margin-right: 0; }" +
 
     /* ГОЛОСИ */
-    ".lmp-rate-votes { font-size: 0.52em; opacity: 0.6; margin-top: 0.1em; display: block; line-height: 1; text-align: center; }" +
+    ".lmp-rate-votes { font-size: 0.55em; opacity: 0.6; margin-top: -0.1em; display: block; line-height: 1; }" +
 
     /* МАСШТАБУВАННЯ СТАЛИМИ ЗНАЧЕННЯМИ (px) */
     ":root{" +
@@ -168,7 +168,7 @@
     "  --lmp-h-trakt: 22px; --lmp-h-letterboxd: 22px;" +
     "}" +
 
-    ".lmp-custom-rate { font-size: calc(19px + var(--lmp-text-offset)) !important; padding: 0.3em 0.6em !important; }" +
+    ".lmp-custom-rate { font-size: calc(19px + var(--lmp-text-offset)) !important; }" +
     
     ".rate--imdb .source--name img { height: calc(var(--lmp-h-imdb) + var(--lmp-logo-offset)); }" +
     ".rate--mc .source--name img { height: calc(var(--lmp-h-mc) + var(--lmp-logo-offset)); }" +
@@ -187,10 +187,9 @@
 
     "body.lmp-enh--rate-border .full-start__rate{ border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 0.3em; box-sizing: border-box; }" +
 
-    /* СТРУКТУРА ПЛИТКИ */
-    ".full-start-new__rate-line .full-start__rate { margin-right: 0.4em !important; display: flex; flex-direction: row; align-items: center; justify-content: center; min-width: unset !important; height: auto !important; }" +
+    ".full-start-new__rate-line .full-start__rate { margin-right: 0.3em !important; display: flex; flex-direction: row; align-items: center; justify-content: center; min-width: unset !important; }" +
     ".full-start-new__rate-line .full-start__rate:last-child { margin-right: 0 !important; }" +
-    ".full-start__rate .source--name { display:inline-flex; align-items:center; justify-content:center; margin: 0 0.1em; }" +
+    ".full-start__rate .source--name { display:inline-flex; align-items:center; justify-content:center; }" +
 
     ".full-start-new__rate-line.lmp-is-loading-ratings > :not(#lmp-search-loader)," +
     ".full-start__rate-line.lmp-is-loading-ratings > :not(#lmp-search-loader) { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.15s; }" +
@@ -480,6 +479,7 @@
       return { id: s.id, name: s.name, enabled: s.enabled, icon: extra.icon, class: extra.class };
     });
     
+    // Розрахунок зміщення: 1 крок = 2 пікселі
     var logoInput = parseInt(Lampa.Storage.get('ratings_logo_scale_val', '0'), 10);
     var textInput = parseInt(Lampa.Storage.get('ratings_text_scale_val', '0'), 10);
 
@@ -519,7 +519,7 @@
     });
 
     var lines = document.querySelectorAll('.full-start-new__rate-line');
-    var totalEm = (0.4 + cfg.gapStep * 0.1);
+    var totalEm = (0.3 + cfg.gapStep * 0.1);
     lines.forEach(function(line) {
       for (var i = 0; i < line.children.length; i++) {
         line.children[i].style.setProperty('margin-right', totalEm + 'em', 'important');
