@@ -164,9 +164,9 @@
     ".menu-edit-list .selector { transition: all 0.2s ease; outline: none; }" +
     ".menu-edit-list .selector.focus { background: #fff !important; color: #000 !important; transform: scale(1.1); box-shadow: 0 0 15px rgba(255,255,255,0.5); z-index: 10; }" +
     
-    /* === НОВІ СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
+    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
     "body.omdb-plugin-active .card__vote { display: none !important; }" + 
-    ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.7); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; }" +
+    ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.7); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; }" +
     ".omdb-custom-rate span { font-weight: bold; }" +
     ".omdb-custom-rate img { width: 1.2em; height: 1.2em; margin-left: 0.3em; object-fit: contain; filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)); }" +
     "</style>";
@@ -475,10 +475,20 @@
   function getOmdbApiKey() {
       var key1 = (Lampa.Storage.get('omdb_api_key_1') || '').trim();
       var key2 = (Lampa.Storage.get('omdb_api_key_2') || '').trim();
+      var key3 = (Lampa.Storage.get('omdb_api_key_3') || '').trim();
+      
       if (omdbKeyIndex === 1 && key1) return key1;
       if (omdbKeyIndex === 1 && !key1 && key2) return key2;
+      if (omdbKeyIndex === 1 && !key1 && !key2 && key3) return key3;
+      
       if (omdbKeyIndex === 2 && key2) return key2;
-      if (omdbKeyIndex === 2 && !key2 && key1) return key1;
+      if (omdbKeyIndex === 2 && !key2 && key3) return key3;
+      if (omdbKeyIndex === 2 && !key2 && !key3 && key1) return key1;
+      
+      if (omdbKeyIndex === 3 && key3) return key3;
+      if (omdbKeyIndex === 3 && !key3 && key1) return key1;
+      if (omdbKeyIndex === 3 && !key3 && !key1 && key2) return key2;
+      
       return null;
   }
 
@@ -489,12 +499,6 @@
       }
       var key = Lampa.Storage ? Lampa.Storage.get('tmdb_api_key', '4ef0d7355d9ffb5151e987764708ce96') : '4ef0d7355d9ffb5151e987764708ce96';
       return 'https://api.themoviedb.org/3/' + base + '?api_key=' + key;
-  }
-
-  function isCardVisible(el) {
-      if (!el || !el.getBoundingClientRect) return false;
-      var rect = el.getBoundingClientRect();
-      return rect.top < (window.innerHeight || document.documentElement.clientHeight) && rect.bottom > 0;
   }
 
   var omdbRequestQueue = [];
@@ -517,11 +521,10 @@
       if (isOmdbRequesting || omdbRequestQueue.length === 0) return;
       isOmdbRequesting = true;
 
-      omdbRequestQueue.sort(function(a, b) {
-          var visA = isCardVisible(a.cardElem) ? 1 : 0;
-          var visB = isCardVisible(b.cardElem) ? 1 : 0;
-          return visB - visA;
-      });
+      // Обрізаємо чергу: лишаємо тільки останні 20 запитів (захист від швидкого скролу)
+      if (omdbRequestQueue.length > 20) {
+          omdbRequestQueue = omdbRequestQueue.slice(-20);
+      }
 
       var task = omdbRequestQueue.shift();
       var type = (task.movie.seasons || task.movie.first_air_date || task.movie.original_name) ? 'tv' : 'movie';
@@ -552,7 +555,8 @@
                       if (data.Response === "True" && data.imdbRating && data.imdbRating !== "N/A") {
                           saveOmdbCache(task.ratingKey, data.imdbRating);
                       } else if (data.Response === "False" && data.Error && data.Error.indexOf("limit") > -1) {
-                          omdbKeyIndex = omdbKeyIndex === 1 ? 2 : 1;
+                          // Перемикання між 3 ключами по колу
+                          omdbKeyIndex = omdbKeyIndex === 1 ? 2 : (omdbKeyIndex === 2 ? 3 : 1);
                           setRetryState(task.ratingKey);
                       } else {
                           saveOmdbCache(task.ratingKey, "N/A");
@@ -844,8 +848,9 @@
     });
 
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'Увімкнути плагін', description: 'Відображати рейтинги IMDb на постерах' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'API Ключ 1', description: 'Основний ключ OMDb (omdbapi.com)' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'API Ключ 2', description: 'Резервний ключ' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'API Ключ 1', description: 'Основний ключ OMDb' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'API Ключ 2', description: 'Резервний ключ 1' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_3', type: 'input', values: '', "default": '' }, field: { name: 'API Ключ 3', description: 'Резервний ключ 2' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Час зберігання кешу', description: 'Кількість днів (наприклад: 7)' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: 'Видалити збережені рейтинги OMDb з пам\'яті.' }, onChange: function() { 
         localStorage.removeItem(OMDB_CACHE_KEY); 
