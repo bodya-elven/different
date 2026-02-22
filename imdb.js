@@ -5,7 +5,7 @@
     var PLUGIN_TITLE = 'IMDb Ratings (OMDb)';
     var ICON_IMDB = 'https://img.icons8.com/color/48/000000/imdb.png';
 
-    // 1. СТВОРЕННЯ МЕНЮ НАЛАШТУВАНЬ (Структура MDBList)
+    // 1. СТВОРЕННЯ МЕНЮ НАЛАШТУВАНЬ (Захищено від крашу)
     function initSettings() {
         if (!Lampa.SettingsApi) return;
 
@@ -23,12 +23,14 @@
             default: true
         });
 
+        // Обов'язково default: '', інакше Lampa видає помилку undefined
         Lampa.SettingsApi.addParam({
             component: PLUGIN_NAME,
             param: 'omdb_api_key_1',
             type: 'input',
             name: 'API Ключ 1',
-            description: 'Основний ключ OMDb (omdbapi.com)'
+            description: 'Основний ключ OMDb (omdbapi.com)',
+            default: '' 
         });
 
         Lampa.SettingsApi.addParam({
@@ -36,10 +38,10 @@
             param: 'omdb_api_key_2',
             type: 'input',
             name: 'API Ключ 2',
-            description: 'Резервний ключ OMDb'
+            description: 'Резервний ключ OMDb',
+            default: ''
         });
 
-        // Використовуємо input замість select
         Lampa.SettingsApi.addParam({
             component: PLUGIN_NAME,
             param: 'omdb_cache_ttl',
@@ -49,20 +51,25 @@
             default: '7'
         });
 
-        Lampa.SettingsApi.addParam({
-            component: PLUGIN_NAME,
-            param: 'omdb_clear_cache',
-            type: 'button',
-            name: 'Очистити кеш',
-            description: 'Видалити збережені рейтинги з пам\'яті'
-        });
-
+        // Кнопку "Очистити кеш" малюємо вручну, щоб уникнути конфлікту типів
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name === PLUGIN_NAME) {
-                e.body.find('[data-name="omdb_clear_cache"]').on('hover:enter click', function () {
-                    localStorage.removeItem('omdb_ratings_cache');
-                    Lampa.Noty.show('Кеш рейтингів IMDb успішно очищено.');
-                });
+                // Уникаємо дублювання кнопки
+                if (e.body.find('.omdb-clear-btn').length === 0) {
+                    var clearBtn = $(`
+                        <div class="settings-param selector omdb-clear-btn" data-type="button">
+                            <div class="settings-param__name">Очистити кеш</div>
+                            <div class="settings-param__descr">Видалити збережені рейтинги з пам'яті</div>
+                        </div>
+                    `);
+
+                    clearBtn.on('hover:enter click', function () {
+                        localStorage.removeItem('omdb_ratings_cache');
+                        Lampa.Noty.show('Кеш рейтингів IMDb успішно очищено.');
+                    });
+
+                    e.body.append(clearBtn);
+                }
             }
         });
     }
@@ -77,7 +84,6 @@
         var cache = getCache();
         var ttlDays = parseInt(Lampa.Storage.get('omdb_cache_ttl', '7'));
         
-        // Захист від введення тексту замість цифр
         if (isNaN(ttlDays) || ttlDays <= 0) ttlDays = 7; 
 
         cache[id] = {
@@ -116,7 +122,7 @@
         currentKeyIndex = currentKeyIndex === 1 ? 2 : 1;
     }
 
-    // 4. ЧЕРГА ЗАПИТІВ (Захист від бану API)
+    // 4. ЧЕРГА ЗАПИТІВ
     var requestQueue = [];
     var isRequesting = false;
 
