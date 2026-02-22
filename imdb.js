@@ -164,12 +164,13 @@
     ".menu-edit-list .selector { transition: all 0.2s ease; outline: none; }" +
     ".menu-edit-list .selector.focus { background: #fff !important; color: #000 !important; transform: scale(1.1); box-shadow: 0 0 15px rgba(255,255,255,0.5); z-index: 10; }" +
     
-    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
-    "body.omdb-plugin-active .card__vote { display: none !important; }" + 
+    /* === СИЛЬНІ СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
+    "body.omdb-plugin-active .card__view > .card__vote { display: none !important; opacity: 0 !important; }" + 
     ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.7); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; }" +
     ".omdb-custom-rate span { font-weight: bold; }" +
     ".omdb-custom-rate img { width: 1.2em; height: 1.2em; margin-left: 0.3em; object-fit: contain; filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)); }" +
     "</style>";
+
   /*
   |==========================================================================
   | БАЗОВІ ФУНКЦІЇ ТА АПІ MDBLIST
@@ -434,7 +435,7 @@
   }
   /*
   |==========================================================================
-  | OMDb ЛОГІКА (НЕЗАЛЕЖНИЙ РЕНДЕР)
+  | OMDb ЛОГІКА (БЕЗПЕЧНІ МЕРЕЖЕВІ ЗАПИТИ)
   |==========================================================================
   */
   var OMDB_CACHE_KEY = 'omdb_ratings_cache';
@@ -516,18 +517,19 @@
       }
   }
 
-  // БЕКЕНД: Тільки запити та кеш (DOM не чіпає)
+  // БЕКЕНД: Тільки запити та кеш (Використання рідного Lampa.Reguest)
   function processOmdbQueue() {
       if (isOmdbRequesting || omdbRequestQueue.length === 0) return;
       isOmdbRequesting = true;
 
-      // Обрізаємо чергу: лишаємо тільки останні 20 запитів (захист від швидкого скролу)
       if (omdbRequestQueue.length > 20) {
-          omdbRequestQueue = omdbRequestQueue.slice(-20);
+          omdbRequestQueue = omdbRequestQueue.slice(-20); // Залишаємо останні 20
       }
 
       var task = omdbRequestQueue.shift();
-      var type = (task.movie.seasons || task.movie.first_air_date || task.movie.original_name) ? 'tv' : 'movie';
+      
+      // Точне визначення типу контенту
+      var type = task.movie.type || (task.movie.name ? 'tv' : 'movie');
       var id = task.movie.id;
 
       if (getCachedOmdbRating(task.ratingKey)) {
@@ -538,40 +540,53 @@
 
       var tmdbReq = new Lampa.Reguest();
       tmdbReq.silent(getTmdbUrl(type, id), function (tmdbData) {
-          var imdbId = tmdbData ? tmdbData.imdb_id : null;
-          if (imdbId) {
-              var apiKey = getOmdbApiKey();
-              if (!apiKey) {
-                  isOmdbRequesting = false;
-                  setTimeout(processOmdbQueue, 100);
-                  return;
-              }
-              $.ajax({
-                  url: 'https://www.omdbapi.com/?i=' + imdbId + '&apikey=' + apiKey,
-                  type: 'GET',
-                  dataType: 'json',
-                  success: function (data) {
-                      delete retryStates[task.ratingKey];
-                      if (data.Response === "True" && data.imdbRating && data.imdbRating !== "N/A") {
-                          saveOmdbCache(task.ratingKey, data.imdbRating);
-                      } else if (data.Response === "False" && data.Error && data.Error.indexOf("limit") > -1) {
-                          // Перемикання між 3 ключами по колу
-                          omdbKeyIndex = omdbKeyIndex === 1 ? 2 : (omdbKeyIndex === 2 ? 3 : 1);
+          try {
+              var parsedTmdb = typeof tmdbData === 'string' ? JSON.parse(tmdbData) : tmdbData;
+              var imdbId = parsedTmdb ? parsedTmdb.imdb_id : null;
+              
+              if (imdbId) {
+                  var apiKey = getOmdbApiKey();
+                  if (!apiKey) {
+                      isOmdbRequesting = false;
+                      setTimeout(processOmdbQueue, 100);
+                      return;
+                  }
+
+                  var omdbUrl = 'https://www.omdbapi.com/?i=' + imdbId + '&apikey=' + apiKey;
+                  var omdbReq = new Lampa.Reguest();
+
+                  omdbReq.silent(omdbUrl, function (omdbData) {
+                      try {
+                          var data = typeof omdbData === 'string' ? JSON.parse(omdbData) : omdbData;
+                          delete retryStates[task.ratingKey];
+                          
+                          if (data.Response === "True" && data.imdbRating && data.imdbRating !== "N/A") {
+                              saveOmdbCache(task.ratingKey, data.imdbRating);
+                          } else if (data.Response === "False" && data.Error && data.Error.indexOf("limit") > -1) {
+                              omdbKeyIndex = omdbKeyIndex === 1 ? 2 : (omdbKeyIndex === 2 ? 3 : 1);
+                              setRetryState(task.ratingKey);
+                          } else {
+                              saveOmdbCache(task.ratingKey, "N/A");
+                          }
+                      } catch (e) {
                           setRetryState(task.ratingKey);
-                      } else {
-                          saveOmdbCache(task.ratingKey, "N/A");
                       }
-                  },
-                  error: function () { setRetryState(task.ratingKey); },
-                  complete: function () {
                       isOmdbRequesting = false;
                       setTimeout(processOmdbQueue, 300);
-                  }
-              });
-          } else {
-              saveOmdbCache(task.ratingKey, "N/A");
+                  }, function () {
+                      setRetryState(task.ratingKey);
+                      isOmdbRequesting = false;
+                      setTimeout(processOmdbQueue, 300);
+                  });
+              } else {
+                  saveOmdbCache(task.ratingKey, "N/A");
+                  isOmdbRequesting = false;
+                  setTimeout(processOmdbQueue, 100);
+              }
+          } catch (e) {
+              setRetryState(task.ratingKey);
               isOmdbRequesting = false;
-              setTimeout(processOmdbQueue, 100);
+              setTimeout(processOmdbQueue, 300);
           }
       }, function () {
           setRetryState(task.ratingKey);
@@ -580,7 +595,7 @@
       });
   }
 
-  // ФРОНТЕНД: Читає кеш і малює незалежний блок
+  // ФРОНТЕНД: Малює незалежний блок
   function drawOmdbRatingInside(el, rating) {
       if (!rating || rating === "N/A") {
           el.style.display = 'none';
@@ -590,25 +605,30 @@
       el.innerHTML = '<span>' + rating + '</span><img src="' + ICON_IMDB_CARD + '">';
   }
 
+  // Безпечний сканер
   function pollOmdbCards() {
       var isEnabled = Lampa.Storage.get('omdb_status', true);
       
       if (!isEnabled) {
-          $('body').removeClass('omdb-plugin-active');
-          $('.omdb-custom-rate').remove();
+          if (document.body.classList.contains('omdb-plugin-active')) {
+              document.body.classList.remove('omdb-plugin-active');
+              document.querySelectorAll('.omdb-custom-rate').forEach(function(el) { el.remove(); });
+          }
           setTimeout(pollOmdbCards, 1000);
           return;
       }
 
-      // Глушимо TMDB глобально
-      $('body').addClass('omdb-plugin-active');
+      // Чистий JS для запобігання крашу jQuery
+      if (!document.body.classList.contains('omdb-plugin-active')) {
+          document.body.classList.add('omdb-plugin-active');
+      }
 
       document.querySelectorAll('.card').forEach(function (card) {
           var data = card.card_data || card.dataset || {};
           if (!data || !data.id) return;
 
           var id = data.id.toString();
-          var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
+          var type = data.type || (data.name ? 'tv' : 'movie');
           var ratingKey = type + '_' + id;
 
           var customRateEl = card.querySelector('.omdb-custom-rate');
@@ -644,6 +664,7 @@
 
       setTimeout(pollOmdbCards, 500);
   }
+
   /*
   |==========================================================================
   | НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
