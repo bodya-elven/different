@@ -449,6 +449,9 @@
   var OMDB_CACHE_KEY = 'omdb_ratings_cache';
   var ICON_IMDB_CARD = 'https://img.icons8.com/color/48/000000/imdb.png';
   
+  // Збереження станів тайм-ауту для карток, що видали помилку
+  var retryStates = {}; 
+
   function getOmdbCache() {
       var cache = localStorage.getItem(OMDB_CACHE_KEY);
       return cache ? JSON.parse(cache) : {};
@@ -490,6 +493,23 @@
       return null;
   }
 
+  // Функція для отримання правильного URL TMDB API
+  function getTmdbUrl(type, id) {
+      var base = type + '/' + id + '/external_ids';
+      if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.api === 'function') {
+          return Lampa.TMDB.api(base);
+      }
+      var key = Lampa.Storage ? Lampa.Storage.get('tmdb_api_key', '4ef0d7355d9ffb5151e987764708ce96') : '4ef0d7355d9ffb5151e987764708ce96';
+      return 'https://api.themoviedb.org/3/' + base + '?api_key=' + key;
+  }
+
+  // Перевірка видимості картки на екрані (для пріоритету)
+  function isCardVisible(el) {
+      if (!el || !el.getBoundingClientRect) return false;
+      var rect = el.getBoundingClientRect();
+      return rect.top < (window.innerHeight || document.documentElement.clientHeight) && rect.bottom > 0;
+  }
+
   var omdbRequestQueue = [];
   var isOmdbRequesting = false;
 
@@ -497,50 +517,68 @@
       if (isOmdbRequesting || omdbRequestQueue.length === 0) return;
       isOmdbRequesting = true;
 
+      // Сортуємо чергу: видимі на екрані картки йдуть першими
+      omdbRequestQueue.sort(function(a, b) {
+          var visA = isCardVisible(a.cardElem) ? 1 : 0;
+          var visB = isCardVisible(b.cardElem) ? 1 : 0;
+          return visB - visA;
+      });
+
       var task = omdbRequestQueue.shift();
-      var apiKey = getOmdbApiKey();
-      var title = task.movie.title || task.movie.name;
-      var year = task.movie.release_date ? task.movie.release_date.split('-')[0] : (task.movie.first_air_date ? task.movie.first_air_date.split('-')[0] : '');
+      var type = (task.movie.seasons || task.movie.first_air_date || task.movie.original_name) ? 'tv' : 'movie';
+      var id = task.movie.id;
 
-      if (!apiKey || !title) {
-          isOmdbRequesting = false;
-          task.callback(null);
-          setTimeout(processOmdbQueue, 50);
-          return;
-      }
-
-      var url = 'https://www.omdbapi.com/?t=' + encodeURIComponent(title) + '&y=' + year + '&apikey=' + apiKey;
-
-      $.ajax({
-          url: url,
-          type: 'GET',
-          dataType: 'json',
-          success: function (data) {
-              if (data.Response === "True" && data.imdbRating && data.imdbRating !== "N/A") {
-                  task.callback(data.imdbRating);
-              } else if (data.Response === "False" && data.Error && data.Error.indexOf("limit") > -1) {
-                  omdbKeyIndex = omdbKeyIndex === 1 ? 2 : 1;
+      // Крок 1: Отримуємо IMDb ID через TMDB
+      var tmdbReq = new Lampa.Reguest();
+      tmdbReq.silent(getTmdbUrl(type, id), function (tmdbData) {
+          var imdbId = tmdbData ? tmdbData.imdb_id : null;
+          
+          if (imdbId) {
+              // Крок 2: Запитуємо OMDb за IMDb ID
+              var apiKey = getOmdbApiKey();
+              if (!apiKey) {
+                  isOmdbRequesting = false;
                   task.callback(null);
-              } else {
-                  task.callback("N/A");
+                  setTimeout(processOmdbQueue, 50);
+                  return;
               }
-          },
-          error: function () {
-              task.callback(null);
-          },
-          complete: function () {
+
+              $.ajax({
+                  url: 'https://www.omdbapi.com/?i=' + imdbId + '&apikey=' + apiKey,
+                  type: 'GET',
+                  dataType: 'json',
+                  success: function (data) {
+                      if (data.Response === "True" && data.imdbRating && data.imdbRating !== "N/A") {
+                          task.callback(data.imdbRating);
+                      } else if (data.Response === "False" && data.Error && data.Error.indexOf("limit") > -1) {
+                          omdbKeyIndex = omdbKeyIndex === 1 ? 2 : 1;
+                          task.callback(null); // Ліміт вичерпано, відправити на тайм-аут
+                      } else {
+                          task.callback("N/A"); // Рейтингу ще немає в базі
+                      }
+                  },
+                  error: function () {
+                      task.callback(null); // Помилка мережі OMDb
+                  },
+                  complete: function () {
+                      isOmdbRequesting = false;
+                      setTimeout(processOmdbQueue, 300); // Пауза 300мс між запитами
+                  }
+              });
+          } else {
+              // Якщо в TMDB немає IMDb ID, зберігаємо як N/A, щоб не спамити запити
+              task.callback("N/A");
               isOmdbRequesting = false;
-              setTimeout(processOmdbQueue, 200); 
+              setTimeout(processOmdbQueue, 100);
           }
+      }, function () {
+          task.callback(null); // Помилка мережі TMDB
+          isOmdbRequesting = false;
+          setTimeout(processOmdbQueue, 300);
       });
   }
 
-  function queueOMDbRequest(movie, callback) {
-      omdbRequestQueue.push({ movie: movie, callback: callback });
-      processOmdbQueue();
-  }
-
-  // Функція прямого малювання в системний блок Lampa
+  // Пряме малювання в системний блок Lampa
   function drawOmdbRatingInside(voteEl, rating) {
       if (!rating || rating === "N/A") {
           voteEl.style.display = 'none';
@@ -570,7 +608,13 @@
       var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
       var ratingKey = type + '_' + id;
 
-      // Захист від гортання (як у референсі)
+      // Перевірка тайм-ауту після помилки
+      if (retryStates[ratingKey]) {
+          if (Date.now() < retryStates[ratingKey].time) {
+              return; // Картка "відпочиває" після помилки
+          }
+      }
+
       voteEl.dataset.omdbId = ratingKey;
 
       var cachedRating = getCachedOmdbRating(ratingKey);
@@ -579,20 +623,43 @@
           return;
       }
 
-      queueOMDbRequest(data, function (rating) {
-          if (voteEl.dataset.omdbId === ratingKey) {
-              if (rating) {
+      // Перевірка, чи картка вже в черзі
+      var inQueue = omdbRequestQueue.some(function(t) { return t.ratingKey === ratingKey; });
+      if (inQueue) return;
+
+      omdbRequestQueue.push({
+          movie: data,
+          cardElem: card,
+          ratingKey: ratingKey,
+          callback: function (rating) {
+              if (rating && rating !== "N/A") {
+                  delete retryStates[ratingKey];
                   saveOmdbCache(ratingKey, rating);
-                  drawOmdbRatingInside(voteEl, rating);
+                  if (voteEl.dataset.omdbId === ratingKey) drawOmdbRatingInside(voteEl, rating);
+              } else if (rating === "N/A") {
+                  delete retryStates[ratingKey];
+                  saveOmdbCache(ratingKey, "N/A");
+                  if (voteEl.dataset.omdbId === ratingKey) drawOmdbRatingInside(voteEl, "N/A");
               } else {
-                  voteEl.dataset.omdbId = 'failed_' + ratingKey;
-                  voteEl.style.display = 'none';
+                  // Логіка тайм-аутів при помилці (null)
+                  var state = retryStates[ratingKey] || { step: 0 };
+                  if (state.step === 0) {
+                      retryStates[ratingKey] = { step: 1, time: Date.now() + 60 * 1000 }; // 1 хвилина
+                      voteEl.dataset.omdbId = ''; // Звільняємо маркер для повторної спроби
+                  } else if (state.step === 1) {
+                      retryStates[ratingKey] = { step: 2, time: Date.now() + 60 * 60 * 1000 }; // 1 година
+                      voteEl.dataset.omdbId = '';
+                  } else {
+                      delete retryStates[ratingKey];
+                      saveOmdbCache(ratingKey, "N/A"); // Здаємося, записуємо failed як N/A
+                      if (voteEl.dataset.omdbId === ratingKey) drawOmdbRatingInside(voteEl, "N/A");
+                  }
               }
           }
       });
+      processOmdbQueue();
   }
 
-  // Безперервний скан карток (як у референсі)
   function pollOmdbCards() {
       if (Lampa.Storage.get('omdb_status', true)) {
           var allCards = document.querySelectorAll('.card');
@@ -613,7 +680,6 @@
       setTimeout(pollOmdbCards, 500);
   }
 
-  // Агресивне перехоплення build (як у референсі)
   function setupOmdbCardListener() {
       if (window.omdb_listener_extensions) return;
       window.omdb_listener_extensions = true;
@@ -845,6 +911,7 @@
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Час зберігання кешу', description: 'Кількість днів (наприклад: 7)' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: 'Видалити збережені рейтинги OMDb з пам\'яті.' }, onChange: function() { 
         localStorage.removeItem(OMDB_CACHE_KEY); 
+        retryStates = {}; // Скидаємо також стани тайм-аутів
         lmpToast('Кеш рейтингів OMDb очищено'); 
     }, onRender: function() {} });
   }
@@ -865,14 +932,14 @@
   function startPlugin() {
     window.combined_ratings_plugin = true;
     
-    // Перехоплювач для MDBList (всередині сторінки фільму)
+    // MDBList логіка сторінки фільму
     Lampa.Listener.follow('full', function(e) {
       if (e.type === 'complite') {
         setTimeout(function() { fetchAdditionalRatings(e.data.movie || e.object || {}); }, 500);
       }
     });
 
-    // Ініціалізація OMDb для постерів (Використовуємо логіку референса)
+    // OMDb логіка постерів каталогу
     setupOmdbCardListener();
     pollOmdbCards();
 
@@ -891,4 +958,3 @@
   if (!window.combined_ratings_plugin) startPlugin();
 
 })();
-
