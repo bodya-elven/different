@@ -168,8 +168,8 @@
     
     /* Індивідуально для Свіжого Томата */
     "body.lmp-enh--mono .lmp-rate-rottentomatoes .source--name img[src$='rt.svg'] { " +
-    "  filter: sepia(100%) saturate(1000%) hue-rotate(320deg) grayscale(100%) contrast(500%) invert(1) !important; " +
-    "}"
+    "  filter: saturate(2000%) hue-rotate(230deg) grayscale(100%) contrast(2000%) invert(1) !important; " +
+    "}" +
 
     /* Індивідуально для IMDB */
     "body.lmp-enh--mono .lmp-rate-imdb .source--name { " +
@@ -180,7 +180,7 @@
     "}" +
     "body.lmp-enh--mono .lmp-rate-imdb .source--name img { " +
     "  filter: invert(1) grayscale(100%) contrast(1000%) !important; " +
-    "}"
+    "}" +
     
     /* Індивідуально для MDBList */
     "body.lmp-enh--mono .lmp-rate-mdblist .source--name img { filter: grayscale(100%) brightness(0.7) contrast(1000%) !important; }" +
