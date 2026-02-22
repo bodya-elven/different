@@ -172,15 +172,9 @@
     "}" +
 
     /* Індивідуально для IMDB */
-    "body.lmp-enh--mono .lmp-rate-imdb .source--name { " +
-    "  border: 2px solid #fff; " +
-    "  box-sizing: border-box; " +
-    "  border-radius: 4px; " +
-    "  overflow: hidden; " +
-    "}" +
-    "body.lmp-enh--mono .lmp-rate-imdb .source--name img { " +
-    "  filter: invert(1) grayscale(100%) contrast(1000%) !important; " +
-    "}" +
+    "body.lmp-enh--mono .lmp-rate-imdb .source--name { position: relative; border: none; overflow: visible; }" +
+    "body.lmp-enh--mono .lmp-rate-imdb .source--name::after { content: ''; position: absolute; top: 1.5px; bottom: 1.5px; left: 1.5px; right: 1.5px; box-sizing: border-box; border: 1.5px solid #fff; border-radius: 4px; pointer-events: none; z-index: 5; }" +
+    "body.lmp-enh--mono .lmp-rate-imdb .source--name img { filter: invert(1) grayscale(100%) contrast(1000%) !important; }" +
     
     /* Індивідуально для MDBList */
     "body.lmp-enh--mono .lmp-rate-mdblist .source--name img { filter: grayscale(100%) brightness(0.7) contrast(1000%) !important; }" +
