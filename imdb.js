@@ -1,17 +1,19 @@
 (function () {
     'use strict';
 
+    // Запобігаємо запуску, якщо ядро Lampa ще не існує
+    if (!window.Lampa) return;
+
     var PLUGIN_NAME = 'omdb_imdb_ratings';
-    var PLUGIN_TITLE = 'IMDb Ratings (OMDb)';
     var ICON_IMDB = 'https://img.icons8.com/color/48/000000/imdb.png';
 
-    // 1. СТВОРЕННЯ МЕНЮ НАЛАШТУВАНЬ (Захищено від крашу)
-    function initSettings() {
-        if (!Lampa.SettingsApi) return;
-
+    // =========================================================
+    // 1. МИТТЄВА РЕЄСТРАЦІЯ МЕНЮ (Вирішує проблему пустого меню)
+    // =========================================================
+    if (Lampa.SettingsApi) {
         Lampa.SettingsApi.addComponent({
             component: PLUGIN_NAME,
-            name: PLUGIN_TITLE,
+            name: 'IMDb Ratings (OMDb)',
             icon: `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect><path d="M5 10v4M9 10v4M13 10v4M17 10v4M5 12h14"></path></svg>`
         });
 
@@ -23,14 +25,12 @@
             default: true
         });
 
-        // Обов'язково default: '', інакше Lampa видає помилку undefined
         Lampa.SettingsApi.addParam({
             component: PLUGIN_NAME,
             param: 'omdb_api_key_1',
             type: 'input',
             name: 'API Ключ 1',
-            description: 'Основний ключ OMDb (omdbapi.com)',
-            default: '' 
+            description: 'Основний ключ OMDb (omdbapi.com)'
         });
 
         Lampa.SettingsApi.addParam({
@@ -38,8 +38,7 @@
             param: 'omdb_api_key_2',
             type: 'input',
             name: 'API Ключ 2',
-            description: 'Резервний ключ OMDb',
-            default: ''
+            description: 'Резервний ключ (якщо ліміт першого вичерпано)'
         });
 
         Lampa.SettingsApi.addParam({
@@ -47,34 +46,35 @@
             param: 'omdb_cache_ttl',
             type: 'input',
             name: 'Час зберігання кешу (у днях)',
-            description: 'Скільки днів зберігати рейтинги',
             default: '7'
-        });
-
-        // Кнопку "Очистити кеш" малюємо вручну, щоб уникнути конфлікту типів
-        Lampa.Settings.listener.follow('open', function (e) {
-            if (e.name === PLUGIN_NAME) {
-                // Уникаємо дублювання кнопки
-                if (e.body.find('.omdb-clear-btn').length === 0) {
-                    var clearBtn = $(`
-                        <div class="settings-param selector omdb-clear-btn" data-type="button">
-                            <div class="settings-param__name">Очистити кеш</div>
-                            <div class="settings-param__descr">Видалити збережені рейтинги з пам'яті</div>
-                        </div>
-                    `);
-
-                    clearBtn.on('hover:enter click', function () {
-                        localStorage.removeItem('omdb_ratings_cache');
-                        Lampa.Noty.show('Кеш рейтингів IMDb успішно очищено.');
-                    });
-
-                    e.body.append(clearBtn);
-                }
-            }
         });
     }
 
-    // 2. РОБОТА З КЕШЕМ
+    // =========================================================
+    // 2. РЕНДЕР КНОПКИ (Вирішує проблему поплившої верстки)
+    // =========================================================
+    Lampa.Settings.listener.follow('open', function (e) {
+        if (e.name === PLUGIN_NAME) {
+            // Нативна структура елементів Lampa
+            var clearBtn = $(`
+                <div class="settings-param selector" data-type="button">
+                    <div class="settings-param__name">Очистити кеш</div>
+                    <div class="settings-param__value"></div> <div class="settings-param__descr">Видалити збережені рейтинги з пам'яті пристрою</div>
+                </div>
+            `);
+
+            clearBtn.on('hover:enter click', function () {
+                localStorage.removeItem('omdb_ratings_cache');
+                Lampa.Noty.show('Кеш рейтингів IMDb успішно очищено.');
+            });
+
+            e.body.append(clearBtn);
+        }
+    });
+
+    // =========================================================
+    // 3. РОБОТА З КЕШЕМ ТА КЛЮЧАМИ
+    // =========================================================
     function getCache() {
         var cache = localStorage.getItem('omdb_ratings_cache');
         return cache ? JSON.parse(cache) : {};
@@ -83,9 +83,8 @@
     function saveCache(id, rating) {
         var cache = getCache();
         var ttlDays = parseInt(Lampa.Storage.get('omdb_cache_ttl', '7'));
-        
         if (isNaN(ttlDays) || ttlDays <= 0) ttlDays = 7; 
-
+        
         cache[id] = {
             rating: rating,
             timestamp: Date.now() + (ttlDays * 24 * 60 * 60 * 1000)
@@ -96,17 +95,16 @@
     function getCachedRating(id) {
         var cache = getCache();
         if (cache[id]) {
-            if (Date.now() > cache[id].timestamp) {
+            if (Date.now() < cache[id].timestamp) {
+                return cache[id].rating;
+            } else {
                 delete cache[id];
                 localStorage.setItem('omdb_ratings_cache', JSON.stringify(cache));
-                return null;
             }
-            return cache[id].rating;
         }
         return null;
     }
 
-    // 3. УПРАВЛІННЯ КЛЮЧАМИ
     var currentKeyIndex = 1;
     function getApiKey() {
         var key1 = Lampa.Storage.get('omdb_api_key_1', '').trim();
@@ -118,29 +116,15 @@
         return null;
     }
 
-    function switchApiKey() {
-        currentKeyIndex = currentKeyIndex === 1 ? 2 : 1;
-    }
-
-    // 4. ЧЕРГА ЗАПИТІВ
-    var requestQueue = [];
-    var isRequesting = false;
-
-    function processQueue() {
-        if (isRequesting || requestQueue.length === 0) return;
-        isRequesting = true;
-
-        var task = requestQueue.shift();
+    // =========================================================
+    // 4. ЗАПИТИ ДО OMDB
+    // =========================================================
+    function fetchRating(movie, callback) {
         var apiKey = getApiKey();
-        var title = task.movie.title || task.movie.name;
-        var year = task.movie.release_date ? task.movie.release_date.split('-')[0] : (task.movie.first_air_date ? task.movie.first_air_date.split('-')[0] : '');
+        var title = movie.title || movie.name;
+        var year = movie.release_date ? movie.release_date.split('-')[0] : (movie.first_air_date ? movie.first_air_date.split('-')[0] : '');
 
-        if (!apiKey || !title) {
-            isRequesting = false;
-            task.callback(null);
-            setTimeout(processQueue, 50);
-            return;
-        }
+        if (!apiKey || !title) return callback(null);
 
         var url = 'https://www.omdbapi.com/?t=' + encodeURIComponent(title) + '&y=' + year + '&apikey=' + apiKey;
 
@@ -150,30 +134,21 @@
             dataType: 'json',
             success: function (data) {
                 if (data.Response === "True" && data.imdbRating && data.imdbRating !== "N/A") {
-                    task.callback(data.imdbRating);
+                    callback(data.imdbRating);
                 } else if (data.Response === "False" && data.Error && data.Error.indexOf("limit") > -1) {
-                    switchApiKey();
-                    task.callback(null);
+                    currentKeyIndex = currentKeyIndex === 1 ? 2 : 1; // Зміна ключа при ліміті
+                    callback(null);
                 } else {
-                    task.callback("N/A");
+                    callback("N/A");
                 }
             },
-            error: function () {
-                task.callback(null);
-            },
-            complete: function () {
-                isRequesting = false;
-                setTimeout(processQueue, 200);
-            }
+            error: function () { callback(null); }
         });
     }
 
-    function queueOMDbRequest(movie, callback) {
-        requestQueue.push({ movie: movie, callback: callback });
-        processQueue();
-    }
-
-    // 5. ВІДМАЛЬОВКА РЕЙТИНГУ НА ПОСТЕРІ
+    // =========================================================
+    // 5. ВІДМАЛЬОВКА РЕЙТИНГУ
+    // =========================================================
     function drawRating(cardElem, rating) {
         if (!rating || rating === "N/A") return;
         var ratingHtml = $(`
@@ -185,15 +160,16 @@
         cardElem.find('.card__view').append(ratingHtml);
     }
 
-    // 6. ПЕРЕХОПЛЕННЯ СТВОРЕННЯ КАРТОК
-    function initCardInterceptor() {
+    // =========================================================
+    // 6. ІНТЕГРАЦІЯ В КАРТКИ (Очікування appready)
+    // =========================================================
+    function initInterceptor() {
         if (!Lampa.Card || window.omdb_interceptor_ready) return;
         window.omdb_interceptor_ready = true;
 
-        var originalCardCreate = Lampa.Card.prototype.create;
-
+        var originalCreate = Lampa.Card.prototype.create;
         Lampa.Card.prototype.create = function () {
-            originalCardCreate.apply(this, arguments);
+            originalCreate.apply(this, arguments);
 
             if (!Lampa.Storage.get('omdb_status', true)) return;
 
@@ -203,15 +179,13 @@
 
             if (!movieData || !cardElem) return;
 
-            var movieId = movieData.id;
-            var cachedRating = getCachedRating(movieId);
-
-            if (cachedRating) {
-                drawRating(cardElem, cachedRating);
+            var cached = getCachedRating(movieData.id);
+            if (cached) {
+                drawRating(cardElem, cached);
             } else {
-                queueOMDbRequest(movieData, function (rating) {
+                fetchRating(movieData, function (rating) {
                     if (rating) {
-                        saveCache(movieId, rating);
+                        saveCache(movieData.id, rating);
                         drawRating(cardElem, rating);
                     }
                 });
@@ -219,22 +193,11 @@
         };
     }
 
-    // 7. СТАРТ ПЛАГІНА
-    function startPlugin() {
-        if (window.omdb_plugin_ready) return;
-        window.omdb_plugin_ready = true;
-
-        initSettings();
-        initCardInterceptor();
-    }
-
     if (window.appready) {
-        startPlugin();
+        initInterceptor();
     } else {
         Lampa.Listener.follow('app', function (e) {
-            if (e.type === 'ready') {
-                startPlugin();
-            }
+            if (e.type === 'ready') initInterceptor();
         });
     }
 
