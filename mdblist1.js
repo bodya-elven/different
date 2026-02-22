@@ -199,7 +199,7 @@
   var RCFG_DEFAULT = {
     ratings_mdblist_key: '',
     ratings_cache_days: '3',
-    ratings_icon_left: true, 
+    ratings_text_position: 'right', /* НОВИЙ ПАРАМЕТР ЗАМІСТЬ ICON_LEFT */
     ratings_show_votes: true,
     ratings_logo_scale_val: 's_0', 
     ratings_text_scale_val: 's_0',
@@ -398,7 +398,9 @@
       }
       
       var votesHtml = (cfg.showVotes && itemData.votes) ? '<span class="rate--votes">' + formatVotes(itemData.votes) + '</span>' : '';
-      var dirClass = cfg.iconLeft ? 'lmp-dir-left' : 'lmp-dir-right';
+      
+      /* НОВА ЛОГІКА РОЗМІЩЕННЯ ТЕКСТУ */
+      var dirClass = (cfg.textPosition === 'right') ? 'lmp-dir-left' : 'lmp-dir-right';
 
       var cont = $(
         '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + '">' +
@@ -510,7 +512,7 @@
     return {
       mdblistKey: Lampa.Storage.get('ratings_mdblist_key', RCFG_DEFAULT.ratings_mdblist_key),
       cacheDays: parseIntDef('ratings_cache_days', parseInt(RCFG_DEFAULT.ratings_cache_days)),
-      iconLeft: !!Lampa.Storage.field('ratings_icon_left', RCFG_DEFAULT.ratings_icon_left),
+      textPosition: Lampa.Storage.get('ratings_text_position', RCFG_DEFAULT.ratings_text_position), /* НОВЕ */
       logoOffset: (logoInput * 2) + 'px',
       textOffset: (textInput * 2) + 'px',
       rateSpacing: (spaceInput * 4) + 'px',
@@ -648,13 +650,17 @@
     var logoScaleValuesMap = { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2', 's_p3': '3', 's_p4': '4' };
     var textScaleValuesMap = { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2' };
     var spacingValuesMap =   { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2' };
+    
+    /* НОВИЙ СПИСОК ДЛЯ РОЗМІЩЕННЯ ТЕКСТУ */
+    var textPosValuesMap = { 'left': 'Зліва', 'right': 'Справа' };
 
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_position', type: 'select', values: textPosValuesMap, "default": 'right' }, field: { name: 'Розміщення оцінки відносно логотипу', description: 'Де буде знаходитись текст з цифрою.' }, onRender: function() {} });
+    
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_logo_scale_val', type: 'select', values: logoScaleValuesMap, "default": 's_0' }, field: { name: 'Розмір логотипів', description: 'Збільшення/зменшення іконок.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_scale_val', type: 'select', values: textScaleValuesMap, "default": 's_0' }, field: { name: 'Розмір оцінки', description: 'Збільшення/зменшення цифр та голосів.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_spacing_val', type: 'select', values: spacingValuesMap, "default": 's_0' }, field: { name: 'Відступи між рейтингами', description: 'Зміна відстані між плитками.' }, onRender: function() {} });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_show_votes', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_show_votes }, field: { name: 'Кількість голосів', description: 'Показувати кількість тих, хто проголосував.' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_left', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_icon_left }, field: { name: 'Іконка зліва від цифри', description: 'Перемістити логотип джерела на лівий бік.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання кешу', description: 'Кількість днів (наприклад: 3).' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити кеш рейтингів', description: 'Примусово видалити всі збережені рейтинги з пам\'яті.' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі PNG іконки.' }, onRender: function() {} });
