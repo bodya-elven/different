@@ -5,7 +5,7 @@
     var PLUGIN_TITLE = 'IMDb Ratings (OMDb)';
     var ICON_IMDB = 'https://img.icons8.com/color/48/000000/imdb.png';
 
-    // 1. СТВОРЕННЯ МЕНЮ НАЛАШТУВАНЬ (Виправлено помилку undefined)
+    // 1. СТВОРЕННЯ МЕНЮ НАЛАШТУВАНЬ (Структура MDBList)
     function initSettings() {
         if (!Lampa.SettingsApi) return;
 
@@ -28,8 +28,7 @@
             param: 'omdb_api_key_1',
             type: 'input',
             name: 'API Ключ 1',
-            description: 'Основний ключ OMDb (omdbapi.com)',
-            default: '' // Запобігає крашу
+            description: 'Основний ключ OMDb (omdbapi.com)'
         });
 
         Lampa.SettingsApi.addParam({
@@ -37,23 +36,17 @@
             param: 'omdb_api_key_2',
             type: 'input',
             name: 'API Ключ 2',
-            description: 'Резервний ключ OMDb',
-            default: '' // Запобігає крашу
+            description: 'Резервний ключ OMDb'
         });
 
+        // Використовуємо input замість select
         Lampa.SettingsApi.addParam({
             component: PLUGIN_NAME,
             param: 'omdb_cache_ttl',
-            type: 'select',
-            name: 'Час зберігання кешу',
-            values: {
-                '1': '1 день',
-                '3': '3 дні',
-                '7': '7 днів',
-                '14': '14 днів',
-                '30': '30 днів'
-            },
-            default: '7' // Значення має бути строкою
+            type: 'input',
+            name: 'Час зберігання кешу (у днях)',
+            description: 'Скільки днів зберігати рейтинги',
+            default: '7'
         });
 
         Lampa.SettingsApi.addParam({
@@ -61,8 +54,7 @@
             param: 'omdb_clear_cache',
             type: 'button',
             name: 'Очистити кеш',
-            description: 'Видалити збережені рейтинги з пам\'яті',
-            default: '' 
+            description: 'Видалити збережені рейтинги з пам\'яті'
         });
 
         Lampa.Settings.listener.follow('open', function (e) {
@@ -84,6 +76,10 @@
     function saveCache(id, rating) {
         var cache = getCache();
         var ttlDays = parseInt(Lampa.Storage.get('omdb_cache_ttl', '7'));
+        
+        // Захист від введення тексту замість цифр
+        if (isNaN(ttlDays) || ttlDays <= 0) ttlDays = 7; 
+
         cache[id] = {
             rating: rating,
             timestamp: Date.now() + (ttlDays * 24 * 60 * 60 * 1000)
