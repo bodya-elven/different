@@ -109,7 +109,6 @@
       return null;
     };
   }
-
   /*
   |==========================================================================
   | КОНФІГУРАЦІЯ ТА ЗМІННІ
@@ -154,6 +153,7 @@
     ":root{" +
     "  --lmp-logo-offset: 0px;" +
     "  --lmp-text-offset: 0px;" +
+    "  --lmp-rate-spacing: 0px;" +
     "}" +
 
     ".loading-dots-container { display: inline-flex; align-items: center; font-size: 0.85em; color: #ccc; padding: 0.6em 1em; border-radius: 0.5em; margin-right: 0.5em; margin-bottom: 0.4em; }" +
@@ -163,7 +163,8 @@
     ".loading-dots__dot:nth-child(2) { animation-delay: -0.16s; }" +
     "@keyframes loading-dots-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.6; } 40% { transform: translateY(-0.5em); opacity: 1; } }" +
 
-    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s; margin-right: 0.5em !important; margin-bottom: 0.4em !important; }" +
+    /* БАЗОВІ ВІДСТУПИ ЗМЕНШЕНІ НА ~2 ПУНКТИ (0.25em та 0.2em) */
+    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; }" +
     ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; }" +
     
     ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 2; object-fit: contain; height: calc(22px + var(--lmp-logo-offset)) !important; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
@@ -184,12 +185,10 @@
     
     ".settings-param__descr,.settings-param__subtitle{white-space:pre-line;}" +
 
-    /* ВИПРАВЛЕННЯ ДЛЯ ПУЛЬТА */
     ".menu-edit-list .selector { transition: all 0.2s ease; outline: none; }" +
     ".menu-edit-list .selector.focus { background: #fff !important; color: #000 !important; transform: scale(1.1); box-shadow: 0 0 15px rgba(255,255,255,0.5); z-index: 10; }" +
 
     "</style>";
-
   /*
   |==========================================================================
   | БАЗОВІ ФУНКЦІЇ ТА АПІ
@@ -204,6 +203,7 @@
     ratings_show_votes: true,
     ratings_logo_scale_val: 's_0', 
     ratings_text_scale_val: 's_0',
+    ratings_spacing_val: 's_0',
     ratings_bw_logos: false,
     ratings_badge_alpha: 0,
     ratings_badge_tone: 0,
@@ -349,7 +349,6 @@
 
     makeRequest();
   }
-
   /*
   |==========================================================================
   | РЕНДЕР РЕЙТИНГІВ
@@ -460,7 +459,6 @@
       }
     });
   }
-
   /*
   |==========================================================================
   | НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
@@ -499,12 +497,15 @@
       return { id: s.id, name: s.name, enabled: s.enabled };
     });
     
-    var scaleMap = { 's_m2': -2, 's_m1': -1, 's_0': 0, 's_p1': 1, 's_p2': 2 };
+    var scaleMap = { 's_m2': -2, 's_m1': -1, 's_0': 0, 's_p1': 1, 's_p2': 2, 's_p3': 3, 's_p4': 4 };
+    
     var logoRaw = Lampa.Storage.get('ratings_logo_scale_val', 's_0');
     var textRaw = Lampa.Storage.get('ratings_text_scale_val', 's_0');
+    var spaceRaw = Lampa.Storage.get('ratings_spacing_val', 's_0');
     
     var logoInput = scaleMap[logoRaw] !== undefined ? scaleMap[logoRaw] : (parseInt(logoRaw) || 0);
     var textInput = scaleMap[textRaw] !== undefined ? scaleMap[textRaw] : (parseInt(textRaw) || 0);
+    var spaceInput = scaleMap[spaceRaw] !== undefined ? scaleMap[spaceRaw] : (parseInt(spaceRaw) || 0);
 
     return {
       mdblistKey: Lampa.Storage.get('ratings_mdblist_key', RCFG_DEFAULT.ratings_mdblist_key),
@@ -512,6 +513,7 @@
       iconLeft: !!Lampa.Storage.field('ratings_icon_left', RCFG_DEFAULT.ratings_icon_left),
       logoOffset: (logoInput * 2) + 'px',
       textOffset: (textInput * 2) + 'px',
+      rateSpacing: (spaceInput * 4) + 'px',
       showVotes: !!Lampa.Storage.field('ratings_show_votes', RCFG_DEFAULT.ratings_show_votes),
       bwLogos: !!Lampa.Storage.field('ratings_bw_logos', RCFG_DEFAULT.ratings_bw_logos),
       badgeAlpha: parseFloatDef('ratings_badge_alpha', RCFG_DEFAULT.ratings_badge_alpha),
@@ -533,6 +535,7 @@
     var cfg = getCfg();
     document.documentElement.style.setProperty('--lmp-logo-offset', cfg.logoOffset);
     document.documentElement.style.setProperty('--lmp-text-offset', cfg.textOffset);
+    document.documentElement.style.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
     cfg.bwLogos ? $('body').addClass('lmp-enh--mono') : $('body').removeClass('lmp-enh--mono');
     cfg.rateBorder ? $('body').addClass('lmp-enh--rate-border') : $('body').removeClass('lmp-enh--rate-border');
     
@@ -642,10 +645,14 @@
       onRender: function() {}
     });
 
-    var scaleValuesMap = { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2' };
+    var logoScaleValuesMap = { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2', 's_p3': '3', 's_p4': '4' };
+    var textScaleValuesMap = { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2' };
+    var spacingValuesMap =   { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2' };
 
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_logo_scale_val', type: 'select', values: scaleValuesMap, "default": 's_0' }, field: { name: 'Розмір логотипів', description: 'Збільшення/зменшення іконок.' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_scale_val', type: 'select', values: scaleValuesMap, "default": 's_0' }, field: { name: 'Розмір оцінки', description: 'Збільшення/зменшення цифр та голосів.' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_logo_scale_val', type: 'select', values: logoScaleValuesMap, "default": 's_0' }, field: { name: 'Розмір логотипів', description: 'Збільшення/зменшення іконок.' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_scale_val', type: 'select', values: textScaleValuesMap, "default": 's_0' }, field: { name: 'Розмір оцінки', description: 'Збільшення/зменшення цифр та голосів.' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_spacing_val', type: 'select', values: spacingValuesMap, "default": 's_0' }, field: { name: 'Відступи між рейтингами', description: 'Зміна відстані між плитками.' }, onRender: function() {} });
+    
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_show_votes', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_show_votes }, field: { name: 'Кількість голосів', description: 'Показувати кількість тих, хто проголосував.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_left', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_icon_left }, field: { name: 'Іконка зліва від цифри', description: 'Перемістити логотип джерела на лівий бік.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання кешу', description: 'Кількість днів (наприклад: 3).' }, onRender: function() {} });
