@@ -182,7 +182,7 @@
     /* ТЕКСТ */
     ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); }" +
     ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: calc(1.1em + var(--lmp-text-offset)); transition: color 0.2s; }" +
-    ".lmp-custom-rate .rate--votes { font-size: 0.6em; opacity: 0.8; margin-left: 0.25em; line-height: 1; }" +
+     ".lmp-custom-rate .rate--votes { font-size: calc(0.6em + (var(--lmp-text-offset) / 2)); opacity: 0.8; margin-left: 0.25em; line-height: 1; }" +
 
     /* ПОЗИЦІЯ ІКОНКИ */
     ".lmp-dir-right { flex-direction: row-reverse; }" +
