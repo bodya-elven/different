@@ -162,8 +162,20 @@
     ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 2; color: transparent; object-fit: contain; height: calc(22px + var(--lmp-logo-offset)) !important; }" +
     "body:not(.lmp-enh--mono) .lmp-custom-rate .source--name img { filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
     
-    /* ІКОНКИ Ч/Б (Жорсткий контраст + звичайна темна тінь) */
+    /* === ЕКСКЛЮЗИВНІ Ч/Б ФІЛЬТРИ (Працюють тільки якщо ввімкнено Ч/Б режим) === */
+    /* Базовий Ч/Б для всіх іконок */
     "body.lmp-enh--mono .lmp-custom-rate .source--name img { filter: grayscale(100%) contrast(1000%) drop-shadow(0px 0px 4px rgba(0,0,0,0.8)) !important; }" +
+    
+    /* Томати (СВІЖИЙ) */
+    "body.lmp-enh--mono .lmp-rate-rottentomatoes .source--name img[src$='rt.svg'] { filter: hue-rotate(120deg) grayscale(100%) contrast(2000%) drop-shadow(0px 0px 4px rgba(0,0,0,0.8)) !important; }" +
+    /* Томати (ГНИЛИЙ) */
+    "body.lmp-enh--mono .lmp-rate-rottentomatoes .source--name img[src$='rt-bad.svg'] { filter: brightness(0) invert(1) drop-shadow(0px 0px 4px rgba(0,0,0,0.8)) !important; }" +
+
+    /* Індивідуально для IMDB */
+    "body.lmp-enh--mono .lmp-rate-imdb .source--name img { filter: invert(1) grayscale(100%) contrast(1000%) drop-shadow(0px 0px 4px rgba(0,0,0,0.8)) !important; }" +
+    
+    /* Індивідуально для MDBList */
+    "body.lmp-enh--mono .lmp-rate-mdblist .source--name img { filter: invert(1) grayscale(100%) contrast(1000%) drop-shadow(0px 0px 4px rgba(0,0,0,0.8)) !important; }" +
 
     /* ТЕКСТ */
     ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); }" +
@@ -355,8 +367,9 @@
       var votesHtml = (cfg.showVotes && itemData.votes) ? '<span class="rate--votes">' + formatVotes(itemData.votes) + '</span>' : '';
       var dirClass = cfg.iconLeft ? 'lmp-dir-left' : 'lmp-dir-right';
 
+      // Додано клас lmp-rate-ID для індивідуального Ч/Б стилю
       var cont = $(
-        '<div class="lmp-custom-rate ' + dirClass + '">' +
+        '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + '">' +
             '<div class="source--name" title="' + src.name + '">' + iconImg(iconUrl, src.name) + '</div>' +
             '<div class="rate--text-block">' + 
                 '<span class="rate--value ' + colorClass + '">' + itemData.display + '</span>' + 
@@ -636,7 +649,7 @@
 
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити кеш рейтингів', description: 'Примусово видалити всі збережені рейтинги з пам\'яті.' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
 
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Екстремальний контраст.' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Спеціальний чорно-білий контраст.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_rate_border }, field: { name: 'Рамка плиток рейтингів' }, onRender: function() {} });
   }
