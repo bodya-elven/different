@@ -530,7 +530,7 @@
           },
           complete: function () {
               isOmdbRequesting = false;
-              setTimeout(processOmdbQueue, 200); // Затримка 200мс для анти-бану
+              setTimeout(processOmdbQueue, 200); 
           }
       });
   }
@@ -540,50 +540,94 @@
       processOmdbQueue();
   }
 
-  function drawOmdbRating(cardElem, rating) {
-      if (!rating || rating === "N/A") return;
-      var ratingHtml = $(`
-          <div class="omdb-imdb-rating" style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.8); border-radius: 4px; padding: 2px 6px; display: flex; align-items: center; z-index: 10;">
-              <img src="${ICON_IMDB_CARD}" style="width: 24px; height: 24px; margin-right: 4px;" alt="IMDb">
-              <span style="color: #fff; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">${rating}</span>
-          </div>
-      `);
-      cardElem.find('.card__view').append(ratingHtml);
+  // Функція прямого малювання в системний блок Lampa
+  function drawOmdbRatingInside(voteEl, rating) {
+      if (!rating || rating === "N/A") {
+          voteEl.style.display = 'none';
+          return;
+      }
+      voteEl.style.display = 'flex';
+      voteEl.style.alignItems = 'center';
+      voteEl.style.justifyContent = 'center';
+      voteEl.style.background = 'rgba(0,0,0,0.8)';
+      voteEl.style.padding = '0.2em 0.5em';
+      voteEl.innerHTML = '<span style="color:#fff;font-weight:bold;font-size:1em;line-height:1;">' + rating + '</span>' +
+                         '<img style="width:1.2em;height:1.2em;margin-left:0.3em;object-fit:contain;" src="' + ICON_IMDB_CARD + '">';
   }
 
-  function initCardInterceptor() {
-      if (!Lampa.Card || window.omdb_interceptor_ready) return;
-      window.omdb_interceptor_ready = true;
+  function insertOmdbCardRating(card, data) {
+      if (Lampa.Storage.get('omdb_status') === false) return;
 
-      var originalCardCreate = Lampa.Card.prototype.create;
+      var voteEl = card.querySelector('.card__vote');
+      if (!voteEl) {
+          voteEl = document.createElement('div');
+          voteEl.className = 'card__vote';
+          var parent = card.querySelector('.card__view') || card;
+          parent.appendChild(voteEl);
+      }
 
-      Lampa.Card.prototype.create = function () {
-          originalCardCreate.apply(this, arguments);
+      var id = (data.id || '').toString();
+      var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
+      var ratingKey = type + '_' + id;
 
-          // Перевірка, чи увімкнені рейтинги на постерах
-          var isEnabled = Lampa.Storage.get('omdb_status');
-          if (isEnabled === false) return; // за замовчуванням undefined або true
+      // Захист від гортання (як у референсі)
+      voteEl.dataset.omdbId = ratingKey;
 
-          var cardObj = this;
-          var movieData = cardObj.data;
-          var cardElem = cardObj.card;
+      var cachedRating = getCachedOmdbRating(ratingKey);
+      if (cachedRating) {
+          drawOmdbRatingInside(voteEl, cachedRating);
+          return;
+      }
 
-          if (!movieData || !cardElem) return;
-
-          var movieId = movieData.id;
-          var cachedRating = getCachedOmdbRating(movieId);
-
-          if (cachedRating) {
-              drawOmdbRating(cardElem, cachedRating);
-          } else {
-              queueOMDbRequest(movieData, function (rating) {
-                  if (rating) {
-                      saveOmdbCache(movieId, rating);
-                      drawOmdbRating(cardElem, rating);
-                  }
-              });
+      queueOMDbRequest(data, function (rating) {
+          if (voteEl.dataset.omdbId === ratingKey) {
+              if (rating) {
+                  saveOmdbCache(ratingKey, rating);
+                  drawOmdbRatingInside(voteEl, rating);
+              } else {
+                  voteEl.dataset.omdbId = 'failed_' + ratingKey;
+                  voteEl.style.display = 'none';
+              }
           }
-      };
+      });
+  }
+
+  // Безперервний скан карток (як у референсі)
+  function pollOmdbCards() {
+      if (Lampa.Storage.get('omdb_status', true)) {
+          var allCards = document.querySelectorAll('.card');
+          allCards.forEach(function (card) {
+              var data = card.card_data || card.dataset || {};
+              if (data && data.id) {
+                  var voteEl = card.querySelector('.card__vote');
+                  var id = data.id.toString();
+                  var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
+                  var ratingKey = type + '_' + id;
+
+                  if (!voteEl || voteEl.dataset.omdbId !== ratingKey) {
+                      insertOmdbCardRating(card, data);
+                  }
+              }
+          });
+      }
+      setTimeout(pollOmdbCards, 500);
+  }
+
+  // Агресивне перехоплення build (як у референсі)
+  function setupOmdbCardListener() {
+      if (window.omdb_listener_extensions) return;
+      window.omdb_listener_extensions = true;
+
+      Object.defineProperty(window.Lampa.Card.prototype, 'build', {
+          get: function () { return this._build; },
+          set: function (func) {
+              var self = this;
+              this._build = function () {
+                  func.apply(self);
+                  Lampa.Listener.send('card', { type: 'build', object: self });
+              };
+          }
+      });
   }
   /*
   |==========================================================================
@@ -828,8 +872,15 @@
       }
     });
 
-    // Ініціалізація перехоплювача карток для OMDb (постери в каталозі)
-    initCardInterceptor();
+    // Ініціалізація OMDb для постерів (Використовуємо логіку референса)
+    setupOmdbCardListener();
+    pollOmdbCards();
+
+    Lampa.Listener.follow('card', function (e) {
+        if (e.type === 'build' && e.object.card && e.object.data) {
+            insertOmdbCardRating(e.object.card, e.object.data);
+        }
+    });
   }
 
   Lampa.Template.add('lmp_enh_styles', pluginStyles);
@@ -840,3 +891,4 @@
   if (!window.combined_ratings_plugin) startPlugin();
 
 })();
+
