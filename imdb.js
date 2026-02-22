@@ -164,13 +164,12 @@
     ".menu-edit-list .selector { transition: all 0.2s ease; outline: none; }" +
     ".menu-edit-list .selector.focus { background: #fff !important; color: #000 !important; transform: scale(1.1); box-shadow: 0 0 15px rgba(255,255,255,0.5); z-index: 10; }" +
     
-    /* === СИЛЬНІ СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
-    "body.omdb-plugin-active .card__view > .card__vote { display: none !important; opacity: 0 !important; }" + 
+    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB (Блокування TMDB та малювання свого) === */
+    "body.omdb-plugin-active .card__vote { display: none !important; opacity: 0 !important; visibility: hidden !important; }" + 
     ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.7); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; }" +
     ".omdb-custom-rate span { font-weight: bold; }" +
     ".omdb-custom-rate img { width: 1.2em; height: 1.2em; margin-left: 0.3em; object-fit: contain; filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)); }" +
     "</style>";
-
   /*
   |==========================================================================
   | БАЗОВІ ФУНКЦІЇ ТА АПІ MDBLIST
@@ -435,7 +434,7 @@
   }
   /*
   |==========================================================================
-  | OMDb ЛОГІКА (КЛАСИЧНИЙ FIFO)
+  | OMDb ЛОГІКА (НЕЗАЛЕЖНИЙ РЕНДЕР + БЕЗПЕЧНІ ЗАПИТИ)
   |==========================================================================
   */
   var OMDB_CACHE_KEY = 'omdb_ratings_cache';
@@ -493,13 +492,17 @@
       return null;
   }
 
+  // ВИПРАВЛЕНА ФУНКЦІЯ: Надійна збірка URL для TMDB без використання Lampa.TMDB.api
   function getTmdbUrl(type, id) {
-      var base = type + '/' + id + '/external_ids';
-      if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.api === 'function') {
-          return Lampa.TMDB.api(base);
+      var base = 'https://api.themoviedb.org/3/' + type + '/' + id + '/external_ids';
+      var tmdbKey = Lampa.Storage ? Lampa.Storage.get('tmdb_api_key', '') : '';
+      
+      // Якщо системного ключа немає, ставимо дефолтний робочий
+      if (!tmdbKey || tmdbKey.trim() === '') {
+          tmdbKey = '4ef0d7355d9ffb5151e987764708ce96';
       }
-      var key = Lampa.Storage ? Lampa.Storage.get('tmdb_api_key', '4ef0d7355d9ffb5151e987764708ce96') : '4ef0d7355d9ffb5151e987764708ce96';
-      return 'https://api.themoviedb.org/3/' + base + '?api_key=' + key;
+      
+      return base + '?api_key=' + tmdbKey;
   }
 
   var omdbRequestQueue = [];
@@ -517,16 +520,14 @@
       }
   }
 
-  // БЕКЕНД: ЧИСТИЙ FIFO (Перший зайшов - перший вийшов)
+  // БЕКЕНД ЧЕРГИ: Класичний FIFO, чистий Lampa.Reguest
   function processOmdbQueue() {
       if (isOmdbRequesting || omdbRequestQueue.length === 0) return;
       isOmdbRequesting = true;
 
-      // Беремо завдання з початку черги (без жодних обрізок чи сортувань)
       var task = omdbRequestQueue.shift();
       
       var data = task.movie;
-      // Надійне визначення типу, як у твоєму робочому референсі
       var type = data.media_type || data.type || (data.name || data.original_name || data.seasons || data.first_air_date ? 'tv' : 'movie');
       var id = task.id;
 
@@ -537,6 +538,7 @@
       }
 
       var tmdbReq = new Lampa.Reguest();
+      // Звертаємося до TMDB за новою надійною адресою
       tmdbReq.silent(getTmdbUrl(type, id), function (tmdbData) {
           try {
               var parsedTmdb = typeof tmdbData === 'string' ? JSON.parse(tmdbData) : tmdbData;
@@ -561,7 +563,6 @@
                           if (res.Response === "True" && res.imdbRating && res.imdbRating !== "N/A") {
                               saveOmdbCache(task.ratingKey, res.imdbRating);
                           } else if (res.Response === "False" && res.Error && res.Error.indexOf("limit") > -1) {
-                              // Перемикання між 3 ключами
                               omdbKeyIndex = omdbKeyIndex === 1 ? 2 : (omdbKeyIndex === 2 ? 3 : 1);
                               setRetryState(task.ratingKey);
                           } else {
@@ -588,13 +589,14 @@
               setTimeout(processOmdbQueue, 300);
           }
       }, function () {
+          // Якщо помилка (напр. 401), ставимо тайм-аут
           setRetryState(task.ratingKey);
           isOmdbRequesting = false;
           setTimeout(processOmdbQueue, 300);
       });
   }
 
-  // ФРОНТЕНД: Малює незалежний блок
+  // ФРОНТЕНД СКАНЕР: Малює незалежний блок `.omdb-custom-rate`
   function drawOmdbRatingInside(el, rating) {
       if (!rating || rating === "N/A") {
           el.style.display = 'none';
@@ -604,7 +606,6 @@
       el.innerHTML = '<span>' + rating + '</span><img src="' + ICON_IMDB_CARD + '">';
   }
 
-  // Безпечний сканер
   function pollOmdbCards() {
       var isEnabled = Lampa.Storage.get('omdb_status', true);
       
@@ -624,7 +625,6 @@
       document.querySelectorAll('.card').forEach(function (card) {
           var data = card.card_data || card.dataset || {};
           
-          // Надійне вилучення ID (як у твоєму референсі)
           var rawId = data.id || card.getAttribute('data-id') || (card.getAttribute('data-card-id') || '0').replace('movie_', '');
           if (!rawId || rawId === '0') return;
 
@@ -665,7 +665,6 @@
 
       setTimeout(pollOmdbCards, 500);
   }
-
   /*
   |==========================================================================
   | НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
@@ -836,7 +835,6 @@
     if (window.lmp_ratings_add_param_ready) return;
     window.lmp_ratings_add_param_ready = true;
 
-    // --- MDBLIST НАЛАШТУВАННЯ ---
     Lampa.SettingsApi.addComponent({ 
       component: 'lmp_ratings', 
       name: 'Рейтинги (MDBList)', 
@@ -862,7 +860,6 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_rate_border }, field: { name: 'Рамка плиток рейтингів' }, onRender: function() {} });
 
-    // --- OMDB НАЛАШТУВАННЯ ---
     Lampa.SettingsApi.addComponent({ 
         component: 'omdb_ratings', 
         name: 'OMDb Постери (IMDb)', 
