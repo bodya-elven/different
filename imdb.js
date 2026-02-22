@@ -435,7 +435,7 @@
   }
   /*
   |==========================================================================
-  | OMDb ЛОГІКА (БЕЗПЕЧНІ МЕРЕЖЕВІ ЗАПИТИ)
+  | OMDb ЛОГІКА (КЛАСИЧНИЙ FIFO)
   |==========================================================================
   */
   var OMDB_CACHE_KEY = 'omdb_ratings_cache';
@@ -517,20 +517,18 @@
       }
   }
 
-  // БЕКЕНД: Тільки запити та кеш (Використання рідного Lampa.Reguest)
+  // БЕКЕНД: ЧИСТИЙ FIFO (Перший зайшов - перший вийшов)
   function processOmdbQueue() {
       if (isOmdbRequesting || omdbRequestQueue.length === 0) return;
       isOmdbRequesting = true;
 
-      if (omdbRequestQueue.length > 20) {
-          omdbRequestQueue = omdbRequestQueue.slice(-20); // Залишаємо останні 20
-      }
-
+      // Беремо завдання з початку черги (без жодних обрізок чи сортувань)
       var task = omdbRequestQueue.shift();
       
-      // Точне визначення типу контенту
-      var type = task.movie.type || (task.movie.name ? 'tv' : 'movie');
-      var id = task.movie.id;
+      var data = task.movie;
+      // Надійне визначення типу, як у твоєму робочому референсі
+      var type = data.media_type || data.type || (data.name || data.original_name || data.seasons || data.first_air_date ? 'tv' : 'movie');
+      var id = task.id;
 
       if (getCachedOmdbRating(task.ratingKey)) {
           isOmdbRequesting = false;
@@ -557,12 +555,13 @@
 
                   omdbReq.silent(omdbUrl, function (omdbData) {
                       try {
-                          var data = typeof omdbData === 'string' ? JSON.parse(omdbData) : omdbData;
+                          var res = typeof omdbData === 'string' ? JSON.parse(omdbData) : omdbData;
                           delete retryStates[task.ratingKey];
                           
-                          if (data.Response === "True" && data.imdbRating && data.imdbRating !== "N/A") {
-                              saveOmdbCache(task.ratingKey, data.imdbRating);
-                          } else if (data.Response === "False" && data.Error && data.Error.indexOf("limit") > -1) {
+                          if (res.Response === "True" && res.imdbRating && res.imdbRating !== "N/A") {
+                              saveOmdbCache(task.ratingKey, res.imdbRating);
+                          } else if (res.Response === "False" && res.Error && res.Error.indexOf("limit") > -1) {
+                              // Перемикання між 3 ключами
                               omdbKeyIndex = omdbKeyIndex === 1 ? 2 : (omdbKeyIndex === 2 ? 3 : 1);
                               setRetryState(task.ratingKey);
                           } else {
@@ -618,17 +617,19 @@
           return;
       }
 
-      // Чистий JS для запобігання крашу jQuery
       if (!document.body.classList.contains('omdb-plugin-active')) {
           document.body.classList.add('omdb-plugin-active');
       }
 
       document.querySelectorAll('.card').forEach(function (card) {
           var data = card.card_data || card.dataset || {};
-          if (!data || !data.id) return;
+          
+          // Надійне вилучення ID (як у твоєму референсі)
+          var rawId = data.id || card.getAttribute('data-id') || (card.getAttribute('data-card-id') || '0').replace('movie_', '');
+          if (!rawId || rawId === '0') return;
 
-          var id = data.id.toString();
-          var type = data.type || (data.name ? 'tv' : 'movie');
+          var id = rawId.toString();
+          var type = data.media_type || data.type || (data.name || data.original_name || data.seasons || data.first_air_date ? 'tv' : 'movie');
           var ratingKey = type + '_' + id;
 
           var customRateEl = card.querySelector('.omdb-custom-rate');
@@ -656,7 +657,7 @@
 
               var inQueue = omdbRequestQueue.some(function(t) { return t.ratingKey === ratingKey; });
               if (!inQueue) {
-                  omdbRequestQueue.push({ movie: data, cardElem: card, ratingKey: ratingKey });
+                  omdbRequestQueue.push({ movie: data, id: id, cardElem: card, ratingKey: ratingKey });
                   processOmdbQueue();
               }
           }
