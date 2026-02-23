@@ -164,7 +164,7 @@
     ".menu-edit-list .selector { transition: all 0.2s ease; outline: none; }" +
     ".menu-edit-list .selector.focus { background: #fff !important; color: #000 !important; transform: scale(1.1); box-shadow: 0 0 15px rgba(255,255,255,0.5); z-index: 10; }" +
     
-    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB (Блокування TMDB та малювання свого) === */
+    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
     "body.omdb-plugin-active .card__vote { display: none !important; opacity: 0 !important; visibility: hidden !important; }" + 
     ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.7); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; }" +
     ".omdb-custom-rate span { font-weight: bold; }" +
@@ -434,7 +434,7 @@
   }
   /*
   |==========================================================================
-  | OMDb ЛОГІКА (НЕЗАЛЕЖНИЙ РЕНДЕР + БЕЗПЕЧНІ ЗАПИТИ)
+  | OMDb ЛОГІКА (НЕЗАЛЕЖНИЙ РЕНДЕР + ФІКСОВАНИЙ TMDB КЛЮЧ)
   |==========================================================================
   */
   var OMDB_CACHE_KEY = 'omdb_ratings_cache';
@@ -492,14 +492,14 @@
       return null;
   }
 
-  // ВИПРАВЛЕНА ФУНКЦІЯ: Надійна збірка URL для TMDB без використання Lampa.TMDB.api
+  // ВШИТИЙ КЛЮЧ: Ігноруємо "сміття" з налаштувань bylampa
   function getTmdbUrl(type, id) {
       var base = 'https://api.themoviedb.org/3/' + type + '/' + id + '/external_ids';
       var tmdbKey = Lampa.Storage ? Lampa.Storage.get('tmdb_api_key', '') : '';
       
-      // Якщо системного ключа немає, ставимо дефолтний робочий
-      if (!tmdbKey || tmdbKey.trim() === '') {
-          tmdbKey = '4ef0d7355d9ffb5151e987764708ce96';
+      // Якщо ключ у налаштуваннях пустий АБО це відомий неробочий ключ c87a...
+      if (!tmdbKey || tmdbKey.trim() === '' || tmdbKey.trim() === 'c87a543116135a4120443155bf680876') {
+          tmdbKey = '4ef0d7355d9ffb5151e987764708ce96'; // Наш залізобетонний дефолт
       }
       
       return base + '?api_key=' + tmdbKey;
@@ -520,13 +520,16 @@
       }
   }
 
-  // БЕКЕНД ЧЕРГИ: Класичний FIFO, чистий Lampa.Reguest
   function processOmdbQueue() {
       if (isOmdbRequesting || omdbRequestQueue.length === 0) return;
       isOmdbRequesting = true;
 
+      // Обрізка черги (залишаємо останні 20)
+      if (omdbRequestQueue.length > 20) {
+          omdbRequestQueue = omdbRequestQueue.slice(-20);
+      }
+
       var task = omdbRequestQueue.shift();
-      
       var data = task.movie;
       var type = data.media_type || data.type || (data.name || data.original_name || data.seasons || data.first_air_date ? 'tv' : 'movie');
       var id = task.id;
@@ -538,7 +541,6 @@
       }
 
       var tmdbReq = new Lampa.Reguest();
-      // Звертаємося до TMDB за новою надійною адресою
       tmdbReq.silent(getTmdbUrl(type, id), function (tmdbData) {
           try {
               var parsedTmdb = typeof tmdbData === 'string' ? JSON.parse(tmdbData) : tmdbData;
@@ -559,7 +561,6 @@
                       try {
                           var res = typeof omdbData === 'string' ? JSON.parse(omdbData) : omdbData;
                           delete retryStates[task.ratingKey];
-                          
                           if (res.Response === "True" && res.imdbRating && res.imdbRating !== "N/A") {
                               saveOmdbCache(task.ratingKey, res.imdbRating);
                           } else if (res.Response === "False" && res.Error && res.Error.indexOf("limit") > -1) {
@@ -568,9 +569,7 @@
                           } else {
                               saveOmdbCache(task.ratingKey, "N/A");
                           }
-                      } catch (e) {
-                          setRetryState(task.ratingKey);
-                      }
+                      } catch (e) { setRetryState(task.ratingKey); }
                       isOmdbRequesting = false;
                       setTimeout(processOmdbQueue, 300);
                   }, function () {
@@ -589,14 +588,12 @@
               setTimeout(processOmdbQueue, 300);
           }
       }, function () {
-          // Якщо помилка (напр. 401), ставимо тайм-аут
           setRetryState(task.ratingKey);
           isOmdbRequesting = false;
           setTimeout(processOmdbQueue, 300);
       });
   }
 
-  // ФРОНТЕНД СКАНЕР: Малює незалежний блок `.omdb-custom-rate`
   function drawOmdbRatingInside(el, rating) {
       if (!rating || rating === "N/A") {
           el.style.display = 'none';
@@ -624,7 +621,6 @@
 
       document.querySelectorAll('.card').forEach(function (card) {
           var data = card.card_data || card.dataset || {};
-          
           var rawId = data.id || card.getAttribute('data-id') || (card.getAttribute('data-card-id') || '0').replace('movie_', '');
           if (!rawId || rawId === '0') return;
 
@@ -662,7 +658,6 @@
               }
           }
       });
-
       setTimeout(pollOmdbCards, 500);
   }
   /*
@@ -852,7 +847,7 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_position', type: 'select', values: textPosValuesMap, "default": 'right' }, field: { name: 'Розміщення оцінки відносно логотипу', description: 'Де буде знаходитись текст з цифрою.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_logo_scale_val', type: 'select', values: logoScaleValuesMap, "default": 's_0' }, field: { name: 'Розмір логотипів', description: 'Збільшення/зменшення іконок.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_scale_val', type: 'select', values: textScaleValuesMap, "default": 's_0' }, field: { name: 'Розмір оцінки', description: 'Збільшення/зменшення цифр та голосів.' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_spacing_val', type: 'select', values: spacingValuesMap, "default": 's_0' }, field: { name: 'Відступи між рейтингами', description: 'Зміна відстані між плитками.' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_spacing_val', type: 'select', values: spacingValuesMap, "default": 's_0' }, field: { name: 'Відступи між рейтингів', description: 'Зміна відстані між плитками.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_show_votes', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_show_votes }, field: { name: 'Кількість голосів', description: 'Показувати кількість тих, хто проголосував.' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання кешу', description: 'Кількість днів (наприклад: 3).' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити кеш рейтингів', description: 'Примусово видалити всі збережені рейтинги з пам\'яті.' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
@@ -893,13 +888,11 @@
 
   function startPlugin() {
     window.combined_ratings_plugin = true;
-    
     Lampa.Listener.follow('full', function(e) {
       if (e.type === 'complite') {
         setTimeout(function() { fetchAdditionalRatings(e.data.movie || e.object || {}); }, 500);
       }
     });
-
     pollOmdbCards();
   }
 
@@ -907,7 +900,6 @@
   $('body').append(Lampa.Template.get('lmp_enh_styles', {}, true));
   initRatingsPluginUI();
   refreshConfigFromStorage();
-  
   if (!window.combined_ratings_plugin) startPlugin();
 
 })();
