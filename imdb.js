@@ -775,10 +775,8 @@
     if (window.lmp_ratings_add_param_ready) return;
     window.lmp_ratings_add_param_ready = true;
 
-    // CSS трюк: робимо розділ постерів "невидимим", але залишаємо його активним для кліків системи
-    var hideSubMenuCss = '<style>' +
-      '.settings-folder[data-component="omdb_ratings"] { height: 0px !important; padding: 0px !important; margin: 0px !important; overflow: hidden !important; opacity: 0 !important; border: none !important; }' +
-      '</style>';
+    // Приховуємо підменю постерів з головного списку Лампи
+    var hideSubMenuCss = '<style>div[data-component="omdb_ratings"] { display: none !important; }</style>';
     $('body').append(hideSubMenuCss);
 
     // --- РІВЕНЬ 1: ГОЛОВНЕ ВІКНО "РЕЙТИНГИ MDBLIST" ---
@@ -787,19 +785,16 @@
       icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l3.09 6.26L22 10.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 15.14l-5-4.87 6.91-1.01L12 3z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>' 
     });
     
-    // Кнопка для переходу до підменю постерів (імітує клік пульта по прихованому розділу)
+    // Кнопка переходу у підменю (через Lampa.Settings.create)
     Lampa.SettingsApi.addParam({ 
-      component: 'lmp_ratings', param: { type: 'button', name: 'lmp_poster_submenu_btn' }, 
+      component: 'lmp_ratings', 
+      param: { name: 'lmp_poster_submenu_btn', type: 'static' }, 
       field: { name: 'Рейтинг на постері', description: 'Відображення рейтингу IMDb у каталозі' }, 
-      onChange: function() { 
-        var target = $('.settings-folder[data-component="omdb_ratings"]');
-        if(target.length) {
-            target.trigger('hover:enter').click();
-        } else {
-            lmpToast('Відкрийте налаштування ще раз для оновлення');
-        }
-      }, 
-      onRender: function() {} 
+      onRender: function(item) {
+        item.on('hover:enter click', function() {
+            Lampa.Settings.create('omdb_ratings');
+        });
+      }
     });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_mdblist_key', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_mdblist_key }, field: { name: 'API ключ (MDBList)', description: '' }, onRender: function() {} });
@@ -841,6 +836,17 @@
         try { retryStates = {}; } catch(e){} 
         lmpToast('Кеш рейтингів постерів очищено'); 
     }, onRender: function() {} });
+
+    // Перехоплюємо подію створення налаштувань, щоб налаштувати кнопку "Назад"
+    Lampa.Listener.follow('settings', function(e) {
+        if (e.type === 'create' && e.name === 'omdb_ratings') {
+            // Коли відкривається підменю, ми кажемо контролеру: 
+            // "Якщо користувач тисне Назад, поверни його в lmp_ratings, а не закривай налаштування"
+            Lampa.Controller.active().onBack = function() {
+                Lampa.Settings.create('lmp_ratings');
+            };
+        }
+    });
   }
 
   function initRatingsPluginUI() {
