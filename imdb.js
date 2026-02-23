@@ -110,7 +110,6 @@
   var ICONS = {
     imdb: ICONS_BASE_URL + 'imdb.svg',
     tmdb: ICONS_BASE_URL + 'tmdb.svg',
-    tmdb_poster: 'https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_1-5bdc75aaebeb75dc7ae79426ddd9be3b2be1e342510f8202baf6bffa71d7f5c4.svg',
     trakt: ICONS_BASE_URL + 'trakt.svg',
     letterboxd: ICONS_BASE_URL + 'letterboxd.svg',
     metacritic: ICONS_BASE_URL + 'metacritic.svg',
@@ -162,12 +161,12 @@
     ".lmp-color-red { color: #ef4444 !important; }" +
     "body.lmp-enh--rate-border .lmp-custom-rate { border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.2); }" +
     ".settings-param__descr,.settings-param__subtitle{white-space:pre-line;}" +
-    ".menu-edit-list .selector { background: transparent !important; transition: all 0.2s ease; outline: none; border-radius: 6px; }" +
-    ".menu-edit-list .selector.focus, .menu-edit-list .selector:hover { background: rgba(255,255,255,0.15) !important; }" +
+    ".menu-edit-list .selector { transition: all 0.2s ease; outline: none; }" +
+    ".menu-edit-list .selector.focus { background: #fff !important; color: #000 !important; transform: scale(1.1); box-shadow: 0 0 15px rgba(255,255,255,0.5); z-index: 10; }" +
     
-    /* === СТИЛІ ДЛЯ ПОСТЕРІВ === */
+    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
     "body.omdb-plugin-active .card__vote { display: none !important; opacity: 0 !important; visibility: hidden !important; }" + 
-    ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.75); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; line-height: 1; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); }" +
+    ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.75); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); }" +
     ".omdb-custom-rate span { font-weight: bold; }" +
     ".omdb-custom-rate img { width: 1.2em; height: 1.2em; margin-left: 0.3em; object-fit: contain; filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)); }" +
     "</style>";
@@ -439,7 +438,9 @@
                     timestamp: Date.now() + (ttlDays * 24 * 60 * 60 * 1000)
                 };
                 localStorage.setItem(omdbKey, JSON.stringify(omdbCache));
-            } catch (e) { }
+            } catch (e) {
+                // Ігноруємо помилки
+            }
         }
         // ---------------------------
         
@@ -450,7 +451,7 @@
   }
   /*
   |==========================================================================
-  | ЧАСТИНА 3: OMDb / TMDb ЛОГІКА (РЕАКТИВНИЙ СКАНЕР ПОСТЕРІВ)
+  | OMDb ЛОГІКА (РЕАКТИВНИЙ СКАНЕР + ВШИТИЙ TMDB КЛЮЧ)
   |==========================================================================
   */
   var OMDB_CACHE_KEY = 'omdb_ratings_cache';
@@ -491,11 +492,17 @@
   function getOmdbApiKey() {
       var key1 = (Lampa.Storage.get('omdb_api_key_1') || '').trim();
       var key2 = (Lampa.Storage.get('omdb_api_key_2') || '').trim();
+      var key3 = (Lampa.Storage.get('omdb_api_key_3') || '').trim();
       
       if (omdbKeyIndex === 1 && key1) return key1;
       if (omdbKeyIndex === 1 && !key1 && key2) return key2;
+      if (omdbKeyIndex === 1 && !key1 && !key2 && key3) return key3;
       if (omdbKeyIndex === 2 && key2) return key2;
-      if (omdbKeyIndex === 2 && !key2 && key1) return key1;
+      if (omdbKeyIndex === 2 && !key2 && key3) return key3;
+      if (omdbKeyIndex === 2 && !key2 && !key3 && key1) return key1;
+      if (omdbKeyIndex === 3 && key3) return key3;
+      if (omdbKeyIndex === 3 && !key3 && key1) return key1;
+      if (omdbKeyIndex === 3 && !key3 && !key1 && key2) return key2;
       
       return null;
   }
@@ -561,7 +568,7 @@
                           if (res.Response === "True" && res.imdbRating && res.imdbRating !== "N/A") {
                               saveOmdbCache(task.ratingKey, res.imdbRating);
                           } else if (res.Response === "False" && res.Error && res.Error.indexOf("limit") > -1) {
-                              omdbKeyIndex = omdbKeyIndex === 1 ? 2 : 1;
+                              omdbKeyIndex = omdbKeyIndex === 1 ? 2 : (omdbKeyIndex === 2 ? 3 : 1);
                               setRetryState(task.ratingKey);
                           } else { saveOmdbCache(task.ratingKey, "N/A"); }
                       } catch (e) { setRetryState(task.ratingKey); }
@@ -574,12 +581,18 @@
       }, function () { setRetryState(task.ratingKey); isOmdbRequesting = false; setTimeout(processOmdbQueue, 300); });
   }
 
+  function drawOmdbRatingInside(el, rating) {
+      if (!rating || rating === "N/A") { el.style.display = 'none'; return; }
+      el.style.display = 'flex';
+      el.innerHTML = '<span>' + rating + '</span><img src="' + ICON_IMDB_CARD + '">';
+  }
+
   function pollOmdbCards() {
       var isEnabled = Lampa.Storage.get('omdb_status', true);
       if (!isEnabled) {
           if (document.body.classList.contains('omdb-plugin-active')) {
               document.body.classList.remove('omdb-plugin-active');
-              document.querySelectorAll('.omdb-custom-rate').forEach(function(el) { el.style.display = 'none'; });
+              document.querySelectorAll('.omdb-custom-rate').forEach(function(el) { el.remove(); });
           }
           setTimeout(pollOmdbCards, 1000); return;
       }
@@ -588,11 +601,10 @@
           document.body.classList.add('omdb-plugin-active');
       }
 
-      var source = Lampa.Storage.get('omdb_poster_source', 'imdb');
+      // ДОДАНО: Читаємо налаштування розміру і формуємо scaleEm (де 0 = 0.9em, 1 = 1.05em і т.д.)
       var sizeSetting = parseInt(Lampa.Storage.get('omdb_poster_size', '0'));
       if (isNaN(sizeSetting)) sizeSetting = 0;
-      var scaleEm = 1 + (sizeSetting * 0.15); // Крок 0.15em для кожного рівня
-      var styleStr = "font-size: " + scaleEm + "em; display: flex;";
+      var scaleEm = 0.9 + (sizeSetting * 0.15); 
 
       document.querySelectorAll('.card').forEach(function (card) {
           var data = card.card_data || card.dataset || {};
@@ -615,40 +627,25 @@
               parent.appendChild(customRateEl);
           }
 
-          if (source === 'tmdb') {
-              var va = parseFloat(data.vote_average || 0);
-              if (va > 0) {
-                  var displayVa = va.toFixed(1);
-                  if (customRateEl.style.display === 'none' || customRateEl.dataset.val !== displayVa || customRateEl.dataset.src !== 'tmdb' || customRateEl.getAttribute('style') !== styleStr) {
-                      customRateEl.dataset.val = displayVa;
-                      customRateEl.dataset.src = 'tmdb';
-                      customRateEl.setAttribute('style', styleStr);
-                      customRateEl.innerHTML = '<span>' + displayVa + '</span><img src="' + ICONS.tmdb_poster + '">';
-                  }
-              } else {
-                  customRateEl.style.display = 'none';
+          // ДОДАНО: Застосовуємо вирахуваний розмір до плашки
+          customRateEl.style.fontSize = scaleEm + 'em';
+
+          // === РЕАКТИВНІСТЬ: Завжди перевіряємо кеш на зміни ===
+          var cachedRating = getCachedOmdbRating(ratingKey);
+
+          if (cachedRating && cachedRating !== "N/A") {
+              // Якщо є кеш, але постер ще прихований - показуємо миттєво!
+              if (customRateEl.style.display === 'none') {
+                  drawOmdbRatingInside(customRateEl, cachedRating);
               }
           } else {
-              // Логіка IMDb
-              var cachedRating = getCachedOmdbRating(ratingKey);
-
-              if (cachedRating && cachedRating !== "N/A") {
-                  if (customRateEl.style.display === 'none' || customRateEl.dataset.val !== cachedRating || customRateEl.dataset.src !== 'imdb' || customRateEl.getAttribute('style') !== styleStr) {
-                      customRateEl.dataset.val = cachedRating;
-                      customRateEl.dataset.src = 'imdb';
-                      customRateEl.setAttribute('style', styleStr);
-                      customRateEl.innerHTML = '<span>' + cachedRating + '</span><img src="' + ICON_IMDB_CARD + '">';
+              // Якщо немає, кидаємо в чергу
+              if (!retryStates[ratingKey] || Date.now() > retryStates[ratingKey].time) {
+                  var inQueue = omdbRequestQueue.some(function(t) { return t.ratingKey === ratingKey; });
+                  if (!inQueue) {
+                      omdbRequestQueue.push({ movie: data, id: id, cardElem: card, ratingKey: ratingKey });
+                      processOmdbQueue();
                   }
-              } else if (!cachedRating) {
-                  if (!retryStates[ratingKey] || Date.now() > retryStates[ratingKey].time) {
-                      var inQueue = omdbRequestQueue.some(function(t) { return t.ratingKey === ratingKey; });
-                      if (!inQueue) {
-                          omdbRequestQueue.push({ movie: data, id: id, cardElem: card, ratingKey: ratingKey });
-                          processOmdbQueue();
-                      }
-                  }
-              } else {
-                  customRateEl.style.display = 'none';
               }
           }
       });
@@ -659,8 +656,85 @@
   | ЧАСТИНА 4: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
   |==========================================================================
   */
+  var DEFAULT_SOURCES_ORDER = [
+    { id: 'mdblist', name: 'MDBList', enabled: true },
+    { id: 'imdb', name: 'IMDb', enabled: true },
+    { id: 'tmdb', name: 'TMDB', enabled: true },
+    { id: 'trakt', name: 'Trakt', enabled: true },
+    { id: 'letterboxd', name: 'Letterboxd', enabled: true },
+    { id: 'rottentomatoes', name: 'Rotten Tomatoes', enabled: true },
+    { id: 'popcorn', name: 'Popcornmeter', enabled: true },
+    { id: 'metacritic', name: 'Metacritic', enabled: true },
+    { id: 'mal', name: 'MyAnimeList', enabled: true }
+  ];
+
+  function getCfg() {
+    var parseIntDef = function(key, def) { var v = parseInt(Lampa.Storage.get(key, def), 10); return isNaN(v) ? def : v; };
+    var parseFloatDef = function(key, def) { var v = parseFloat(Lampa.Storage.get(key, def)); return isNaN(v) ? def : v; };
+    
+    var savedConfig = Lampa.Storage.get('ratings_sources_config', null);
+    if (savedConfig && Array.isArray(savedConfig)) {
+      savedConfig.forEach(function(s) {
+        if (s.id === 'rt') s.id = 'rottentomatoes';
+        if (s.id === 'mc') s.id = 'metacritic';
+      });
+      if (!savedConfig.find(function(s) { return s.id === 'mdblist'; })) savedConfig.push({ id: 'mdblist', name: 'MDBList', enabled: true });
+      if (!savedConfig.find(function(s) { return s.id === 'mal'; })) savedConfig.push({ id: 'mal', name: 'MyAnimeList', enabled: true });
+    } else {
+      savedConfig = DEFAULT_SOURCES_ORDER;
+    }
+
+    var fullSourcesConfig = savedConfig.map(function(s) { return { id: s.id, name: s.name, enabled: s.enabled }; });
+    var scaleMap = { 's_m2': -2, 's_m1': -1, 's_0': 0, 's_p1': 1, 's_p2': 2, 's_p3': 3, 's_p4': 4 };
+    
+    var logoRaw = Lampa.Storage.get('ratings_logo_scale_val', 's_0');
+    var textRaw = Lampa.Storage.get('ratings_text_scale_val', 's_0');
+    var spaceRaw = Lampa.Storage.get('ratings_spacing_val', 's_0');
+    
+    var logoInput = scaleMap[logoRaw] !== undefined ? scaleMap[logoRaw] : (parseInt(logoRaw) || 0);
+    var textInput = scaleMap[textRaw] !== undefined ? scaleMap[textRaw] : (parseInt(textRaw) || 0);
+    var spaceInput = scaleMap[spaceRaw] !== undefined ? scaleMap[spaceRaw] : (parseInt(spaceRaw) || 0);
+
+    return {
+      mdblistKey: Lampa.Storage.get('ratings_mdblist_key', RCFG_DEFAULT.ratings_mdblist_key),
+      cacheDays: parseIntDef('ratings_cache_days', parseInt(RCFG_DEFAULT.ratings_cache_days)),
+      textPosition: Lampa.Storage.get('ratings_text_position', RCFG_DEFAULT.ratings_text_position),
+      logoOffset: (logoInput * 2) + 'px',
+      textOffset: (textInput * 2) + 'px',
+      rateSpacing: (spaceInput * 4) + 'px',
+      showVotes: !!Lampa.Storage.field('ratings_show_votes', RCFG_DEFAULT.ratings_show_votes),
+      bwLogos: !!Lampa.Storage.field('ratings_bw_logos', RCFG_DEFAULT.ratings_bw_logos),
+      badgeAlpha: parseFloatDef('ratings_badge_alpha', RCFG_DEFAULT.ratings_badge_alpha),
+      badgeTone: parseIntDef('ratings_badge_tone', RCFG_DEFAULT.ratings_badge_tone),
+      colorizeAll: !!Lampa.Storage.field('ratings_colorize_all', RCFG_DEFAULT.ratings_colorize_all),
+      rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border),
+      sourcesConfig: fullSourcesConfig
+    };
+  }
+
+  function refreshConfigFromStorage() {
+    var cfg = getCfg();
+    LMP_ENH_CONFIG.apiKeys.mdblist = cfg.mdblistKey || '';
+    cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
+    return cfg;
+  }
+
+  function applyStylesToAll() {
+    var cfg = getCfg();
+    document.documentElement.style.setProperty('--lmp-logo-offset', cfg.logoOffset);
+    document.documentElement.style.setProperty('--lmp-text-offset', cfg.textOffset);
+    document.documentElement.style.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
+    cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
+    cfg.rateBorder ? document.body.classList.add('lmp-enh--rate-border') : document.body.classList.remove('lmp-enh--rate-border');
+    
+    var tiles = document.querySelectorAll('.lmp-custom-rate');
+    var rgba = 'rgba(' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeAlpha + ')';
+    tiles.forEach(function(tile) { tile.style.background = rgba; });
+  }
+
   function openSourcesEditor() {
     var cfg = getCfg();
+    // Робимо глибоку копію масиву
     var currentOrder = JSON.parse(JSON.stringify(cfg.sourcesConfig));
     var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
     
@@ -668,6 +742,7 @@
     var svgDown = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2L11 11L20 2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
     var svgCheck = '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.89111" y="1.78369" width="21.793" height="21.793" rx="3.5" stroke="currentColor" stroke-width="3"/><path d="M7.44873 12.9658L10.8179 16.3349L18.1269 9.02588" stroke="currentColor" stroke-width="3" class="dot" stroke-linecap="round"/></svg>';
 
+    // Функція для оновлення прозорості стрілок
     function updateArrowsState() {
       var items = listContainer.find('.source-item');
       items.each(function(idx) {
@@ -677,21 +752,20 @@
     }
 
     currentOrder.forEach(function(src) {
-      var opacityState = src.enabled ? '1' : '0.4';
-      // Зверни увагу: я прибрав inline 'background' зі стилів кнопок (.selector). 
-      // Тепер фон керується виключно через CSS (hover/focus).
-      var itemHtml = '<div class="source-item" data-id="' + src.id + '" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">' +
-          '<div class="source-name" style="font-size:16px; opacity: ' + opacityState + '; transition: opacity 0.2s;">' + src.name + '</div>' +
-          '<div style="display:flex; gap:10px; align-items:center;">' +
-            '<div class="move-up selector" style="padding:6px 12px; border-radius:6px; cursor:pointer;">' + svgUp + '</div>' +
-            '<div class="move-down selector" style="padding:6px 12px; border-radius:6px; cursor:pointer;">' + svgDown + '</div>' +
-            '<div class="toggle selector" style="padding:4px; border-radius:6px; cursor:pointer; margin-left:8px;">' + svgCheck + '</div>' +
-          '</div>' +
-        '</div>';
-        
-      var itemSort = $(itemHtml);
+      var itemSort = $(`
+        <div class="source-item" data-id="${src.id}" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
+          <div class="source-name" style="font-size:16px; opacity: ${src.enabled ? '1' : '0.4'}; transition: opacity 0.2s;">${src.name}</div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <div class="move-up selector" style="padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer;">${svgUp}</div>
+            <div class="move-down selector" style="padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer;">${svgDown}</div>
+            <div class="toggle selector" style="padding:4px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; margin-left:8px;">${svgCheck}</div>
+          </div>
+        </div>
+      `);
+      
       itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
 
+      // Залишили ТІЛЬКИ 'hover:enter'
       itemSort.find('.move-up').on('hover:enter', function() {
         var prevItem = itemSort.prev('.source-item');
         if (prevItem.length) {
@@ -700,6 +774,7 @@
         }
       });
 
+      // Залишили ТІЛЬКИ 'hover:enter'
       itemSort.find('.move-down').on('hover:enter', function() {
         var nextItem = itemSort.next('.source-item');
         if (nextItem.length) {
@@ -708,6 +783,7 @@
         }
       });
 
+      // Залишили ТІЛЬКИ 'hover:enter'
       itemSort.find('.toggle').on('hover:enter', function() {
         src.enabled = !src.enabled; 
         itemSort.find('.source-name').css('opacity', src.enabled ? '1' : '0.4');
@@ -729,7 +805,9 @@
         listContainer.find('.source-item').each(function() {
           var id = $(this).attr('data-id');
           var originalSrc = currentOrder.find(function(s) { return s.id === id; });
-          if (originalSrc) finalOrder.push({ id: originalSrc.id, name: originalSrc.name, enabled: originalSrc.enabled });
+          if (originalSrc) {
+            finalOrder.push({ id: originalSrc.id, name: originalSrc.name, enabled: originalSrc.enabled });
+          }
         });
 
         Lampa.Storage.set('ratings_sources_config', finalOrder);
@@ -738,7 +816,8 @@
         
         setTimeout(function() { 
           if (typeof currentRatingsData !== 'undefined' && currentRatingsData) { 
-            insertRatings(currentRatingsData); applyStylesToAll(); 
+            insertRatings(currentRatingsData); 
+            applyStylesToAll(); 
           } 
         }, 150);
       }
@@ -750,7 +829,8 @@
     window.lmp_ratings_add_param_ready = true;
 
     // Приховуємо підменю постерів з головного списку Лампи
-    $('body').append('<style>div[data-component="omdb_ratings"] { display: none !important; }</style>');
+    var hideSubMenuCss = '<style>div[data-component="omdb_ratings"] { display: none !important; }</style>';
+    $('body').append(hideSubMenuCss);
 
     // --- РІВЕНЬ 1: ГОЛОВНЕ ВІКНО "РЕЙТИНГИ MDBLIST" ---
     Lampa.SettingsApi.addComponent({ 
@@ -759,16 +839,20 @@
     });
     
     Lampa.SettingsApi.addParam({ 
-      component: 'lmp_ratings', param: { name: 'lmp_poster_submenu_btn', type: 'static' }, 
-      field: { name: 'Рейтинг на постері', description: 'Відображення рейтингу в каталозі' }, 
-      onRender: function(item) { item.on('hover:enter click', function() { Lampa.Settings.create('omdb_ratings'); }); }
+      component: 'lmp_ratings', 
+      param: { name: 'lmp_poster_submenu_btn', type: 'static' }, 
+      field: { name: 'Рейтинг на постері', description: 'Відображення рейтингу IMDb у каталозі' }, 
+      onRender: function(item) {
+        item.on('hover:enter click', function() { Lampa.Settings.create('omdb_ratings'); });
+      }
     });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_mdblist_key', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_mdblist_key }, field: { name: 'MDBList API key', description: '' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_edit_sources_btn' }, field: { name: 'Налаштувати джерела', description: 'Зміна порядку та видимості рейтингів' }, onChange: function() { openSourcesEditor(); }, onRender: function() {} });
-    
+
     var textPosValuesMap = { 'left': 'Зліва', 'right': 'Справа' };
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_position', type: 'select', values: textPosValuesMap, "default": 'right' }, field: { name: 'Розташування оцінки', description: 'Розміщення оцінки відносно логотипу' }, onRender: function() {} });
+    
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_show_votes', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_show_votes }, field: { name: 'Кількість голосів', description: 'Показувати кількість тих, хто проголосував' }, onRender: function() {} });
 
     var logoScaleValuesMap = { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2', 's_p3': '3', 's_p4': '4' };
@@ -788,22 +872,28 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити кеш рейтингів', description: '' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
 
     // --- РІВЕНЬ 2: ПІДМЕНЮ "РЕЙТИНГ НА ПОСТЕРІ" (OMDB) ---
-    Lampa.SettingsApi.addComponent({ component: 'omdb_ratings', name: 'Рейтинг на постері', icon: '' });
+    Lampa.SettingsApi.addComponent({ 
+        component: 'omdb_ratings', name: 'Рейтинг на постері', 
+        icon: '' 
+    });
 
+    // Додаємо візуальну кнопку "Назад" у підменю
     Lampa.SettingsApi.addParam({ 
-        component: 'omdb_ratings', param: { name: 'omdb_ratings_back', type: 'static' }, 
+        component: 'omdb_ratings', 
+        param: { name: 'omdb_ratings_back', type: 'static' }, 
         field: { name: 'Назад', description: 'Повернутися до основних налаштувань плагіна' }, 
-        onRender: function(item) { item.on('hover:enter click', function() { Lampa.Settings.create('lmp_ratings'); }); }
+        onRender: function(item) {
+            item.on('hover:enter click', function() { Lampa.Settings.create('lmp_ratings'); });
+        }
     });
     
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'Рейтинг на постері', description: 'Відображати плашку з оцінкою' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'IMDb на постері', description: 'Відображати рейтинги IMDb на постерах у каталозі' }, onRender: function() {} });
     
-    // Нові пункти вибору джерела і розміру
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: 'Вибір джерела оцінки для постерів' }, onRender: function() {} });
+    // ДОДАНО: Розмір плашки
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_size', type: 'select', values: { '0': '0', '1': '1', '2': '2', '3': '3', '4': '4' }, "default": '0' }, field: { name: 'Розмір рейтингу', description: 'Зміна розміру плашки з рейтингом' }, onRender: function() {} });
 
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: 'Основний ключ OMDb' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: 'Резервний ключ на випадок вичерпання ліміту' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: 'Резервний ключ на випадок вичерпання безкоштовного денного ліміту (1000 запитів)' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Термін зберігання кешу (OMDb)', description: 'Кількість днів' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: '' }, onChange: function() { 
         localStorage.removeItem('omdb_ratings_cache'); 
@@ -811,11 +901,14 @@
         lmpToast('Кеш рейтингів постерів очищено'); 
     }, onRender: function() {} });
 
+    // Відкладена підміна кнопки на пульті (тепер 500 мс)
     Lampa.Listener.follow('settings', function(e) {
         if (e.type === 'create' && e.name === 'omdb_ratings') {
             setTimeout(function() {
                 if (Lampa.Controller.active() && Lampa.Controller.active().name === 'settings_component') {
-                    Lampa.Controller.active().onBack = function() { Lampa.Settings.create('lmp_ratings'); };
+                    Lampa.Controller.active().onBack = function() {
+                        Lampa.Settings.create('lmp_ratings');
+                    };
                 }
             }, 500);
         }
@@ -837,13 +930,18 @@
 
   function startPlugin() {
     window.combined_ratings_plugin = true;
+    
     Lampa.Listener.follow('full', function(e) {
-      if (e.type === 'complite') setTimeout(function() { fetchAdditionalRatings(e.data.movie || e.object || {}); }, 500);
+      if (e.type === 'complite') {
+        setTimeout(function() { fetchAdditionalRatings(e.data.movie || e.object || {}); }, 500);
+      }
     });
+
     if (typeof pollOmdbCards === 'function') pollOmdbCards();
   }
 
-  $('body').append(pluginStyles);
+  Lampa.Template.add('lmp_enh_styles', pluginStyles);
+  $('body').append(Lampa.Template.get('lmp_enh_styles', {}, true));
   initRatingsPluginUI();
   refreshConfigFromStorage();
   
