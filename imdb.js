@@ -755,6 +755,90 @@
     tiles.forEach(function(tile) { tile.style.background = rgba; });
   }
 
+  // === НОВИЙ БЛОК: ПОШУК І ВИДАЛЕННЯ КЕШУ ОДНОГО ФІЛЬМУ ===
+  function searchAndShowResults(query) {
+      var tmdbKey = Lampa.Storage ? Lampa.Storage.get('tmdb_api_key', '') : '';
+      if (!tmdbKey || tmdbKey.trim() === '' || tmdbKey.trim() === 'c87a543116135a4120443155bf680876') {
+          tmdbKey = '4ef0d7355d9ffb5151e987764708ce96';
+      }
+      var url = 'https://api.themoviedb.org/3/search/multi?api_key=' + tmdbKey + '&language=uk-UA&query=' + encodeURIComponent(query);
+      
+      var net = new Lampa.Reguest();
+      net.silent(url, function(res) {
+          if (res && res.results && res.results.length > 0) {
+              var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
+              
+              res.results.forEach(function(item) {
+                  if (item.media_type !== 'movie' && item.media_type !== 'tv') return;
+                  var title = item.title || item.name || item.original_title || 'Без назви';
+                  var date = item.release_date || item.first_air_date || '';
+                  var year = date ? ' (' + date.substring(0, 4) + ')' : '';
+                  var typeStr = item.media_type === 'tv' ? 'Серіал' : 'Фільм';
+                  
+                  // Використовуємо класи .selector з Частини 1 для красивого фокусу
+                  var row = $('<div class="source-item selector" style="padding:12px; border-bottom:1px solid rgba(255,255,255,0.1); cursor:pointer;">' +
+                                '<div style="font-size:16px;">' + title + year + '</div>' +
+                                '<div style="font-size:12px; opacity:0.6; margin-top:4px;">' + typeStr + ' • ID: ' + item.id + '</div>' +
+                              '</div>');
+                  
+                  row.on('hover:enter click', function() {
+                      var ratingKey = item.media_type + '_' + item.id;
+                      
+                      // Видаляємо з MDBList
+                      var mdbCache = Lampa.Storage.get(RATING_CACHE_KEY) || {};
+                      if (mdbCache[ratingKey]) {
+                          delete mdbCache[ratingKey];
+                          Lampa.Storage.set(RATING_CACHE_KEY, mdbCache);
+                      }
+                      
+                      // Видаляємо з OMDb
+                      var OMDB_CACHE_KEY = 'omdb_ratings_cache';
+                      try {
+                          var omdbCacheRaw = localStorage.getItem(OMDB_CACHE_KEY);
+                          if (omdbCacheRaw) {
+                              var omdbCache = JSON.parse(omdbCacheRaw);
+                              if (omdbCache[ratingKey]) {
+                                  delete omdbCache[ratingKey];
+                                  localStorage.setItem(OMDB_CACHE_KEY, JSON.stringify(omdbCache));
+                              }
+                          }
+                      } catch(e){}
+                      
+                      lmpToast('Кеш для "' + title + '" очищено');
+                      Lampa.Modal.close();
+                  });
+                  
+                  listContainer.append(row);
+              });
+              
+              Lampa.Modal.open({
+                  title: 'Оберіть об\'єкт для очищення',
+                  html: listContainer,
+                  size: 'medium',
+                  scroll_to_center: true
+              });
+          } else {
+              lmpToast('Нічого не знайдено');
+          }
+      }, function() {
+          lmpToast('Помилка пошуку');
+      });
+  }
+
+  function openSingleCacheManager() {
+      Lampa.Input.edit({
+          title: 'Назва фільму або серіалу',
+          value: '',
+          free: true,
+          nosave: true
+      }, function(new_value) {
+          if (new_value && new_value.trim()) {
+              searchAndShowResults(new_value.trim());
+          }
+      });
+  }
+  // ==========================================================
+
   function openSourcesEditor() {
     var cfg = getCfg();
     var currentOrder = JSON.parse(JSON.stringify(cfg.sourcesConfig));
@@ -773,7 +857,6 @@
     }
 
     currentOrder.forEach(function(src) {
-      // ПРАВКА: Прибрано 'background:rgba(255,255,255,0.1)' із параметрів style нижче
       var itemSort = $(
         '<div class="source-item" data-id="' + src.id + '" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">' +
           '<div class="source-name" style="font-size:16px; opacity: ' + (src.enabled ? '1' : '0.4') + '; transition: opacity 0.2s;">' + src.name + '</div>' +
@@ -850,6 +933,7 @@
     var hideSubMenuCss = '<style>div[data-component="omdb_ratings"] { display: none !important; }</style>';
     $('body').append(hideSubMenuCss);
 
+    // --- РІВЕНЬ 1: ГОЛОВНЕ ВІКНО "РЕЙТИНГИ MDBLIST" ---
     Lampa.SettingsApi.addComponent({ 
       component: 'lmp_ratings', name: 'Рейтинги MDBList', 
       icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l3.09 6.26L22 10.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 15.14l-5-4.87 6.91-1.01L12 3z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>' 
@@ -886,8 +970,20 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_rate_border }, field: { name: 'Рамка плиток рейтингів', description: 'Відображати напівпрозору рамку навколо кожного рейтингу' }, onRender: function() {} });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання кешу (MDBList)', description: 'Кількість днів' }, onRender: function() {} });
+    
+    // Кнопка для очищення всього кешу
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити кеш рейтингів', description: '' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
 
+    // ДОДАНО: Кнопка для очищення окремого фільму
+    Lampa.SettingsApi.addParam({ 
+        component: 'lmp_ratings', 
+        param: { type: 'button', name: 'lmp_clear_single_cache_btn' }, 
+        field: { name: 'Видалити кеш окремого фільму', description: 'Пошук за назвою та точкове очищення (MDBList + OMDb)' }, 
+        onChange: function() { openSingleCacheManager(); }, 
+        onRender: function() {} 
+    });
+
+    // --- РІВЕНЬ 2: ПІДМЕНЮ "РЕЙТИНГ НА ПОСТЕРІ" (OMDB) ---
     Lampa.SettingsApi.addComponent({ 
         component: 'omdb_ratings', name: 'Рейтинг на постері', 
         icon: '' 
@@ -908,7 +1004,7 @@
 
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: 'Основний ключ OMDb' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: 'Резервний ключ на випадок вичерпання безкоштовного денного ліміту (1000 запитів)' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Термін зберігання кешу (OMDb)', description: 'Кількість днів' }, onRender: function() {} });
+Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Термін зберігання кешу (OMDb)', description: 'Кількість днів' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: '' }, onChange: function() { 
         localStorage.removeItem('omdb_ratings_cache'); 
         try { retryStates = {}; } catch(e){} 
