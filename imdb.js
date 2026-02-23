@@ -172,25 +172,16 @@
     "</style>";
   /*
   |==========================================================================
-  | БАЗОВІ ФУНКЦІЇ ТА АПІ MDBLIST
+  | БАЗОВІ ФУНКЦІЇ ТА АПІ MDBLIST (+ ПРЯМИЙ МІСТ В OMDB)
   |==========================================================================
   */
   var RATING_CACHE_KEY = 'lmp_enh_rating_cache';
-  var OMDB_CACHE_KEY = 'omdb_ratings_cache';
 
   var RCFG_DEFAULT = {
-    ratings_mdblist_key: '',
-    ratings_cache_days: '3',
-    ratings_text_position: 'right',
-    ratings_show_votes: true,
-    ratings_logo_scale_val: 's_0', 
-    ratings_text_scale_val: 's_0',
-    ratings_spacing_val: 's_0',
-    ratings_bw_logos: false,
-    ratings_badge_alpha: 0,
-    ratings_badge_tone: 0,
-    ratings_colorize_all: true,
-    ratings_rate_border: false
+    ratings_mdblist_key: '', ratings_cache_days: '3', ratings_text_position: 'right',
+    ratings_show_votes: true, ratings_logo_scale_val: 's_0', ratings_text_scale_val: 's_0',
+    ratings_spacing_val: 's_0', ratings_bw_logos: false, ratings_badge_alpha: 0,
+    ratings_badge_tone: 0, ratings_colorize_all: true, ratings_rate_border: false
   };
 
   var currentRatingsData = null;
@@ -201,19 +192,15 @@
     return card.name || card.original_name ? 'tv' : 'movie';
   }
 
-  function iconImg(url, alt) {
-    return '<img src="' + url + '" alt="' + (alt || '') + '">';
-  }
+  function iconImg(url, alt) { return '<img src="' + url + '" alt="' + (alt || '') + '">'; }
 
   function getPrimaryRateLine(render){
     if (!render || !render.length) return $();
     var $nativeRate = render.find('.full-start__rate, .rate--imdb, .rate--tmdb, .rate--kp').first();
     if ($nativeRate.length && $nativeRate.parent().length) return $nativeRate.parent();
-
     var $left = $('.cardify__left .full-start-new__rate-line:not([data-lmp-fake]), .cardify__left .full-start__rate-line:not([data-lmp-fake])', render).first();
     if ($left.length) return $left;
-    var $any = $('.full-start-new__rate-line:not([data-lmp-fake]), .full-start__rate-line:not([data-lmp-fake])', render).first();
-    return $any;
+    return $('.full-start-new__rate-line:not([data-lmp-fake]), .full-start__rate-line:not([data-lmp-fake])', render).first();
   }
 
   function cleanupRtgInjected(render){
@@ -238,59 +225,34 @@
   function fetchMdbListRatings(card, callback) {
     var rawKeys = LMP_ENH_CONFIG.apiKeys.mdblist;
     var keys = rawKeys.split(',').map(function(k) { return k.trim(); }).filter(Boolean);
-    
     if (keys.length === 0) return callback(null);
 
     var currentKeyIndex = 0;
-
     function makeRequest() {
       var key = keys[currentKeyIndex];
       var typeSegment = (card.type === 'tv') ? 'show' : card.type;
       var url = 'https://api.mdblist.com/tmdb/' + typeSegment + '/' + card.id + '?apikey=' + encodeURIComponent(key);
 
-      var network = new Lampa.Reguest();
-      network.silent(url, function(response) {
-        if (response) {
-          handleSuccess(response);
-        } else {
-          tryNextKey();
-        }
-      }, function(error) {
-        tryNextKey();
-      });
+      new Lampa.Reguest().silent(url, function(response) {
+        if (response) handleSuccess(response); else tryNextKey();
+      }, function(error) { tryNextKey(); });
     }
 
     function tryNextKey() {
       currentKeyIndex++;
-      if (currentKeyIndex < keys.length) {
-        makeRequest();
-      } else {
-        callback(null);
-      }
+      if (currentKeyIndex < keys.length) makeRequest(); else callback(null);
     }
 
     function handleSuccess(response) {
-      var res = {
-        mdblist: null, imdb: null, tmdb: null, trakt: null,
-        letterboxd: null, metacritic: null,
-        rottentomatoes: null, popcorn: null, mal: null
-      };
-
+      var res = { mdblist: null, imdb: null, tmdb: null, trakt: null, letterboxd: null, metacritic: null, rottentomatoes: null, popcorn: null, mal: null };
       var mdbScore = response.score;
       if (mdbScore) {
-          var normMdb = parseFloat(mdbScore);
-          if (normMdb > 10) normMdb = normMdb / 10;
-          res.mdblist = {
-              display: normMdb.toFixed(1),
-              avg: normMdb,
-              votes: response.score_votes || 0,
-              fresh: normMdb >= 6.0
-          };
+          var normMdb = parseFloat(mdbScore); if (normMdb > 10) normMdb = normMdb / 10;
+          res.mdblist = { display: normMdb.toFixed(1), avg: normMdb, votes: response.score_votes || 0, fresh: normMdb >= 6.0 };
       }
 
       if (!response.ratings || !response.ratings.length) {
-          if (res.mdblist) return callback(res);
-          return callback(null);
+          if (res.mdblist) return callback(res); return callback(null);
       }
 
       response.ratings.forEach(function(r) {
@@ -300,13 +262,8 @@
         if (isNaN(val)) return;
         
         var normalized = val;
-        
-        if (src === 'letterboxd') {
-            normalized = val * 2; 
-        } else if (val > 10) {
-            normalized = val / 10; 
-        }
-
+        if (src === 'letterboxd') normalized = val * 2; 
+        else if (val > 10) normalized = val / 10; 
         normalized = Math.max(0, Math.min(10, normalized));
         var displayVal = normalized.toFixed(1);
 
@@ -321,10 +278,8 @@
         else if (src.indexOf('popcorn') !== -1 || src.indexOf('audience') !== -1) res.popcorn = item;
         else if (src.indexOf('myanimelist') !== -1 || src === 'mal') res.mal = item;
       });
-
       callback(res);
     }
-
     makeRequest();
   }
 
@@ -351,17 +306,10 @@
     cfg.sourcesConfig.forEach(function(src) {
       if (!src.enabled || !data[src.id]) return;
       var itemData = data[src.id];
-
       var iconUrl = (cfg.bwLogos && ICONS_BW[src.id]) ? ICONS_BW[src.id] : ICONS[src.id];
       
-      if (src.id === 'rottentomatoes') {
-          iconUrl = cfg.bwLogos ? (itemData.fresh ? ICONS_BW.rotten_good : ICONS_BW.rotten_bad) 
-                                : (itemData.fresh ? ICONS.rotten_good : ICONS.rotten_bad);
-      }
-      
-      if (src.id === 'popcorn' && itemData.avg < 6) {
-          iconUrl = cfg.bwLogos ? ICONS_BW.popcorn_bad : ICONS.popcorn_bad;
-      }
+      if (src.id === 'rottentomatoes') iconUrl = cfg.bwLogos ? (itemData.fresh ? ICONS_BW.rotten_good : ICONS_BW.rotten_bad) : (itemData.fresh ? ICONS.rotten_good : ICONS.rotten_bad);
+      if (src.id === 'popcorn' && itemData.avg < 6) iconUrl = cfg.bwLogos ? ICONS_BW.popcorn_bad : ICONS.popcorn_bad;
 
       var colorClass = '';
       if (cfg.colorizeAll) {
@@ -374,22 +322,15 @@
       var votesHtml = (cfg.showVotes && itemData.votes) ? '<span class="rate--votes">' + formatVotes(itemData.votes) + '</span>' : '';
       var dirClass = (cfg.textPosition === 'right') ? 'lmp-dir-left' : 'lmp-dir-right';
 
-      var cont = $(
+      elementsToInsert.push($(
         '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + '">' +
             '<div class="source--name" title="' + src.name + '">' + iconImg(iconUrl, src.name) + '</div>' +
-            '<div class="rate--text-block">' + 
-                '<span class="rate--value ' + colorClass + '">' + itemData.display + '</span>' + 
-                votesHtml + 
-            '</div>' +
+            '<div class="rate--text-block"><span class="rate--value ' + colorClass + '">' + itemData.display + '</span>' + votesHtml + '</div>' +
         '</div>'
-      );
-      
-      elementsToInsert.push(cont);
+      ));
     });
 
-    if (elementsToInsert.length > 0) {
-        rateLine.prepend(elementsToInsert);
-    }
+    if (elementsToInsert.length > 0) rateLine.prepend(elementsToInsert);
   }
 
   function fetchAdditionalRatings(card) {
@@ -422,22 +363,15 @@
 
     fetchMdbListRatings(normalizedCard, function(res) {
       $('#lmp-search-loader', render).remove();
-
       if (res) {
         currentRatingsData = res;
         cache[cacheKey] = { timestamp: Date.now(), data: res };
         Lampa.Storage.set(RATING_CACHE_KEY, cache);
-
-        // --- ІНТЕГРАЦІЯ З ПОСТЕРАМИ (КОПІЮВАННЯ В КЕШ OMDB) ---
-        if (res.imdb && res.imdb.display) {
-            var omdbCache = JSON.parse(localStorage.getItem(OMDB_CACHE_KEY) || '{}');
-            var ttlDays = parseInt(Lampa.Storage.get('omdb_cache_days', '7')) || 7;
-            // Примусово записуємо знайдений рейтинг IMDb у кеш постерів
-            omdbCache[cacheKey] = {
-                rating: res.imdb.display,
-                timestamp: Date.now() + (ttlDays * 24 * 60 * 60 * 1000)
-            };
-            localStorage.setItem(OMDB_CACHE_KEY, JSON.stringify(omdbCache));
+        
+        // --- ПРЯМИЙ МІСТ ---
+        // Якщо MDBList знайшов IMDb, примусово оновлюємо кеш постерів OMDb
+        if (res.imdb && res.imdb.display && typeof saveOmdbCache === 'function') {
+            saveOmdbCache(cacheKey, res.imdb.display);
         }
         
         insertRatings(currentRatingsData);
@@ -447,10 +381,12 @@
   }
   /*
   |==========================================================================
-  | OMDb ЛОГІКА (КЕШ-ШАРИНГ ТА ПОДІЄВА МОДЕЛЬ)
+  | OMDb ЛОГІКА (РЕАКТИВНИЙ СКАНЕР + ВШИТИЙ TMDB КЛЮЧ)
   |==========================================================================
   */
+  var OMDB_CACHE_KEY = 'omdb_ratings_cache';
   var ICON_IMDB_CARD = 'https://img.icons8.com/color/48/000000/imdb.png';
+  var retryStates = {}; 
 
   function getOmdbCache() {
       var cache = localStorage.getItem(OMDB_CACHE_KEY);
@@ -491,11 +427,9 @@
       if (omdbKeyIndex === 1 && key1) return key1;
       if (omdbKeyIndex === 1 && !key1 && key2) return key2;
       if (omdbKeyIndex === 1 && !key1 && !key2 && key3) return key3;
-      
       if (omdbKeyIndex === 2 && key2) return key2;
       if (omdbKeyIndex === 2 && !key2 && key3) return key3;
       if (omdbKeyIndex === 2 && !key2 && !key3 && key1) return key1;
-      
       if (omdbKeyIndex === 3 && key3) return key3;
       if (omdbKeyIndex === 3 && !key3 && key1) return key1;
       if (omdbKeyIndex === 3 && !key3 && !key1 && key2) return key2;
@@ -506,9 +440,8 @@
   function getTmdbUrl(type, id) {
       var base = 'https://api.themoviedb.org/3/' + type + '/' + id + '/external_ids';
       var tmdbKey = Lampa.Storage ? Lampa.Storage.get('tmdb_api_key', '') : '';
-      
       if (!tmdbKey || tmdbKey.trim() === '' || tmdbKey.trim() === 'c87a543116135a4120443155bf680876') {
-          tmdbKey = '4ef0d7355d9ffb5151e987764708ce96'; 
+          tmdbKey = '4ef0d7355d9ffb5151e987764708ce96';
       }
       return base + '?api_key=' + tmdbKey;
   }
@@ -516,7 +449,18 @@
   var omdbRequestQueue = [];
   var isOmdbRequesting = false;
 
-  // Одноразовий запит без складних переповторів
+  function setRetryState(ratingKey) {
+      var state = retryStates[ratingKey] || { step: 0 };
+      if (state.step === 0) {
+          retryStates[ratingKey] = { step: 1, time: Date.now() + 60 * 1000 };
+      } else if (state.step === 1) {
+          retryStates[ratingKey] = { step: 2, time: Date.now() + 60 * 60 * 1000 };
+      } else {
+          saveOmdbCache(ratingKey, "N/A");
+          delete retryStates[ratingKey];
+      }
+  }
+
   function processOmdbQueue() {
       if (isOmdbRequesting || omdbRequestQueue.length === 0) return;
       isOmdbRequesting = true;
@@ -530,11 +474,8 @@
       var type = data.media_type || data.type || (data.name || data.original_name || data.seasons || data.first_air_date ? 'tv' : 'movie');
       var id = task.id;
 
-      // Раптом поки чекали, рейтинг з'явився (відкрили картку)
       if (getCachedOmdbRating(task.ratingKey)) {
-          isOmdbRequesting = false;
-          processOmdbQueue();
-          return;
+          isOmdbRequesting = false; processOmdbQueue(); return;
       }
 
       var tmdbReq = new Lampa.Reguest();
@@ -545,11 +486,7 @@
               
               if (imdbId) {
                   var apiKey = getOmdbApiKey();
-                  if (!apiKey) {
-                      isOmdbRequesting = false;
-                      setTimeout(processOmdbQueue, 100);
-                      return;
-                  }
+                  if (!apiKey) { isOmdbRequesting = false; setTimeout(processOmdbQueue, 100); return; }
 
                   var omdbUrl = 'https://www.omdbapi.com/?i=' + imdbId + '&apikey=' + apiKey;
                   var omdbReq = new Lampa.Reguest();
@@ -557,59 +494,37 @@
                   omdbReq.silent(omdbUrl, function (omdbData) {
                       try {
                           var res = typeof omdbData === 'string' ? JSON.parse(omdbData) : omdbData;
+                          delete retryStates[task.ratingKey];
                           if (res.Response === "True" && res.imdbRating && res.imdbRating !== "N/A") {
                               saveOmdbCache(task.ratingKey, res.imdbRating);
                           } else if (res.Response === "False" && res.Error && res.Error.indexOf("limit") > -1) {
                               omdbKeyIndex = omdbKeyIndex === 1 ? 2 : (omdbKeyIndex === 2 ? 3 : 1);
-                              // Не записуємо нічого, щоб спробувати наступним ключем
-                          } else {
-                              // Записуємо N/A. Подальші зміни будуть тільки через відкриття картки.
-                              saveOmdbCache(task.ratingKey, "N/A");
-                          }
-                      } catch (e) { saveOmdbCache(task.ratingKey, "N/A"); }
-                      isOmdbRequesting = false;
-                      setTimeout(processOmdbQueue, 300);
+                              setRetryState(task.ratingKey);
+                          } else { saveOmdbCache(task.ratingKey, "N/A"); }
+                      } catch (e) { setRetryState(task.ratingKey); }
+                      isOmdbRequesting = false; setTimeout(processOmdbQueue, 300);
                   }, function () {
-                      saveOmdbCache(task.ratingKey, "N/A");
-                      isOmdbRequesting = false;
-                      setTimeout(processOmdbQueue, 300);
+                      setRetryState(task.ratingKey); isOmdbRequesting = false; setTimeout(processOmdbQueue, 300);
                   });
-              } else {
-                  saveOmdbCache(task.ratingKey, "N/A");
-                  isOmdbRequesting = false;
-                  setTimeout(processOmdbQueue, 100);
-              }
-          } catch (e) {
-              saveOmdbCache(task.ratingKey, "N/A");
-              isOmdbRequesting = false;
-              setTimeout(processOmdbQueue, 300);
-          }
-      }, function () {
-          saveOmdbCache(task.ratingKey, "N/A");
-          isOmdbRequesting = false;
-          setTimeout(processOmdbQueue, 300);
-      });
+              } else { saveOmdbCache(task.ratingKey, "N/A"); isOmdbRequesting = false; setTimeout(processOmdbQueue, 100); }
+          } catch (e) { setRetryState(task.ratingKey); isOmdbRequesting = false; setTimeout(processOmdbQueue, 300); }
+      }, function () { setRetryState(task.ratingKey); isOmdbRequesting = false; setTimeout(processOmdbQueue, 300); });
   }
 
   function drawOmdbRatingInside(el, rating) {
-      if (!rating || rating === "N/A") {
-          el.style.display = 'none';
-          return;
-      }
+      if (!rating || rating === "N/A") { el.style.display = 'none'; return; }
       el.style.display = 'flex';
       el.innerHTML = '<span>' + rating + '</span><img src="' + ICON_IMDB_CARD + '">';
   }
 
   function pollOmdbCards() {
       var isEnabled = Lampa.Storage.get('omdb_status', true);
-      
       if (!isEnabled) {
           if (document.body.classList.contains('omdb-plugin-active')) {
               document.body.classList.remove('omdb-plugin-active');
               document.querySelectorAll('.omdb-custom-rate').forEach(function(el) { el.remove(); });
           }
-          setTimeout(pollOmdbCards, 1000);
-          return;
+          setTimeout(pollOmdbCards, 1000); return;
       }
 
       if (!document.body.classList.contains('omdb-plugin-active')) {
@@ -629,40 +544,28 @@
 
           if (!customRateEl || customRateEl.dataset.omdbId !== ratingKey) {
               if (customRateEl) customRateEl.remove();
-
               customRateEl = document.createElement('div');
               customRateEl.className = 'omdb-custom-rate';
               customRateEl.dataset.omdbId = ratingKey;
               customRateEl.style.display = 'none'; 
-
               var parent = card.querySelector('.card__view') || card;
               parent.appendChild(customRateEl);
+          }
 
-              var rating = null;
+          // === РЕАКТИВНІСТЬ: Завжди перевіряємо кеш на зміни ===
+          var cachedRating = getCachedOmdbRating(ratingKey);
 
-              // 1. Спочатку перевіряємо кеш MDBList
-              var mdbCache = Lampa.Storage.get(RATING_CACHE_KEY) || {};
-              if (mdbCache[ratingKey] && mdbCache[ratingKey].data && mdbCache[ratingKey].data.imdb) {
-                  rating = mdbCache[ratingKey].data.imdb.display;
+          if (cachedRating && cachedRating !== "N/A") {
+              // Якщо є кеш, але постер ще прихований - показуємо миттєво!
+              if (customRateEl.style.display === 'none') {
+                  drawOmdbRatingInside(customRateEl, cachedRating);
               }
-
-              // 2. Потім перевіряємо основний кеш OMDb
-              if (!rating) {
-                  var cachedOmdb = getCachedOmdbRating(ratingKey);
-                  if (cachedOmdb) {
-                      rating = cachedOmdb; 
-                  }
-              }
-
-              // 3. Відмальовуємо або ставимо в чергу
-              if (rating) {
-                  // Якщо рейтинг є або він N/A - просто застосовуємо візуально, без нових запитів
-                  drawOmdbRatingInside(customRateEl, rating);
-              } else {
-                  // Якщо рейтингу немає ніде - відправляємо в чергу на один запит API
+          } else {
+              // Якщо немає, кидаємо в чергу
+              if (!retryStates[ratingKey] || Date.now() > retryStates[ratingKey].time) {
                   var inQueue = omdbRequestQueue.some(function(t) { return t.ratingKey === ratingKey; });
                   if (!inQueue) {
-                      omdbRequestQueue.push({ movie: data, id: id, ratingKey: ratingKey });
+                      omdbRequestQueue.push({ movie: data, id: id, cardElem: card, ratingKey: ratingKey });
                       processOmdbQueue();
                   }
               }
@@ -670,9 +573,10 @@
       });
       setTimeout(pollOmdbCards, 500);
   }
+
   /*
   |==========================================================================
-  | ЧАСТИНА 4: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
+  | НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
   |==========================================================================
   */
   var DEFAULT_SOURCES_ORDER = [
