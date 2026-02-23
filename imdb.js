@@ -728,7 +728,7 @@
 
   function openSourcesEditor() {
     var cfg = getCfg();
-    // Робимо глибоку копію масиву, щоб працювати з нею
+    // Робимо глибоку копію масиву
     var currentOrder = JSON.parse(JSON.stringify(cfg.sourcesConfig));
     var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
     
@@ -736,7 +736,7 @@
     var svgDown = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2L11 11L20 2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
     var svgCheck = '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.89111" y="1.78369" width="21.793" height="21.793" rx="3.5" stroke="currentColor" stroke-width="3"/><path d="M7.44873 12.9658L10.8179 16.3349L18.1269 9.02588" stroke="currentColor" stroke-width="3" class="dot" stroke-linecap="round"/></svg>';
 
-    // Функція для оновлення прозорості стрілок (щоб верхня перша і нижня остання були тьмяними)
+    // Функція для оновлення прозорості стрілок
     function updateArrowsState() {
       var items = listContainer.find('.source-item');
       items.each(function(idx) {
@@ -745,7 +745,6 @@
       });
     }
 
-    // Створюємо список ОДИН раз
     currentOrder.forEach(function(src) {
       var itemSort = $(`
         <div class="source-item" data-id="${src.id}" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
@@ -760,27 +759,27 @@
       
       itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
 
-      // Логіка переміщення ВГОРУ (фізично міняємо блоки місцями в DOM)
-      itemSort.find('.move-up').on('hover:enter click', function() {
+      // Залишили ТІЛЬКИ 'hover:enter'
+      itemSort.find('.move-up').on('hover:enter', function() {
         var prevItem = itemSort.prev('.source-item');
         if (prevItem.length) {
-          itemSort.insertBefore(prevItem); // Переносимо блок вище
-          updateArrowsState(); // Оновлюємо вигляд стрілочок
+          itemSort.insertBefore(prevItem);
+          updateArrowsState();
         }
       });
 
-      // Логіка переміщення ВНИЗ (фізично міняємо блоки місцями в DOM)
-      itemSort.find('.move-down').on('hover:enter click', function() {
+      // Залишили ТІЛЬКИ 'hover:enter'
+      itemSort.find('.move-down').on('hover:enter', function() {
         var nextItem = itemSort.next('.source-item');
         if (nextItem.length) {
-          itemSort.insertAfter(nextItem); // Переносимо блок нижче
-          updateArrowsState(); // Оновлюємо вигляд стрілочок
+          itemSort.insertAfter(nextItem);
+          updateArrowsState();
         }
       });
 
-      // Логіка увімкнення/вимкнення
-      itemSort.find('.toggle').on('hover:enter click', function() {
-        src.enabled = !src.enabled; // Змінюємо стан об'єкта
+      // Залишили ТІЛЬКИ 'hover:enter'
+      itemSort.find('.toggle').on('hover:enter', function() {
+        src.enabled = !src.enabled; 
         itemSort.find('.source-name').css('opacity', src.enabled ? '1' : '0.4');
         itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
       });
@@ -788,7 +787,6 @@
       listContainer.append(itemSort);
     });
 
-    // Налаштовуємо початковий вигляд стрілочок
     updateArrowsState();
 
     Lampa.Modal.open({
@@ -797,23 +795,19 @@
       size: 'small',
       scroll_to_center: true,
       onBack: function() {
-        // Коли користувач виходить, ми читаємо НОВИЙ порядок прямо з екрана
         var finalOrder = [];
         listContainer.find('.source-item').each(function() {
           var id = $(this).attr('data-id');
-          // Знаходимо оригінальний об'єкт (в ньому вже збережений правильний стан enabled)
           var originalSrc = currentOrder.find(function(s) { return s.id === id; });
           if (originalSrc) {
             finalOrder.push({ id: originalSrc.id, name: originalSrc.name, enabled: originalSrc.enabled });
           }
         });
 
-        // Зберігаємо новий порядок у пам'ять
         Lampa.Storage.set('ratings_sources_config', finalOrder);
         Lampa.Modal.close();
         Lampa.Controller.toggle('settings_component');
         
-        // Оновлюємо рейтинги на екрані, якщо вони зараз відкриті
         setTimeout(function() { 
           if (typeof currentRatingsData !== 'undefined' && currentRatingsData) { 
             insertRatings(currentRatingsData); 
