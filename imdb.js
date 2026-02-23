@@ -41,80 +41,31 @@
       mal: ICONS.mal
   };
 
-  var pluginStyles = `
-    :root {
-      --lmp-logo-offset: 0px;
-      --lmp-text-offset: 0px;
-      --lmp-rate-spacing: 0px;
-    }
-    .lmp-custom-rate {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4em;
-      margin-right: calc(10px + var(--lmp-rate-spacing));
-      margin-bottom: 8px;
-      padding: 4px 8px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.05);
-    }
-    .lmp-custom-rate.lmp-dir-left { flex-direction: row; }
-    .lmp-custom-rate.lmp-dir-right { flex-direction: row-reverse; }
-    .lmp-enh--rate-border .lmp-custom-rate { border: 1px solid rgba(255,255,255,0.15); }
-    .lmp-custom-rate .source--name { width: calc(20px + var(--lmp-logo-offset)); height: calc(20px + var(--lmp-logo-offset)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .lmp-custom-rate .source--name img { width: 100%; height: 100%; object-fit: contain; }
-    .lmp-enh--mono .lmp-custom-rate .source--name img { filter: grayscale(100%) brightness(1.2); }
-    .lmp-custom-rate .rate--text-block { display: flex; flex-direction: column; line-height: 1; }
-    .lmp-custom-rate .rate--value { font-size: calc(1.1em + var(--lmp-text-offset)); font-weight: bold; color: #fff; }
-    .lmp-custom-rate .rate--votes { font-size: calc(0.7em + (var(--lmp-text-offset) * 0.5)); color: rgba(255,255,255,0.6); margin-top: 2px; }
-    .lmp-color-green { color: #4CAF50 !important; }
-    .lmp-color-blue { color: #2196F3 !important; }
-    .lmp-color-orange { color: #FF9800 !important; }
-    .lmp-color-red { color: #F44336 !important; }
-
-    /* Стилі для плашки рейтингу на постері (повністю на em для масштабування) */
-    .lmp-poster-badge {
-        position: absolute;
-        top: 0.4em;
-        right: 0.4em;
-        background: rgba(0, 0, 0, 0.75);
-        border-radius: 0.5em;
-        display: flex;
-        align-items: center;
-        padding: 0.25em 0.4em;
-        gap: 0.35em;
-        z-index: 10;
-        backdrop-filter: blur(2px);
-    }
-    .lmp-poster-badge span {
-        color: #fff;
-        font-weight: bold;
-        font-size: 1em;
-        line-height: 1;
-    }
-    .lmp-poster-badge img {
-        height: 1em;
-        width: auto;
-        display: block;
-        border-radius: 2px;
-    }
-
-    /* Фокус кнопок у налаштуваннях (Стрілочки та чекбокси) */
-    .menu-edit-list .selector {
-        background: transparent !important;
-        transition: background 0.2s ease;
-    }
-    .menu-edit-list .selector:hover,
-    .menu-edit-list .selector.focus {
-        background: rgba(255, 255, 255, 0.15) !important;
-    }
-    
-    .loading-dots-container { display:flex; align-items:center; opacity:0.6; margin-bottom:8px; font-size:0.9em; }
-    .loading-dots__text { margin-right: 4px; }
-    .loading-dots__dot { width:4px; height:4px; margin:0 2px; background:#fff; border-radius:50%; animation: lmp-dots 1.4s infinite ease-in-out both; }
-    .loading-dots__dot:nth-child(2) { animation-delay: -0.32s; }
-    .loading-dots__dot:nth-child(3) { animation-delay: -0.16s; }
-    @keyframes lmp-dots { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-  `;
+  var pluginStyles = '<style>' +
+    ':root { --lmp-logo-offset: 0px; --lmp-text-offset: 0px; --lmp-rate-spacing: 0px; } ' +
+    '.lmp-custom-rate { display: inline-flex; align-items: center; gap: 0.4em; margin-right: calc(10px + var(--lmp-rate-spacing)); margin-bottom: 8px; padding: 4px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); } ' +
+    '.lmp-custom-rate.lmp-dir-left { flex-direction: row; } ' +
+    '.lmp-custom-rate.lmp-dir-right { flex-direction: row-reverse; } ' +
+    '.lmp-enh--rate-border .lmp-custom-rate { border: 1px solid rgba(255,255,255,0.15); } ' +
+    '.lmp-custom-rate .source--name { width: calc(20px + var(--lmp-logo-offset)); height: calc(20px + var(--lmp-logo-offset)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; } ' +
+    '.lmp-custom-rate .source--name img { width: 100%; height: 100%; object-fit: contain; } ' +
+    '.lmp-enh--mono .lmp-custom-rate .source--name img { filter: grayscale(100%) brightness(1.2); } ' +
+    '.lmp-custom-rate .rate--text-block { display: flex; flex-direction: column; line-height: 1; } ' +
+    '.lmp-custom-rate .rate--value { font-size: calc(1.1em + var(--lmp-text-offset)); font-weight: bold; color: #fff; } ' +
+    '.lmp-custom-rate .rate--votes { font-size: calc(0.7em + (var(--lmp-text-offset) * 0.5)); color: rgba(255,255,255,0.6); margin-top: 2px; } ' +
+    '.lmp-color-green { color: #4CAF50 !important; } .lmp-color-blue { color: #2196F3 !important; } .lmp-color-orange { color: #FF9800 !important; } .lmp-color-red { color: #F44336 !important; } ' +
+    '.lmp-poster-badge { position: absolute; top: 0.4em; right: 0.4em; background: rgba(0, 0, 0, 0.75); border-radius: 0.5em; display: flex; align-items: center; padding: 0.25em 0.4em; gap: 0.35em; z-index: 10; backdrop-filter: blur(2px); } ' +
+    '.lmp-poster-badge span { color: #fff; font-weight: bold; font-size: 1em; line-height: 1; } ' +
+    '.lmp-poster-badge img { height: 1em; width: auto; display: block; border-radius: 2px; } ' +
+    '.menu-edit-list .selector { background: transparent !important; transition: background 0.2s ease; } ' +
+    '.menu-edit-list .selector:hover, .menu-edit-list .selector.focus { background: rgba(255, 255, 255, 0.15) !important; } ' +
+    '.loading-dots-container { display:flex; align-items:center; opacity:0.6; margin-bottom:8px; font-size:0.9em; } ' +
+    '.loading-dots__text { margin-right: 4px; } ' +
+    '.loading-dots__dot { width:4px; height:4px; margin:0 2px; background:#fff; border-radius:50%; animation: lmp-dots 1.4s infinite ease-in-out both; } ' +
+    '.loading-dots__dot:nth-child(2) { animation-delay: -0.32s; } ' +
+    '.loading-dots__dot:nth-child(3) { animation-delay: -0.16s; } ' +
+    '@keyframes lmp-dots { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } } ' +
+    '</style>';
   /*
   |==========================================================================
   | ЧАСТИНА 2: ЛОГІКА СТОРІНКИ ФІЛЬМУ (MDBList + Прямий міст)
@@ -434,7 +385,7 @@
 
     var source = Lampa.Storage.get('omdb_poster_source', 'imdb');
     var sizeSetting = parseInt(Lampa.Storage.get('omdb_poster_size', '0')) || 0;
-    var scaleEm = 1 + (sizeSetting * 0.15); // Крок 0.15em (0=1em, 1=1.15em, 2=1.3em...)
+    var scaleEm = 1 + (sizeSetting * 0.15); // Крок масштабування: 0=1em, 1=1.15em, 2=1.3em...
     var badgeStyle = 'font-size: ' + scaleEm + 'em;';
 
     $('.card').each(function() {
@@ -464,12 +415,11 @@
               return;
             }
           }
-          $card.find('.card__view, .card__img').first().append(
-            '<div class="lmp-poster-badge" data-src="tmdb" data-val="'+displayVa+'" style="'+badgeStyle+'">' +
-              '<span>' + displayVa + '</span>' +
-              '<img src="' + ICONS.tmdb_poster + '" alt="TMDb">' +
-            '</div>'
-          );
+          var htmlTmdb = '<div class="lmp-poster-badge" data-src="tmdb" data-val="' + displayVa + '" style="' + badgeStyle + '">' +
+                           '<span>' + displayVa + '</span>' +
+                           '<img src="' + ICONS.tmdb_poster + '" alt="TMDb">' +
+                         '</div>';
+          $card.find('.card__view, .card__img').first().append(htmlTmdb);
         } else if (existingBadge.length) { existingBadge.remove(); }
       } 
       else {
@@ -488,12 +438,11 @@
                 return;
               }
             }
-            $card.find('.card__view, .card__img').first().append(
-              '<div class="lmp-poster-badge" data-src="imdb" data-val="'+cached.rating+'" style="'+badgeStyle+'">' +
-                '<span>' + cached.rating + '</span>' +
-                '<img src="' + ICONS.imdb + '" alt="IMDb">' +
-              '</div>'
-            );
+            var htmlImdb = '<div class="lmp-poster-badge" data-src="imdb" data-val="' + cached.rating + '" style="' + badgeStyle + '">' +
+                             '<span>' + cached.rating + '</span>' +
+                             '<img src="' + ICONS.imdb + '" alt="IMDb">' +
+                           '</div>';
+            $card.find('.card__view, .card__img').first().append(htmlImdb);
           } else if (existingBadge.length) { existingBadge.remove(); }
         } else {
           if (!existingBadge.length && !$card.attr('data-omdb-fetching')) {
@@ -529,17 +478,17 @@
     }
 
     currentOrder.forEach(function(src) {
-      var itemSort = $(`
-        <div class="source-item" data-id="${src.id}" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
-          <div class="source-name" style="font-size:16px; opacity: ${src.enabled ? '1' : '0.4'}; transition: opacity 0.2s;">${src.name}</div>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <div class="move-up selector" style="padding:6px 12px; border-radius:6px; cursor:pointer;">${svgUp}</div>
-            <div class="move-down selector" style="padding:6px 12px; border-radius:6px; cursor:pointer;">${svgDown}</div>
-            <div class="toggle selector" style="padding:4px; border-radius:6px; cursor:pointer; margin-left:8px;">${svgCheck}</div>
-          </div>
-        </div>
-      `);
-      
+      var opacityState = src.enabled ? '1' : '0.4';
+      var itemHtml = '<div class="source-item" data-id="' + src.id + '" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">' +
+          '<div class="source-name" style="font-size:16px; opacity: ' + opacityState + '; transition: opacity 0.2s;">' + src.name + '</div>' +
+          '<div style="display:flex; gap:10px; align-items:center;">' +
+            '<div class="move-up selector" style="padding:6px 12px; border-radius:6px; cursor:pointer;">' + svgUp + '</div>' +
+            '<div class="move-down selector" style="padding:6px 12px; border-radius:6px; cursor:pointer;">' + svgDown + '</div>' +
+            '<div class="toggle selector" style="padding:4px; border-radius:6px; cursor:pointer; margin-left:8px;">' + svgCheck + '</div>' +
+          '</div>' +
+        '</div>';
+        
+      var itemSort = $(itemHtml);
       itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
 
       itemSort.find('.move-up').on('hover:enter', function() {
@@ -659,7 +608,6 @@
         lmpToast('Кеш рейтингів постерів очищено'); 
     }, onRender: function() {} });
 
-    // Відкладена підміна кнопки на пульті
     Lampa.Listener.follow('settings', function(e) {
         if (e.type === 'create' && e.name === 'omdb_ratings') {
             setTimeout(function() {
@@ -692,8 +640,7 @@
     if (typeof pollOmdbCards === 'function') pollOmdbCards();
   }
 
-  Lampa.Template.add('lmp_enh_styles', pluginStyles);
-  $('body').append(Lampa.Template.get('lmp_enh_styles', {}, true));
+  $('body').append(pluginStyles);
   initRatingsPluginUI();
   refreshConfigFromStorage();
   
