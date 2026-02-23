@@ -773,16 +773,17 @@
     }
 
     currentOrder.forEach(function(src) {
-      var itemSort = $(`
-        <div class="source-item" data-id="${src.id}" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
-          <div class="source-name" style="font-size:16px; opacity: ${src.enabled ? '1' : '0.4'}; transition: opacity 0.2s;">${src.name}</div>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <div class="move-up selector" style="padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer;">${svgUp}</div>
-            <div class="move-down selector" style="padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer;">${svgDown}</div>
-            <div class="toggle selector" style="padding:4px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; margin-left:8px;">${svgCheck}</div>
-          </div>
-        </div>
-      `);
+      // ПРАВКА: Прибрано 'background:rgba(255,255,255,0.1)' із параметрів style нижче
+      var itemSort = $(
+        '<div class="source-item" data-id="' + src.id + '" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">' +
+          '<div class="source-name" style="font-size:16px; opacity: ' + (src.enabled ? '1' : '0.4') + '; transition: opacity 0.2s;">' + src.name + '</div>' +
+          '<div style="display:flex; gap:10px; align-items:center;">' +
+            '<div class="move-up selector" style="padding:6px 12px; border-radius:6px; cursor:pointer;">' + svgUp + '</div>' +
+            '<div class="move-down selector" style="padding:6px 12px; border-radius:6px; cursor:pointer;">' + svgDown + '</div>' +
+            '<div class="toggle selector" style="padding:4px; border-radius:6px; cursor:pointer; margin-left:8px;">' + svgCheck + '</div>' +
+          '</div>' +
+        '</div>'
+      );
       
       itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
 
@@ -887,7 +888,6 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання кешу (MDBList)', description: 'Кількість днів' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити кеш рейтингів', description: '' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
 
-    // --- РІВЕНЬ 2: ПІДМЕНЮ "РЕЙТИНГ НА ПОСТЕРІ" (OMDB) ---
     Lampa.SettingsApi.addComponent({ 
         component: 'omdb_ratings', name: 'Рейтинг на постері', 
         icon: '' 
@@ -903,10 +903,7 @@
     });
     
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'Рейтинг на постері', description: 'Відображати плашку з оцінкою' }, onRender: function() {} });
-    
-    // ДОДАНО: Джерело рейтингу (IMDb/TMDb)
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: 'Вибір джерела оцінки для постерів' }, onRender: function() {} });
-    
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_size', type: 'select', values: { '0': '0', '1': '1', '2': '2', '3': '3', '4': '4' }, "default": '0' }, field: { name: 'Розмір рейтингу', description: 'Зміна розміру плашки з рейтингом' }, onRender: function() {} });
 
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: 'Основний ключ OMDb' }, onRender: function() {} });
@@ -946,13 +943,11 @@
 
   function startPlugin() {
     window.combined_ratings_plugin = true;
-    
     Lampa.Listener.follow('full', function(e) {
       if (e.type === 'complite') {
         setTimeout(function() { fetchAdditionalRatings(e.data.movie || e.object || {}); }, 500);
       }
     });
-
     if (typeof pollOmdbCards === 'function') pollOmdbCards();
   }
 
@@ -960,7 +955,6 @@
   $('body').append(Lampa.Template.get('lmp_enh_styles', {}, true));
   initRatingsPluginUI();
   refreshConfigFromStorage();
-  
   if (!window.combined_ratings_plugin) startPlugin();
 
 })();
