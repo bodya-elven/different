@@ -728,33 +728,68 @@
 
   function openSourcesEditor() {
     var cfg = getCfg();
+    // Робимо глибоку копію масиву, щоб працювати з нею
     var currentOrder = JSON.parse(JSON.stringify(cfg.sourcesConfig));
     var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
+    
     var svgUp = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12L11 3L20 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
     var svgDown = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2L11 11L20 2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
     var svgCheck = '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.89111" y="1.78369" width="21.793" height="21.793" rx="3.5" stroke="currentColor" stroke-width="3"/><path d="M7.44873 12.9658L10.8179 16.3349L18.1269 9.02588" stroke="currentColor" stroke-width="3" class="dot" stroke-linecap="round"/></svg>';
 
-    function renderList() {
-      listContainer.empty();
-      currentOrder.forEach(function(src, index) {
-        var itemSort = $(`
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
-            <div style="font-size:16px; opacity: ${src.enabled ? '1' : '0.4'}; transition: opacity 0.2s;">${src.name}</div>
-            <div style="display:flex; gap:10px; align-items:center;">
-              <div class="move-up selector" style="padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; opacity: ${index === 0 ? '0.2' : '1'};">${svgUp}</div>
-              <div class="move-down selector" style="padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; opacity: ${index === currentOrder.length - 1 ? '0.2' : '1'};">${svgDown}</div>
-              <div class="toggle selector" style="padding:4px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; margin-left:8px;">${svgCheck}</div>
-            </div>
-          </div>
-        `);
-        itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
-        if (index > 0) itemSort.find('.move-up').on('hover:enter click', function() { var temp = currentOrder[index]; currentOrder[index] = currentOrder[index - 1]; currentOrder[index - 1] = temp; renderList(); });
-        if (index < currentOrder.length - 1) itemSort.find('.move-down').on('hover:enter click', function() { var temp = currentOrder[index]; currentOrder[index] = currentOrder[index + 1]; currentOrder[index + 1] = temp; renderList(); });
-        itemSort.find('.toggle').on('hover:enter click', function() { src.enabled = !src.enabled; renderList(); });
-        listContainer.append(itemSort);
+    // Функція для оновлення прозорості стрілок (щоб верхня перша і нижня остання були тьмяними)
+    function updateArrowsState() {
+      var items = listContainer.find('.source-item');
+      items.each(function(idx) {
+        $(this).find('.move-up').css('opacity', idx === 0 ? '0.2' : '1');
+        $(this).find('.move-down').css('opacity', idx === items.length - 1 ? '0.2' : '1');
       });
     }
-    renderList();
+
+    // Створюємо список ОДИН раз
+    currentOrder.forEach(function(src) {
+      var itemSort = $(`
+        <div class="source-item" data-id="${src.id}" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
+          <div class="source-name" style="font-size:16px; opacity: ${src.enabled ? '1' : '0.4'}; transition: opacity 0.2s;">${src.name}</div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <div class="move-up selector" style="padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer;">${svgUp}</div>
+            <div class="move-down selector" style="padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer;">${svgDown}</div>
+            <div class="toggle selector" style="padding:4px; background:rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; margin-left:8px;">${svgCheck}</div>
+          </div>
+        </div>
+      `);
+      
+      itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
+
+      // Логіка переміщення ВГОРУ (фізично міняємо блоки місцями в DOM)
+      itemSort.find('.move-up').on('hover:enter click', function() {
+        var prevItem = itemSort.prev('.source-item');
+        if (prevItem.length) {
+          itemSort.insertBefore(prevItem); // Переносимо блок вище
+          updateArrowsState(); // Оновлюємо вигляд стрілочок
+        }
+      });
+
+      // Логіка переміщення ВНИЗ (фізично міняємо блоки місцями в DOM)
+      itemSort.find('.move-down').on('hover:enter click', function() {
+        var nextItem = itemSort.next('.source-item');
+        if (nextItem.length) {
+          itemSort.insertAfter(nextItem); // Переносимо блок нижче
+          updateArrowsState(); // Оновлюємо вигляд стрілочок
+        }
+      });
+
+      // Логіка увімкнення/вимкнення
+      itemSort.find('.toggle').on('hover:enter click', function() {
+        src.enabled = !src.enabled; // Змінюємо стан об'єкта
+        itemSort.find('.source-name').css('opacity', src.enabled ? '1' : '0.4');
+        itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
+      });
+
+      listContainer.append(itemSort);
+    });
+
+    // Налаштовуємо початковий вигляд стрілочок
+    updateArrowsState();
 
     Lampa.Modal.open({
       title: 'Сортування та видимість',
@@ -762,11 +797,29 @@
       size: 'small',
       scroll_to_center: true,
       onBack: function() {
-        var configToSave = currentOrder.map(function(s) { return { id: s.id, name: s.name, enabled: s.enabled }; });
-        Lampa.Storage.set('ratings_sources_config', configToSave);
+        // Коли користувач виходить, ми читаємо НОВИЙ порядок прямо з екрана
+        var finalOrder = [];
+        listContainer.find('.source-item').each(function() {
+          var id = $(this).attr('data-id');
+          // Знаходимо оригінальний об'єкт (в ньому вже збережений правильний стан enabled)
+          var originalSrc = currentOrder.find(function(s) { return s.id === id; });
+          if (originalSrc) {
+            finalOrder.push({ id: originalSrc.id, name: originalSrc.name, enabled: originalSrc.enabled });
+          }
+        });
+
+        // Зберігаємо новий порядок у пам'ять
+        Lampa.Storage.set('ratings_sources_config', finalOrder);
         Lampa.Modal.close();
         Lampa.Controller.toggle('settings_component');
-        setTimeout(function() { if (typeof currentRatingsData !== 'undefined' && currentRatingsData) { insertRatings(currentRatingsData); applyStylesToAll(); } }, 150);
+        
+        // Оновлюємо рейтинги на екрані, якщо вони зараз відкриті
+        setTimeout(function() { 
+          if (typeof currentRatingsData !== 'undefined' && currentRatingsData) { 
+            insertRatings(currentRatingsData); 
+            applyStylesToAll(); 
+          } 
+        }, 150);
       }
     });
   }
