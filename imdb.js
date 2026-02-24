@@ -954,7 +954,10 @@
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_size', type: 'select', values: { '0': '0', '1': '1', '2': '2', '3': '3', '4': '4' }, "default": '0' }, field: { name: 'Розмір рейтингу', description: 'Зміна розміру плашки на постері' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: '' } });
-    Lampa.SettingsApi.addParam({ component: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: '' });
+    
+    // ВИПРАВЛЕНО синтаксис
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: 'Резервний ключ на випадок вичерпання ліміту' } });
+    
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Термін зберігання кешу (OMDb)', description: 'Кількість днів' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: '' }, onChange: function() { localStorage.removeItem('omdb_ratings_cache'); lmpToast('Кеш постерів очищено'); } });
 
@@ -988,14 +991,12 @@
       if (e.type === 'complite') {
         var card = e.data.movie || e.object || {};
         setTimeout(function() { 
-            // Викликаємо завантаження
             fetchAdditionalRatings(card);
             
-            /* ФОРСОВАНА СИНХРОНІЗАЦІЯ: Навіть якщо дані взяті з кешу MDBList, 
-               ми примусово оновлюємо IMDb рейтинг у базі постерів */
+            /* ФОРСОВАНА СИНХРОНІЗАЦІЯ З БЕЗПЕЧНИМ ID */
             setTimeout(function() {
                 if (currentRatingsData && currentRatingsData.imdb && currentRatingsData.imdb.display) {
-                    var ratingKey = (card.media_type || (card.name ? 'tv' : 'movie')) + '_' + card.id;
+                    var ratingKey = getCardType(card) + '_' + card.id; // Тепер тут все ідеально безпечно
                     try {
                         var OMDB_CACHE_KEY = 'omdb_ratings_cache';
                         var omdbCache = JSON.parse(localStorage.getItem(OMDB_CACHE_KEY) || '{}');
@@ -1015,8 +1016,8 @@
     if (typeof pollOmdbCards === 'function') pollOmdbCards();
   }
 
-  Lampa.Template.add('lmp_enh_styles', pluginStyles);
-  $('body').append(Lampa.Template.get('lmp_enh_styles', {}, true));
+  /* ВИПРАВЛЕНО додавання стилів на перевірений метод */
+  $('body').append(pluginStyles);
   initRatingsPluginUI();
   refreshConfigFromStorage();
   if (!window.combined_ratings_plugin) startPlugin();
