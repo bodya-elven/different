@@ -757,6 +757,9 @@
     var textInput = scaleMap[textRaw] !== undefined ? scaleMap[textRaw] : (parseInt(textRaw) || 0);
     var spaceInput = scaleMap[spaceRaw] !== undefined ? scaleMap[spaceRaw] : (parseInt(spaceRaw) || 0);
 
+    /* ВИПРАВЛЕНО: обробка нового формату ключів для прозорості */
+    var rawBgOpacity = String(Lampa.Storage.get('ratings_bg_opacity', 'v_0')).replace('v_', '');
+
     return {
       mdblistKey: Lampa.Storage.get('ratings_mdblist_key', RCFG_DEFAULT.ratings_mdblist_key),
       cacheDays: parseIntDef('ratings_cache_days', parseInt(RCFG_DEFAULT.ratings_cache_days)),
@@ -766,7 +769,7 @@
       rateSpacing: (spaceInput * 4) + 'px',
       showVotes: !!Lampa.Storage.field('ratings_show_votes', RCFG_DEFAULT.ratings_show_votes),
       bwLogos: !!Lampa.Storage.field('ratings_bw_logos', RCFG_DEFAULT.ratings_bw_logos),
-      bgOpacity: Lampa.Storage.get('ratings_bg_opacity', RCFG_DEFAULT.ratings_bg_opacity), // ЗМІНЕНО: тепер це opacity
+      bgOpacity: rawBgOpacity,
       colorizeAll: !!Lampa.Storage.field('ratings_colorize_all', RCFG_DEFAULT.ratings_colorize_all),
       rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border),
       glowBorder: !!Lampa.Storage.field('ratings_glow_border', RCFG_DEFAULT.ratings_glow_border),
@@ -786,7 +789,7 @@
     document.documentElement.style.setProperty('--lmp-logo-offset', cfg.logoOffset);
     document.documentElement.style.setProperty('--lmp-text-offset', cfg.textOffset);
     document.documentElement.style.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
-    document.documentElement.style.setProperty('--lmp-bg-opacity', cfg.bgOpacity); // ЗМІНЕНО: передаємо прозорість у CSS
+    document.documentElement.style.setProperty('--lmp-bg-opacity', cfg.bgOpacity);
     
     cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
     cfg.rateBorder ? document.body.classList.add('lmp-enh--rate-border') : document.body.classList.remove('lmp-enh--rate-border');
@@ -912,9 +915,9 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі іконки' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів', description: 'Забарвлювати цифри залежно від оцінки' } });
     
-    /* ЗМІНЕНО: Меню прозорості фону */
-    var bgOpacityValues = { '0': 'Вимкнено', '0.2': '20%', '0.4': '40%', '0.6': '60%', '0.8': '80%', '1': '100%' };
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bg_opacity', type: 'select', values: bgOpacityValues, "default": '0' }, field: { name: 'Прозорість темного фону', description: 'Рівень затемнення фону під плитками рейтингів' } });
+    /* ВИПРАВЛЕНО: Ключі з літерою v_ обходять автоматичне сортування чисел в JS */
+    var bgOpacityValues = { 'v_0': '0%', 'v_0.2': '20%', 'v_0.3': '30%', 'v_0.4': '40%', 'v_0.5': '50%', 'v_0.6': '60%', 'v_0.8': '80%', 'v_1': '100%' };
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bg_opacity', type: 'select', values: bgOpacityValues, "default": 'v_0' }, field: { name: 'Темний фон плитки', description: 'Рівень затемнення фону під плитками рейтингів' } });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": false }, field: { name: 'Рамка плиток рейтингів', description: 'Відображати тонку рамку навколо кожного рейтингу' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_glow_border', type: 'trigger', values: '', "default": false }, field: { name: 'Кольорове світіння', description: 'Обведення контуром та світіння кольором оцінки' } });
