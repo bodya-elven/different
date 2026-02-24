@@ -141,6 +141,7 @@
     "  --lmp-logo-offset: 0px;" +
     "  --lmp-text-offset: 0px;" +
     "  --lmp-rate-spacing: 0px;" +
+    "  --lmp-bg-opacity: 0;" + /* ДОДАНО: змінна для керування прозорістю фону */
     "}" +
     ".loading-dots-container { display: inline-flex; align-items: center; font-size: 0.85em; color: #ccc; padding: 0.6em 1em; border-radius: 0.5em; margin-right: 0.5em; margin-bottom: 0.4em; }" +
     ".loading-dots__text { margin-right: 1em; }" +
@@ -148,7 +149,10 @@
     ".loading-dots__dot:nth-child(1) { animation-delay: -0.32s; }" +
     ".loading-dots__dot:nth-child(2) { animation-delay: -0.16s; }" +
     "@keyframes loading-dots-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.6; } 40% { transform: translateY(-0.5em); opacity: 1; } }" +
-    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; }" +
+    
+    /* ДОДАНО: background бере значення зі змінної --lmp-bg-opacity */
+    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; background: rgba(0, 0, 0, var(--lmp-bg-opacity)); }" +
+    
     ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; }" +
     ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 2; object-fit: contain; height: calc(22px + var(--lmp-logo-offset)) !important; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
     ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); }" +
@@ -168,8 +172,8 @@
     ".lmp-color-orange { color: #f59e0b !important; }" +
     ".lmp-color-red { color: #ef4444 !important; }" +
     
-    "body.lmp-enh--dark-bg .lmp-custom-rate { background: rgba(0, 0, 0, 0.7) !important; }" +
-    "body.lmp-enh--rate-border .lmp-custom-rate { border-color: rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.2); }" +
+    /* ЗМІНЕНО: При увімкненій рамці змінюється тільки колір бордера, фон залишається під контролем змінної */
+    "body.lmp-enh--rate-border .lmp-custom-rate { border-color: rgba(255, 255, 255, 0.3); }" +
     
     "body.lmp-enh--glow .lmp-glow-green { border-color: rgba(46,204,113,0.6) !important; box-shadow: 0 0 8px rgba(46,204,113,0.4) !important; }" +
     "body.lmp-enh--glow .lmp-glow-blue { border-color: rgba(96,165,250,0.6) !important; box-shadow: 0 0 8px rgba(96,165,250,0.4) !important; }" +
@@ -186,13 +190,11 @@
     ".omdb-custom-rate span { font-weight: bold; font-size: 1em; }" +
     ".omdb-custom-rate img { width: 1.2em; height: 1.2em; margin-left: 0.3em; object-fit: contain; filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)); }" +
     
-    /* ДОДАНО: Класи світіння для постера */
     "body.omdb-enh--glow .omdb-glow-green { border-color: rgba(46,204,113,0.7) !important; box-shadow: 0 0 8px rgba(46,204,113,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-blue { border-color: rgba(96,165,250,0.7) !important; box-shadow: 0 0 8px rgba(96,165,250,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-orange { border-color: rgba(245,158,11,0.7) !important; box-shadow: 0 0 8px rgba(245,158,11,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-red { border-color: rgba(239,68,68,0.7) !important; box-shadow: 0 0 8px rgba(239,68,68,0.6) !important; }" +
     "</style>";
-
   /*
   |==========================================================================
   | БАЗОВІ ФУНКЦІЇ ТА АПІ MDBLIST
@@ -209,10 +211,8 @@
     ratings_text_scale_val: 's_0',
     ratings_spacing_val: 's_0',
     ratings_bw_logos: false,
-    ratings_badge_alpha: 0,
-    ratings_badge_tone: 0,
+    ratings_bg_opacity: '0', // ЗМІНЕНО: Замість dark_bg тепер opacity (за замовчуванням 0)
     ratings_colorize_all: true,
-    ratings_dark_bg: false,
     ratings_rate_border: false,
     ratings_glow_border: false
   };
@@ -390,13 +390,11 @@
       var colorClass = '';
       var glowClass = '';
       
-      // Визначаємо колір та клас світіння
       if (itemData.avg >= 7.5) { colorClass = 'lmp-color-green'; glowClass = 'lmp-glow-green'; }
       else if (itemData.avg >= 6.0) { colorClass = 'lmp-color-blue'; glowClass = 'lmp-glow-blue'; }
       else if (itemData.avg >= 4.0) { colorClass = 'lmp-color-orange'; glowClass = 'lmp-glow-orange'; }
       else { colorClass = 'lmp-color-red'; glowClass = 'lmp-glow-red'; }
       
-      // Якщо налаштування кольору тексту вимкнено - прибираємо його
       if (!cfg.colorizeAll) colorClass = '';
       
       var votesHtml = (cfg.showVotes && itemData.votes) ? '<span class="rate--votes">' + formatVotes(itemData.votes) + '</span>' : '';
@@ -715,7 +713,6 @@
       });
       setTimeout(pollOmdbCards, 500);
   }
-
   /*
   |==========================================================================
   | ЧАСТИНА 4: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
@@ -769,10 +766,8 @@
       rateSpacing: (spaceInput * 4) + 'px',
       showVotes: !!Lampa.Storage.field('ratings_show_votes', RCFG_DEFAULT.ratings_show_votes),
       bwLogos: !!Lampa.Storage.field('ratings_bw_logos', RCFG_DEFAULT.ratings_bw_logos),
-      badgeAlpha: parseFloatDef('ratings_badge_alpha', RCFG_DEFAULT.ratings_badge_alpha),
-      badgeTone: parseIntDef('ratings_badge_tone', RCFG_DEFAULT.ratings_badge_tone),
+      bgOpacity: Lampa.Storage.get('ratings_bg_opacity', RCFG_DEFAULT.ratings_bg_opacity), // ЗМІНЕНО: тепер це opacity
       colorizeAll: !!Lampa.Storage.field('ratings_colorize_all', RCFG_DEFAULT.ratings_colorize_all),
-      darkBg: !!Lampa.Storage.field('ratings_dark_bg', RCFG_DEFAULT.ratings_dark_bg),
       rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border),
       glowBorder: !!Lampa.Storage.field('ratings_glow_border', RCFG_DEFAULT.ratings_glow_border),
       sourcesConfig: fullSourcesConfig
@@ -791,17 +786,11 @@
     document.documentElement.style.setProperty('--lmp-logo-offset', cfg.logoOffset);
     document.documentElement.style.setProperty('--lmp-text-offset', cfg.textOffset);
     document.documentElement.style.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
+    document.documentElement.style.setProperty('--lmp-bg-opacity', cfg.bgOpacity); // ЗМІНЕНО: передаємо прозорість у CSS
+    
     cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
-    cfg.darkBg ? document.body.classList.add('lmp-enh--dark-bg') : document.body.classList.remove('lmp-enh--dark-bg');
     cfg.rateBorder ? document.body.classList.add('lmp-enh--rate-border') : document.body.classList.remove('lmp-enh--rate-border');
     cfg.glowBorder ? document.body.classList.add('lmp-enh--glow') : document.body.classList.remove('lmp-enh--glow');
-    
-    var tiles = document.querySelectorAll('.lmp-custom-rate');
-    var rgba = 'rgba(' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeAlpha + ')';
-    tiles.forEach(function(tile) { 
-        if (!cfg.darkBg) tile.style.background = rgba; 
-        else tile.style.background = '';
-    });
   }
 
   function openSourcesEditor() {
@@ -923,8 +912,10 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі іконки' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів', description: 'Забарвлювати цифри залежно від оцінки' } });
     
-    /* Світіння та фони карток */
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_dark_bg', type: 'trigger', values: '', "default": false }, field: { name: 'Темний фон плиток', description: 'Додати напівпрозорий темний фон для кращої читаємості' } });
+    /* ЗМІНЕНО: Меню прозорості фону */
+    var bgOpacityValues = { '0': 'Вимкнено', '0.2': '20%', '0.4': '40%', '0.6': '60%', '0.8': '80%', '1': '100%' };
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bg_opacity', type: 'select', values: bgOpacityValues, "default": '0' }, field: { name: 'Прозорість темного фону', description: 'Рівень затемнення фону під плитками рейтингів' } });
+    
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": false }, field: { name: 'Рамка плиток рейтингів', description: 'Відображати тонку рамку навколо кожного рейтингу' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_glow_border', type: 'trigger', values: '', "default": false }, field: { name: 'Кольорове світіння', description: 'Обведення контуром та світіння кольором оцінки' } });
     
@@ -939,7 +930,6 @@
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_size', type: 'select', values: { '0': '0', '1': '1', '2': '2', '3': '3', '4': '4' }, "default": '0' }, field: { name: 'Розмір рейтингу', description: 'Зміна розміру плашки на постері' } });
     
-    // ДОДАНО: Перемикач світіння для постерів
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_glow', type: 'trigger', values: '', "default": false }, field: { name: 'Кольорове світіння', description: 'Обведення контуром та світіння плашки кольором оцінки' } });
     
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: '' } });
