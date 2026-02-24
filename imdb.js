@@ -148,24 +148,39 @@
     ".loading-dots__dot:nth-child(1) { animation-delay: -0.32s; }" +
     ".loading-dots__dot:nth-child(2) { animation-delay: -0.16s; }" +
     "@keyframes loading-dots-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.6; } 40% { transform: translateY(-0.5em); opacity: 1; } }" +
-    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; }" +
+    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; }" +
     ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; }" +
     ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 2; object-fit: contain; height: calc(22px + var(--lmp-logo-offset)) !important; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
     ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); }" +
     ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: calc(1.1em + var(--lmp-text-offset)); transition: color 0.2s; }" +
     ".lmp-custom-rate .rate--votes { font-size: calc(0.6em + (var(--lmp-text-offset) / 2)); opacity: 0.8; margin-left: 0.25em; line-height: 1; }" +
     
-    /* ДОДАНО: класи для позиціонування зверху та знизу */
+    /* Класи для позиціонування */
     ".lmp-dir-right { flex-direction: row-reverse; }" +
     ".lmp-dir-left { flex-direction: row; }" +
     ".lmp-dir-top { flex-direction: column-reverse; }" +
     ".lmp-dir-bottom { flex-direction: column; }" +
     
+    /* Логіка голосів над/під оцінкою при вертикальному розташуванні */
+    ".lmp-dir-top .rate--text-block { flex-direction: column-reverse; align-items: center; }" +
+    ".lmp-dir-bottom .rate--text-block { flex-direction: column; align-items: center; }" +
+    ".lmp-dir-top .rate--votes, .lmp-dir-bottom .rate--votes { margin-left: 0; margin-top: 0.15em; margin-bottom: 0.15em; line-height: 0.8; }" +
+    
+    /* Кольори тексту */
     ".lmp-color-green { color: #2ecc71 !important; }" +
     ".lmp-color-blue { color: #60a5fa !important; }" +
     ".lmp-color-orange { color: #f59e0b !important; }" +
     ".lmp-color-red { color: #ef4444 !important; }" +
-    "body.lmp-enh--rate-border .lmp-custom-rate { border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.2); }" +
+    
+    /* Нові стилі: Темний фон, Рамка, Світіння */
+    "body.lmp-enh--dark-bg .lmp-custom-rate { background: rgba(0, 0, 0, 0.7) !important; }" +
+    "body.lmp-enh--rate-border .lmp-custom-rate { border-color: rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.2); }" +
+    
+    "body.lmp-enh--glow .lmp-glow-green { border-color: rgba(46,204,113,0.6) !important; box-shadow: 0 0 8px rgba(46,204,113,0.4) !important; }" +
+    "body.lmp-enh--glow .lmp-glow-blue { border-color: rgba(96,165,250,0.6) !important; box-shadow: 0 0 8px rgba(96,165,250,0.4) !important; }" +
+    "body.lmp-enh--glow .lmp-glow-orange { border-color: rgba(245,158,11,0.6) !important; box-shadow: 0 0 8px rgba(245,158,11,0.4) !important; }" +
+    "body.lmp-enh--glow .lmp-glow-red { border-color: rgba(239,68,68,0.6) !important; box-shadow: 0 0 8px rgba(239,68,68,0.4) !important; }" +
+    
     ".settings-param__descr,.settings-param__subtitle{white-space:pre-line;}" +
     ".menu-edit-list .selector { background: transparent !important; transition: background 0.2s ease; outline: none; border-radius: 6px; }" +
     ".menu-edit-list .selector.focus, .menu-edit-list .selector:hover { background: rgba(255, 255, 255, 0.15) !important; }" +
@@ -195,7 +210,9 @@
     ratings_badge_alpha: 0,
     ratings_badge_tone: 0,
     ratings_colorize_all: true,
-    ratings_rate_border: false
+    ratings_dark_bg: false,
+    ratings_rate_border: false,
+    ratings_glow_border: false
   };
 
   var currentRatingsData = null;
@@ -369,16 +386,19 @@
       }
 
       var colorClass = '';
-      if (cfg.colorizeAll) {
-          if (itemData.avg >= 7.5) colorClass = 'lmp-color-green';
-          else if (itemData.avg >= 6.0) colorClass = 'lmp-color-blue';
-          else if (itemData.avg >= 4.0) colorClass = 'lmp-color-orange';
-          else colorClass = 'lmp-color-red';
-      }
+      var glowClass = '';
+      
+      // Визначаємо колір та клас світіння
+      if (itemData.avg >= 7.5) { colorClass = 'lmp-color-green'; glowClass = 'lmp-glow-green'; }
+      else if (itemData.avg >= 6.0) { colorClass = 'lmp-color-blue'; glowClass = 'lmp-glow-blue'; }
+      else if (itemData.avg >= 4.0) { colorClass = 'lmp-color-orange'; glowClass = 'lmp-glow-orange'; }
+      else { colorClass = 'lmp-color-red'; glowClass = 'lmp-glow-red'; }
+      
+      // Якщо налаштування кольору тексту вимкнено - прибираємо його
+      if (!cfg.colorizeAll) colorClass = '';
       
       var votesHtml = (cfg.showVotes && itemData.votes) ? '<span class="rate--votes">' + formatVotes(itemData.votes) + '</span>' : '';
       
-      // ДОДАНО: Логіка для вибору 4 напрямків вирівнювання
       var dirClass = '';
       if (cfg.textPosition === 'left') dirClass = 'lmp-dir-right';
       else if (cfg.textPosition === 'top') dirClass = 'lmp-dir-top';
@@ -386,7 +406,7 @@
       else dirClass = 'lmp-dir-left';
 
       var cont = $(
-        '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + '">' +
+        '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + ' ' + glowClass + '">' +
             '<div class="source--name" title="' + src.name + '">' + iconImg(iconUrl, src.name) + '</div>' +
             '<div class="rate--text-block">' + 
                 '<span class="rate--value ' + colorClass + '">' + itemData.display + '</span>' + 
@@ -683,7 +703,7 @@
   }
   /*
   |==========================================================================
-  | ЧАСТИНА 4: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
+  | ЧАСТИНА 4.1: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ (БАЗОВІ ФУНКЦІЇ)
   |==========================================================================
   */
   var DEFAULT_SOURCES_ORDER = [
@@ -737,7 +757,9 @@
       badgeAlpha: parseFloatDef('ratings_badge_alpha', RCFG_DEFAULT.ratings_badge_alpha),
       badgeTone: parseIntDef('ratings_badge_tone', RCFG_DEFAULT.ratings_badge_tone),
       colorizeAll: !!Lampa.Storage.field('ratings_colorize_all', RCFG_DEFAULT.ratings_colorize_all),
+      darkBg: !!Lampa.Storage.field('ratings_dark_bg', RCFG_DEFAULT.ratings_dark_bg), // ДОДАНО
       rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border),
+      glowBorder: !!Lampa.Storage.field('ratings_glow_border', RCFG_DEFAULT.ratings_glow_border), // ДОДАНО
       sourcesConfig: fullSourcesConfig
     };
   }
@@ -755,7 +777,11 @@
     document.documentElement.style.setProperty('--lmp-text-offset', cfg.textOffset);
     document.documentElement.style.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
     cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
+    
+    // ДОДАНО КЛАСИ ДЛЯ НОВИХ НАЛАШТУВАНЬ:
+    cfg.darkBg ? document.body.classList.add('lmp-enh--dark-bg') : document.body.classList.remove('lmp-enh--dark-bg');
     cfg.rateBorder ? document.body.classList.add('lmp-enh--rate-border') : document.body.classList.remove('lmp-enh--rate-border');
+    cfg.glowBorder ? document.body.classList.add('lmp-enh--glow') : document.body.classList.remove('lmp-enh--glow');
     
     var tiles = document.querySelectorAll('.lmp-custom-rate');
     var rgba = 'rgba(' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeAlpha + ')';
@@ -773,7 +799,6 @@
       net.silent(url, function(res) {
           if (res && res.results && res.results.length > 0) {
               var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
-              
               res.results.forEach(function(item) {
                   if (item.media_type !== 'movie' && item.media_type !== 'tv') return;
                   var title = item.title || item.name || item.original_title || 'Без назви';
@@ -788,12 +813,8 @@
                   
                   row.on('hover:enter click', function() {
                       var ratingKey = item.media_type + '_' + item.id;
-                      
                       var mdbCache = Lampa.Storage.get(RATING_CACHE_KEY) || {};
-                      if (mdbCache[ratingKey]) {
-                          delete mdbCache[ratingKey];
-                          Lampa.Storage.set(RATING_CACHE_KEY, mdbCache);
-                      }
+                      if (mdbCache[ratingKey]) { delete mdbCache[ratingKey]; Lampa.Storage.set(RATING_CACHE_KEY, mdbCache); }
                       
                       var OMDB_CACHE_KEY = 'omdb_ratings_cache';
                       try {
@@ -811,42 +832,17 @@
                       Lampa.Modal.close();
                       Lampa.Controller.toggle('settings_component'); 
                   });
-                  
                   listContainer.append(row);
               });
               
-              Lampa.Modal.open({
-                  title: 'Оберіть об\'єкт для очищення',
-                  html: listContainer,
-                  size: 'medium',
-                  scroll_to_center: true,
-                  onBack: function() { 
-                      Lampa.Modal.close();
-                      Lampa.Controller.toggle('settings_component');
-                  }
-              });
-          } else {
-              lmpToast('Нічого не знайдено');
-              Lampa.Controller.toggle('settings_component'); 
-          }
-      }, function() {
-          lmpToast('Помилка пошуку');
-          Lampa.Controller.toggle('settings_component'); 
-      });
+              Lampa.Modal.open({ title: 'Оберіть об\'єкт для очищення', html: listContainer, size: 'medium', scroll_to_center: true, onBack: function() { Lampa.Modal.close(); Lampa.Controller.toggle('settings_component'); } });
+          } else { lmpToast('Нічого не знайдено'); Lampa.Controller.toggle('settings_component'); }
+      }, function() { lmpToast('Помилка пошуку'); Lampa.Controller.toggle('settings_component'); });
   }
 
   function openSingleCacheManager() {
-      Lampa.Input.edit({
-          title: 'Назва фільму або серіалу',
-          value: '',
-          free: true,
-          nosave: true
-      }, function(new_value) {
-          if (new_value && new_value.trim()) {
-              searchAndShowResults(new_value.trim());
-          } else {
-              Lampa.Controller.toggle('settings_component'); 
-          }
+      Lampa.Input.edit({ title: 'Назва фільму або серіалу', value: '', free: true, nosave: true }, function(new_value) {
+          if (new_value && new_value.trim()) { searchAndShowResults(new_value.trim()); } else { Lampa.Controller.toggle('settings_component'); }
       });
   }
 
@@ -854,7 +850,6 @@
     var cfg = getCfg();
     var currentOrder = JSON.parse(JSON.stringify(cfg.sourcesConfig));
     var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
-    
     var svgUp = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12L11 3L20 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
     var svgDown = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2L11 11L20 2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
     var svgCheck = '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.89111" y="1.78369" width="21.793" height="21.793" rx="3.5" stroke="currentColor" stroke-width="3"/><path d="M7.44873 12.9658L10.8179 16.3349L18.1269 9.02588" stroke="currentColor" stroke-width="3" class="dot" stroke-linecap="round"/></svg>';
@@ -878,31 +873,10 @@
           '</div>' +
         '</div>'
       );
-      
       itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
-
-      itemSort.find('.move-up').on('hover:enter', function() {
-        var prevItem = itemSort.prev('.source-item');
-        if (prevItem.length) {
-          itemSort.insertBefore(prevItem);
-          updateArrowsState();
-        }
-      });
-
-      itemSort.find('.move-down').on('hover:enter', function() {
-        var nextItem = itemSort.next('.source-item');
-        if (nextItem.length) {
-          itemSort.insertAfter(nextItem);
-          updateArrowsState();
-        }
-      });
-
-      itemSort.find('.toggle').on('hover:enter', function() {
-        src.enabled = !src.enabled; 
-        itemSort.find('.source-name').css('opacity', src.enabled ? '1' : '0.4');
-        itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
-      });
-
+      itemSort.find('.move-up').on('hover:enter', function() { var prevItem = itemSort.prev('.source-item'); if (prevItem.length) { itemSort.insertBefore(prevItem); updateArrowsState(); } });
+      itemSort.find('.move-down').on('hover:enter', function() { var nextItem = itemSort.next('.source-item'); if (nextItem.length) { itemSort.insertAfter(nextItem); updateArrowsState(); } });
+      itemSort.find('.toggle').on('hover:enter', function() { src.enabled = !src.enabled; itemSort.find('.source-name').css('opacity', src.enabled ? '1' : '0.4'); itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0); });
       listContainer.append(itemSort);
     });
 
@@ -918,25 +892,20 @@
         listContainer.find('.source-item').each(function() {
           var id = $(this).attr('data-id');
           var originalSrc = currentOrder.find(function(s) { return s.id === id; });
-          if (originalSrc) {
-            finalOrder.push({ id: originalSrc.id, name: originalSrc.name, enabled: originalSrc.enabled });
-          }
+          if (originalSrc) { finalOrder.push({ id: originalSrc.id, name: originalSrc.name, enabled: originalSrc.enabled }); }
         });
-
         Lampa.Storage.set('ratings_sources_config', finalOrder);
         Lampa.Modal.close();
         Lampa.Controller.toggle('settings_component');
-        
-        setTimeout(function() { 
-          if (typeof currentRatingsData !== 'undefined' && currentRatingsData) { 
-            insertRatings(currentRatingsData); 
-            applyStylesToAll(); 
-          } 
-        }, 150);
+        setTimeout(function() { if (typeof currentRatingsData !== 'undefined' && currentRatingsData) { insertRatings(currentRatingsData); applyStylesToAll(); } }, 150);
       }
     });
   }
-
+  /*
+  |==========================================================================
+  | ЧАСТИНА 4.2: ПОБУДОВА МЕНЮ НАЛАШТУВАНЬ ТА СТАРТ ПЛАГІНА
+  |==========================================================================
+  */
   function addSettingsSection() {
     if (window.lmp_ratings_add_param_ready) return;
     window.lmp_ratings_add_param_ready = true;
@@ -953,15 +922,12 @@
       component: 'lmp_ratings', 
       param: { name: 'lmp_poster_submenu_btn', type: 'static' }, 
       field: { name: 'Рейтинг на постері', description: 'Відображення рейтингів на постерах у каталозі' }, 
-      onRender: function(item) {
-        item.on('hover:enter click', function() { Lampa.Settings.create('omdb_ratings'); });
-      }
+      onRender: function(item) { item.on('hover:enter click', function() { Lampa.Settings.create('omdb_ratings'); }); }
     });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_mdblist_key', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_mdblist_key }, field: { name: 'MDBList API key', description: '' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_edit_sources_btn' }, field: { name: 'Налаштувати джерела', description: 'Зміна порядку та видимості рейтингів' }, onChange: function() { openSourcesEditor(); }, onRender: function() {} });
 
-    // ДОДАНО: 'top': 'Зверху', 'bottom': 'Знизу'
     var textPosValuesMap = { 'left': 'Зліва', 'right': 'Справа', 'top': 'Зверху', 'bottom': 'Знизу' };
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_position', type: 'select', values: textPosValuesMap, "default": 'right' }, field: { name: 'Розташування оцінки', description: 'Розміщення оцінки відносно логотипу' }, onRender: function() {} });
     
@@ -978,10 +944,13 @@
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі іконки' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів', description: 'Забарвлювати цифри залежно від оцінки' }, onRender: function() {} });
+    
+    // ДОДАНО: Темний фон та Світіння
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_dark_bg', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_dark_bg }, field: { name: 'Темний фон плиток', description: 'Додати напівпрозорий чорний фон для кращої читабельності' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_rate_border }, field: { name: 'Рамка плиток рейтингів', description: 'Відображати напівпрозору рамку навколо кожного рейтингу' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_glow_border', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_glow_border }, field: { name: 'Кольорове світіння', description: 'Додати світіння контуру залежно від оцінки' }, onRender: function() {} });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": RCFG_DEFAULT.ratings_cache_days }, field: { name: 'Термін зберігання кешу (MDBList)', description: 'Кількість днів' }, onRender: function() {} });
-    
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити кеш рейтингів', description: '' }, onChange: function() { lmpRatingsClearCache(); }, onRender: function() {} });
 
     Lampa.SettingsApi.addParam({ 
@@ -992,19 +961,13 @@
         onRender: function() {} 
     });
 
-    // --- РІВЕНЬ 2: ПІДМЕНЮ "РЕЙТИНГ НА ПОСТЕРІ" (OMDB) ---
-    Lampa.SettingsApi.addComponent({ 
-        component: 'omdb_ratings', name: 'Рейтинг на постері', 
-        icon: '' 
-    });
+    Lampa.SettingsApi.addComponent({ component: 'omdb_ratings', name: 'Рейтинг на постері', icon: '' });
 
     Lampa.SettingsApi.addParam({ 
         component: 'omdb_ratings', 
         param: { name: 'omdb_ratings_back', type: 'static' }, 
         field: { name: 'Назад', description: 'Повернутися до основних налаштувань плагіна' }, 
-        onRender: function(item) {
-            item.on('hover:enter click', function() { Lampa.Settings.create('lmp_ratings'); });
-        }
+        onRender: function(item) { item.on('hover:enter click', function() { Lampa.Settings.create('lmp_ratings'); }); }
     });
     
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'Рейтинг на постері', description: 'Відображати плашку з оцінкою' }, onRender: function() {} });
@@ -1012,21 +975,17 @@
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_size', type: 'select', values: { '0': '0', '1': '1', '2': '2', '3': '3', '4': '4' }, "default": '0' }, field: { name: 'Розмір рейтингу', description: 'Зміна розміру плашки з рейтингом' }, onRender: function() {} });
 
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: 'Основний ключ OMDb' }, onRender: function() {} });
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: 'Резервний ключ на випадок вичерпання денного ліміту (1000 запитів)' }, onRender: function() {} });
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: 'Резервний ключ на випадок вичерпання безкоштовного денного ліміту (1000 запитів)' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Термін зберігання кешу (OMDb)', description: 'Кількість днів' }, onRender: function() {} });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: '' }, onChange: function() { 
-        localStorage.removeItem('omdb_ratings_cache'); 
-        try { retryStates = {}; } catch(e){} 
-        lmpToast('Кеш рейтингів постерів очищено'); 
+        localStorage.removeItem('omdb_ratings_cache'); try { retryStates = {}; } catch(e){} lmpToast('Кеш рейтингів постерів очищено'); 
     }, onRender: function() {} });
 
     Lampa.Listener.follow('settings', function(e) {
         if (e.type === 'create' && e.name === 'omdb_ratings') {
             setTimeout(function() {
                 if (Lampa.Controller.active() && Lampa.Controller.active().name === 'settings_component') {
-                    Lampa.Controller.active().onBack = function() {
-                        Lampa.Settings.create('lmp_ratings');
-                    };
+                    Lampa.Controller.active().onBack = function() { Lampa.Settings.create('lmp_ratings'); };
                 }
             }, 500);
         }
@@ -1049,9 +1008,7 @@
   function startPlugin() {
     window.combined_ratings_plugin = true;
     Lampa.Listener.follow('full', function(e) {
-      if (e.type === 'complite') {
-        setTimeout(function() { fetchAdditionalRatings(e.data.movie || e.object || {}); }, 500);
-      }
+      if (e.type === 'complite') { setTimeout(function() { fetchAdditionalRatings(e.data.movie || e.object || {}); }, 500); }
     });
     if (typeof pollOmdbCards === 'function') pollOmdbCards();
   }
