@@ -155,24 +155,19 @@
     ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: calc(1.1em + var(--lmp-text-offset)); transition: color 0.2s; }" +
     ".lmp-custom-rate .rate--votes { font-size: calc(0.6em + (var(--lmp-text-offset) / 2)); opacity: 0.8; margin-left: 0.25em; line-height: 1; }" +
     
-    /* Класи для позиціонування */
     ".lmp-dir-right { flex-direction: row-reverse; }" +
     ".lmp-dir-left { flex-direction: row; }" +
     ".lmp-dir-top { flex-direction: column-reverse; }" +
     ".lmp-dir-bottom { flex-direction: column; }" +
-    
-    /* Логіка голосів над/під оцінкою при вертикальному розташуванні */
     ".lmp-dir-top .rate--text-block { flex-direction: column-reverse; align-items: center; }" +
     ".lmp-dir-bottom .rate--text-block { flex-direction: column; align-items: center; }" +
     ".lmp-dir-top .rate--votes, .lmp-dir-bottom .rate--votes { margin-left: 0; margin-top: 0.15em; margin-bottom: 0.15em; line-height: 0.8; }" +
     
-    /* Кольори тексту */
     ".lmp-color-green { color: #2ecc71 !important; }" +
     ".lmp-color-blue { color: #60a5fa !important; }" +
     ".lmp-color-orange { color: #f59e0b !important; }" +
     ".lmp-color-red { color: #ef4444 !important; }" +
     
-    /* Нові стилі: Темний фон, Рамка, Світіння */
     "body.lmp-enh--dark-bg .lmp-custom-rate { background: rgba(0, 0, 0, 0.7) !important; }" +
     "body.lmp-enh--rate-border .lmp-custom-rate { border-color: rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.2); }" +
     
@@ -187,10 +182,17 @@
     
     /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
     "body.omdb-plugin-active .card__vote { display: none !important; opacity: 0 !important; visibility: hidden !important; }" + 
-    ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.75); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); }" +
+    ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.75); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); transition: border 0.2s, box-shadow 0.2s; }" +
     ".omdb-custom-rate span { font-weight: bold; font-size: 1em; }" +
     ".omdb-custom-rate img { width: 1.2em; height: 1.2em; margin-left: 0.3em; object-fit: contain; filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)); }" +
+    
+    /* ДОДАНО: Класи світіння для постера */
+    "body.omdb-enh--glow .omdb-glow-green { border-color: rgba(46,204,113,0.7) !important; box-shadow: 0 0 8px rgba(46,204,113,0.6) !important; }" +
+    "body.omdb-enh--glow .omdb-glow-blue { border-color: rgba(96,165,250,0.7) !important; box-shadow: 0 0 8px rgba(96,165,250,0.6) !important; }" +
+    "body.omdb-enh--glow .omdb-glow-orange { border-color: rgba(245,158,11,0.7) !important; box-shadow: 0 0 8px rgba(245,158,11,0.6) !important; }" +
+    "body.omdb-enh--glow .omdb-glow-red { border-color: rgba(239,68,68,0.7) !important; box-shadow: 0 0 8px rgba(239,68,68,0.6) !important; }" +
     "</style>";
+
   /*
   |==========================================================================
   | БАЗОВІ ФУНКЦІЇ ТА АПІ MDBLIST
@@ -480,7 +482,7 @@
 
   /*
   |==========================================================================
-  | OMDb ЛОГІКА (РЕАКТИВНИЙ СКАНЕР + ВШИТИЙ TMDB КЛЮЧ)
+  | ЧАСТИНА 3: OMDb / TMDb ЛОГІКА (РЕАКТИВНИЙ СКАНЕР ПОСТЕРІВ)
   |==========================================================================
   */
   var OMDB_CACHE_KEY = 'omdb_ratings_cache';
@@ -610,12 +612,6 @@
       }, function () { setRetryState(task.ratingKey); isOmdbRequesting = false; setTimeout(processOmdbQueue, 300); });
   }
 
-  function drawOmdbRatingInside(el, rating) {
-      if (!rating || rating === "N/A") { el.style.display = 'none'; return; }
-      el.style.display = 'flex';
-      el.innerHTML = '<span>' + rating + '</span><img src="' + ICON_IMDB_CARD + '">';
-  }
-
   function pollOmdbCards() {
       var isEnabled = Lampa.Storage.get('omdb_status', true);
       if (!isEnabled) {
@@ -630,12 +626,30 @@
           document.body.classList.add('omdb-plugin-active');
       }
 
-      // ДОДАНО: Джерело (IMDb чи TMDb)
-      var source = Lampa.Storage.get('omdb_poster_source', 'imdb');
+      // ДОДАНО: Логіка ввімкнення світіння для постерів
+      var glowSetting = Lampa.Storage.get('omdb_poster_glow', false);
+      if (glowSetting && !document.body.classList.contains('omdb-enh--glow')) {
+          document.body.classList.add('omdb-enh--glow');
+      } else if (!glowSetting && document.body.classList.contains('omdb-enh--glow')) {
+          document.body.classList.remove('omdb-enh--glow');
+      }
 
+      var source = Lampa.Storage.get('omdb_poster_source', 'imdb');
       var sizeSetting = parseInt(Lampa.Storage.get('omdb_poster_size', '0'));
       if (isNaN(sizeSetting)) sizeSetting = 0;
       var scaleEm = 0.9 + (sizeSetting * 0.1); 
+
+      // Допоміжна функція для застосування кольору
+      function applyOmdbGlowClass(el, valStr) {
+          el.classList.remove('omdb-glow-green', 'omdb-glow-blue', 'omdb-glow-orange', 'omdb-glow-red');
+          var v = parseFloat(valStr);
+          if (!isNaN(v)) {
+              if (v >= 7.5) el.classList.add('omdb-glow-green');
+              else if (v >= 6.0) el.classList.add('omdb-glow-blue');
+              else if (v >= 4.0) el.classList.add('omdb-glow-orange');
+              else el.classList.add('omdb-glow-red');
+          }
+      }
 
       document.querySelectorAll('.card').forEach(function (card) {
           var data = card.card_data || card.dataset || {};
@@ -660,7 +674,6 @@
 
           customRateEl.style.fontSize = scaleEm + 'em';
 
-          // ДОДАНО: Логіка обробки TMDb
           if (source === 'tmdb') {
               var va = parseFloat(data.vote_average || 0);
               if (va > 0) {
@@ -670,12 +683,12 @@
                       customRateEl.dataset.src = 'tmdb';
                       customRateEl.style.display = 'flex';
                       customRateEl.innerHTML = '<span>' + displayVa + '</span><img src="' + ICONS.tmdb_poster + '">';
+                      applyOmdbGlowClass(customRateEl, displayVa);
                   }
               } else {
                   customRateEl.style.display = 'none';
               }
           } else {
-              // Оригінальна логіка IMDb
               var cachedRating = getCachedOmdbRating(ratingKey);
 
               if (cachedRating && cachedRating !== "N/A") {
@@ -684,6 +697,7 @@
                       customRateEl.dataset.src = 'imdb';
                       customRateEl.style.display = 'flex';
                       customRateEl.innerHTML = '<span>' + cachedRating + '</span><img src="' + ICON_IMDB_CARD + '">';
+                      applyOmdbGlowClass(customRateEl, cachedRating);
                   }
               } else if (!cachedRating) {
                   customRateEl.style.display = 'none';
@@ -701,9 +715,10 @@
       });
       setTimeout(pollOmdbCards, 500);
   }
+
   /*
   |==========================================================================
-  | ЧАСТИНА 4.1: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ (БАЗОВІ ФУНКЦІЇ)
+  | ЧАСТИНА 4: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
   |==========================================================================
   */
   var DEFAULT_SOURCES_ORDER = [
@@ -757,9 +772,9 @@
       badgeAlpha: parseFloatDef('ratings_badge_alpha', RCFG_DEFAULT.ratings_badge_alpha),
       badgeTone: parseIntDef('ratings_badge_tone', RCFG_DEFAULT.ratings_badge_tone),
       colorizeAll: !!Lampa.Storage.field('ratings_colorize_all', RCFG_DEFAULT.ratings_colorize_all),
-      darkBg: !!Lampa.Storage.field('ratings_dark_bg', RCFG_DEFAULT.ratings_dark_bg), // ДОДАНО
+      darkBg: !!Lampa.Storage.field('ratings_dark_bg', RCFG_DEFAULT.ratings_dark_bg),
       rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border),
-      glowBorder: !!Lampa.Storage.field('ratings_glow_border', RCFG_DEFAULT.ratings_glow_border), // ДОДАНО
+      glowBorder: !!Lampa.Storage.field('ratings_glow_border', RCFG_DEFAULT.ratings_glow_border),
       sourcesConfig: fullSourcesConfig
     };
   }
@@ -777,79 +792,23 @@
     document.documentElement.style.setProperty('--lmp-text-offset', cfg.textOffset);
     document.documentElement.style.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
     cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
-    
-    // ДОДАНО КЛАСИ ДЛЯ НОВИХ НАЛАШТУВАНЬ:
     cfg.darkBg ? document.body.classList.add('lmp-enh--dark-bg') : document.body.classList.remove('lmp-enh--dark-bg');
     cfg.rateBorder ? document.body.classList.add('lmp-enh--rate-border') : document.body.classList.remove('lmp-enh--rate-border');
     cfg.glowBorder ? document.body.classList.add('lmp-enh--glow') : document.body.classList.remove('lmp-enh--glow');
     
     var tiles = document.querySelectorAll('.lmp-custom-rate');
     var rgba = 'rgba(' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeTone + ',' + cfg.badgeAlpha + ')';
-    tiles.forEach(function(tile) { tile.style.background = rgba; });
-  }
-
-  function searchAndShowResults(query) {
-      var tmdbKey = Lampa.Storage ? Lampa.Storage.get('tmdb_api_key', '') : '';
-      if (!tmdbKey || tmdbKey.trim() === '' || tmdbKey.trim() === 'c87a543116135a4120443155bf680876') {
-          tmdbKey = '4ef0d7355d9ffb5151e987764708ce96';
-      }
-      var url = 'https://api.themoviedb.org/3/search/multi?api_key=' + tmdbKey + '&language=uk-UA&query=' + encodeURIComponent(query);
-      
-      var net = new Lampa.Reguest();
-      net.silent(url, function(res) {
-          if (res && res.results && res.results.length > 0) {
-              var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
-              res.results.forEach(function(item) {
-                  if (item.media_type !== 'movie' && item.media_type !== 'tv') return;
-                  var title = item.title || item.name || item.original_title || 'Без назви';
-                  var date = item.release_date || item.first_air_date || '';
-                  var year = date ? ' (' + date.substring(0, 4) + ')' : '';
-                  var typeStr = item.media_type === 'tv' ? 'Серіал' : 'Фільм';
-                  
-                  var row = $('<div class="source-item selector" style="padding:12px; border-bottom:1px solid rgba(255,255,255,0.1); cursor:pointer;">' +
-                                '<div style="font-size:16px;">' + title + year + '</div>' +
-                                '<div style="font-size:12px; opacity:0.6; margin-top:4px;">' + typeStr + ' • ID: ' + item.id + '</div>' +
-                              '</div>');
-                  
-                  row.on('hover:enter click', function() {
-                      var ratingKey = item.media_type + '_' + item.id;
-                      var mdbCache = Lampa.Storage.get(RATING_CACHE_KEY) || {};
-                      if (mdbCache[ratingKey]) { delete mdbCache[ratingKey]; Lampa.Storage.set(RATING_CACHE_KEY, mdbCache); }
-                      
-                      var OMDB_CACHE_KEY = 'omdb_ratings_cache';
-                      try {
-                          var omdbCacheRaw = localStorage.getItem(OMDB_CACHE_KEY);
-                          if (omdbCacheRaw) {
-                              var omdbCache = JSON.parse(omdbCacheRaw);
-                              if (omdbCache[ratingKey]) {
-                                  delete omdbCache[ratingKey];
-                                  localStorage.setItem(OMDB_CACHE_KEY, JSON.stringify(omdbCache));
-                              }
-                          }
-                      } catch(e){}
-                      
-                      lmpToast('Кеш для "' + title + '" очищено');
-                      Lampa.Modal.close();
-                      Lampa.Controller.toggle('settings_component'); 
-                  });
-                  listContainer.append(row);
-              });
-              
-              Lampa.Modal.open({ title: 'Оберіть об\'єкт для очищення', html: listContainer, size: 'medium', scroll_to_center: true, onBack: function() { Lampa.Modal.close(); Lampa.Controller.toggle('settings_component'); } });
-          } else { lmpToast('Нічого не знайдено'); Lampa.Controller.toggle('settings_component'); }
-      }, function() { lmpToast('Помилка пошуку'); Lampa.Controller.toggle('settings_component'); });
-  }
-
-  function openSingleCacheManager() {
-      Lampa.Input.edit({ title: 'Назва фільму або серіалу', value: '', free: true, nosave: true }, function(new_value) {
-          if (new_value && new_value.trim()) { searchAndShowResults(new_value.trim()); } else { Lampa.Controller.toggle('settings_component'); }
-      });
+    tiles.forEach(function(tile) { 
+        if (!cfg.darkBg) tile.style.background = rgba; 
+        else tile.style.background = '';
+    });
   }
 
   function openSourcesEditor() {
     var cfg = getCfg();
     var currentOrder = JSON.parse(JSON.stringify(cfg.sourcesConfig));
     var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
+    
     var svgUp = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12L11 3L20 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
     var svgDown = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2L11 11L20 2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
     var svgCheck = '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.89111" y="1.78369" width="21.793" height="21.793" rx="3.5" stroke="currentColor" stroke-width="3"/><path d="M7.44873 12.9658L10.8179 16.3349L18.1269 9.02588" stroke="currentColor" stroke-width="3" class="dot" stroke-linecap="round"/></svg>';
@@ -873,10 +832,31 @@
           '</div>' +
         '</div>'
       );
+      
       itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
-      itemSort.find('.move-up').on('hover:enter', function() { var prevItem = itemSort.prev('.source-item'); if (prevItem.length) { itemSort.insertBefore(prevItem); updateArrowsState(); } });
-      itemSort.find('.move-down').on('hover:enter', function() { var nextItem = itemSort.next('.source-item'); if (nextItem.length) { itemSort.insertAfter(nextItem); updateArrowsState(); } });
-      itemSort.find('.toggle').on('hover:enter', function() { src.enabled = !src.enabled; itemSort.find('.source-name').css('opacity', src.enabled ? '1' : '0.4'); itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0); });
+
+      itemSort.find('.move-up').on('hover:enter', function() {
+        var prevItem = itemSort.prev('.source-item');
+        if (prevItem.length) {
+          itemSort.insertBefore(prevItem);
+          updateArrowsState();
+        }
+      });
+
+      itemSort.find('.move-down').on('hover:enter', function() {
+        var nextItem = itemSort.next('.source-item');
+        if (nextItem.length) {
+          itemSort.insertAfter(nextItem);
+          updateArrowsState();
+        }
+      });
+
+      itemSort.find('.toggle').on('hover:enter', function() {
+        src.enabled = !src.enabled; 
+        itemSort.find('.source-name').css('opacity', src.enabled ? '1' : '0.4');
+        itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
+      });
+
       listContainer.append(itemSort);
     });
 
@@ -892,20 +872,24 @@
         listContainer.find('.source-item').each(function() {
           var id = $(this).attr('data-id');
           var originalSrc = currentOrder.find(function(s) { return s.id === id; });
-          if (originalSrc) { finalOrder.push({ id: originalSrc.id, name: originalSrc.name, enabled: originalSrc.enabled }); }
+          if (originalSrc) {
+            finalOrder.push({ id: originalSrc.id, name: originalSrc.name, enabled: originalSrc.enabled });
+          }
         });
+
         Lampa.Storage.set('ratings_sources_config', finalOrder);
         Lampa.Modal.close();
         Lampa.Controller.toggle('settings_component');
-        setTimeout(function() { if (typeof currentRatingsData !== 'undefined' && currentRatingsData) { insertRatings(currentRatingsData); applyStylesToAll(); } }, 150);
+        
+        setTimeout(function() { 
+          if (typeof currentRatingsData !== 'undefined' && currentRatingsData) { 
+            insertRatings(currentRatingsData); 
+            applyStylesToAll(); 
+          } 
+        }, 150);
       }
     });
   }
-  /*
-  |==========================================================================
-  | ЧАСТИНА 4.2: ПОБУДОВА МЕНЮ НАЛАШТУВАНЬ ТА СТАРТ ПЛАГІНА
-  |==========================================================================
-  */
   function addSettingsSection() {
     if (window.lmp_ratings_add_param_ready) return;
     window.lmp_ratings_add_param_ready = true;
@@ -913,6 +897,7 @@
     var hideSubMenuCss = '<style>div[data-component="omdb_ratings"] { display: none !important; }</style>';
     $('body').append(hideSubMenuCss);
 
+    // --- РІВЕНЬ 1: ГОЛОВНЕ ВІКНО "РЕЙТИНГИ MDBLIST" ---
     Lampa.SettingsApi.addComponent({ 
       component: 'lmp_ratings', name: 'Рейтинги MDBList', 
       icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l3.09 6.26L22 10.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 15.14l-5-4.87 6.91-1.01L12 3z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>' 
@@ -938,26 +923,27 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі іконки' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів', description: 'Забарвлювати цифри залежно від оцінки' } });
     
-    /* НОВІ ПУНКТИ ПЕРЕД РАМКОЮ */
+    /* Світіння та фони карток */
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_dark_bg', type: 'trigger', values: '', "default": false }, field: { name: 'Темний фон плиток', description: 'Додати напівпрозорий темний фон для кращої читаємості' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": false }, field: { name: 'Рамка плиток рейтингів', description: 'Відображати тонку рамку навколо кожного рейтингу' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_glow_border', type: 'trigger', values: '', "default": false }, field: { name: 'Кольорове світіння', description: 'Обведення контуром та світіння кольором оцінки' } });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": '3' }, field: { name: 'Термін зберігання кешу (MDBList)', description: 'Кількість днів' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити весь кеш рейтингів', description: '' }, onChange: function() { lmpRatingsClearCache(); } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_single_cache_btn' }, field: { name: 'Видалити кеш окремого фільму', description: 'Пошук за назвою та точкове очищення (MDBList + OMDb)' }, onChange: function() { openSingleCacheManager(); } });
 
-    /* ПІДМЕНЮ ПОСТЕРІВ */
+    // --- РІВЕНЬ 2: ПІДМЕНЮ "РЕЙТИНГ НА ПОСТЕРІ" (OMDB) ---
     Lampa.SettingsApi.addComponent({ component: 'omdb_ratings', name: 'Рейтинг на постері', icon: '' });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_ratings_back', type: 'static' }, field: { name: 'Назад', description: '' }, onRender: function(item) { item.on('hover:enter click', function() { Lampa.Settings.create('lmp_ratings'); }); } });
+    
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'Рейтинг на постері', description: 'Відображати плашку з оцінкою' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_size', type: 'select', values: { '0': '0', '1': '1', '2': '2', '3': '3', '4': '4' }, "default": '0' }, field: { name: 'Розмір рейтингу', description: 'Зміна розміру плашки на постері' } });
+    
+    // ДОДАНО: Перемикач світіння для постерів
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_glow', type: 'trigger', values: '', "default": false }, field: { name: 'Кольорове світіння', description: 'Обведення контуром та світіння плашки кольором оцінки' } });
+    
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: '' } });
-    
-    // ВИПРАВЛЕНО синтаксис
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: 'Резервний ключ на випадок вичерпання ліміту' } });
-    
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Термін зберігання кешу (OMDb)', description: 'Кількість днів' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: '' }, onChange: function() { localStorage.removeItem('omdb_ratings_cache'); lmpToast('Кеш постерів очищено'); } });
 
@@ -996,7 +982,7 @@
             /* ФОРСОВАНА СИНХРОНІЗАЦІЯ З БЕЗПЕЧНИМ ID */
             setTimeout(function() {
                 if (currentRatingsData && currentRatingsData.imdb && currentRatingsData.imdb.display) {
-                    var ratingKey = getCardType(card) + '_' + card.id; // Тепер тут все ідеально безпечно
+                    var ratingKey = getCardType(card) + '_' + card.id; 
                     try {
                         var OMDB_CACHE_KEY = 'omdb_ratings_cache';
                         var omdbCache = JSON.parse(localStorage.getItem(OMDB_CACHE_KEY) || '{}');
@@ -1016,7 +1002,6 @@
     if (typeof pollOmdbCards === 'function') pollOmdbCards();
   }
 
-  /* ВИПРАВЛЕНО додавання стилів на перевірений метод */
   $('body').append(pluginStyles);
   initRatingsPluginUI();
   refreshConfigFromStorage();
