@@ -612,6 +612,8 @@
 
   function pollOmdbCards() {
       var isEnabled = Lampa.Storage.get('omdb_status', true);
+      
+      // Якщо плагін вимкнено - повністю повертаємо Лампу до стандартного стану
       if (!isEnabled) {
           if (document.body.classList.contains('omdb-plugin-active')) {
               document.body.classList.remove('omdb-plugin-active');
@@ -620,11 +622,11 @@
           setTimeout(pollOmdbCards, 1000); return;
       }
 
+      // Якщо плагін увімкнено - приховуємо стандартні плашки Лампи
       if (!document.body.classList.contains('omdb-plugin-active')) {
           document.body.classList.add('omdb-plugin-active');
       }
 
-      // ДОДАНО: Логіка ввімкнення світіння для постерів
       var glowSetting = Lampa.Storage.get('omdb_poster_glow', false);
       if (glowSetting && !document.body.classList.contains('omdb-enh--glow')) {
           document.body.classList.add('omdb-enh--glow');
@@ -637,7 +639,6 @@
       if (isNaN(sizeSetting)) sizeSetting = 0;
       var scaleEm = 0.9 + (sizeSetting * 0.1); 
 
-      // Допоміжна функція для застосування кольору
       function applyOmdbGlowClass(el, valStr) {
           el.classList.remove('omdb-glow-green', 'omdb-glow-blue', 'omdb-glow-orange', 'omdb-glow-red');
           var v = parseFloat(valStr);
@@ -670,6 +671,12 @@
               parent.appendChild(customRateEl);
           }
 
+          // ДОДАНО: Логіка "Без рейтингу"
+          if (source === 'none') {
+              customRateEl.style.display = 'none';
+              return; // Зупиняємо подальшу обробку для цієї картки (нічого не просимо, нічого не малюємо)
+          }
+
           customRateEl.style.fontSize = scaleEm + 'em';
 
           if (source === 'tmdb') {
@@ -686,7 +693,7 @@
               } else {
                   customRateEl.style.display = 'none';
               }
-          } else {
+          } else if (source === 'imdb') {
               var cachedRating = getCachedOmdbRating(ratingKey);
 
               if (cachedRating && cachedRating !== "N/A") {
@@ -713,6 +720,7 @@
       });
       setTimeout(pollOmdbCards, 500);
   }
+
   /*
   |==========================================================================
   | ЧАСТИНА 4: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
@@ -889,9 +897,9 @@
     var hideSubMenuCss = '<style>div[data-component="omdb_ratings"] { display: none !important; }</style>';
     $('body').append(hideSubMenuCss);
 
-    // --- РІВЕНЬ 1: ГОЛОВНЕ ВІКНО "РЕЙТИНГИ MDBLIST" ---
+    // --- РІВЕНЬ 1: ГОЛОВНЕ ВІКНО "РЕЙТИНГИ" ---
     Lampa.SettingsApi.addComponent({ 
-      component: 'lmp_ratings', name: 'Рейтинги MDBList', 
+      component: 'lmp_ratings', name: 'Рейтинги', // ЗМІНЕНО НАЗВУ
       icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l3.09 6.26L22 10.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 15.14l-5-4.87 6.91-1.01L12 3z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>' 
     });
     
@@ -915,7 +923,6 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі іконки' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів', description: 'Забарвлювати цифри залежно від оцінки' } });
     
-    /* ВИПРАВЛЕНО: Ключі з літерою v_ обходять автоматичне сортування чисел в JS */
     var bgOpacityValues = { 'v_0': '0%', 'v_0.2': '20%', 'v_0.3': '30%', 'v_0.4': '40%', 'v_0.5': '50%', 'v_0.6': '60%', 'v_0.8': '80%', 'v_1': '100%' };
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bg_opacity', type: 'select', values: bgOpacityValues, "default": 'v_0' }, field: { name: 'Темний фон плитки', description: 'Рівень затемнення фону під плитками рейтингів' } });
     
@@ -930,9 +937,8 @@
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_ratings_back', type: 'static' }, field: { name: 'Назад', description: '' }, onRender: function(item) { item.on('hover:enter click', function() { Lampa.Settings.create('lmp_ratings'); }); } });
     
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'Рейтинг на постері', description: 'Відображати плашку з оцінкою' } });
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: '' } });
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb', 'none': 'Без рейтингу' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: 'Виберіть джерело або вимкніть плашки повністю' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_size', type: 'select', values: { '0': '0', '1': '1', '2': '2', '3': '3', '4': '4' }, "default": '0' }, field: { name: 'Розмір рейтингу', description: 'Зміна розміру плашки на постері' } });
-    
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_glow', type: 'trigger', values: '', "default": false }, field: { name: 'Кольорове світіння', description: 'Обведення контуром та світіння плашки кольором оцінки' } });
     
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: '' } });
@@ -940,7 +946,22 @@
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Термін зберігання кешу (OMDb)', description: 'Кількість днів' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: '' }, onChange: function() { localStorage.removeItem('omdb_ratings_cache'); lmpToast('Кеш постерів очищено'); } });
 
+    // СИСТЕМНІ СЛУХАЧІ МЕНЮ
     Lampa.Listener.follow('settings', function(e) {
+        // ДОДАНО: Миттєве переміщення пункту "Рейтинги" під пункт "Інтерфейс"
+        if (e.name === 'main') {
+            var moveRatingsToTop = function() {
+                var $interface = $('.settings-folder div[data-component="interface"]');
+                var $ratings = $('.settings-folder div[data-component="lmp_ratings"]');
+                if ($interface.length && $ratings.length) {
+                    $ratings.insertAfter($interface);
+                }
+            };
+            moveRatingsToTop(); // Пробуємо миттєво
+            setTimeout(moveRatingsToTop, 10); // Підстраховка, якщо Лампа рендерить трохи довше
+            setTimeout(moveRatingsToTop, 50);
+        }
+
         if (e.type === 'create' && e.name === 'omdb_ratings') {
             setTimeout(function() {
                 if (Lampa.Controller.active() && Lampa.Controller.active().name === 'settings_component') {
@@ -972,7 +993,6 @@
         setTimeout(function() { 
             fetchAdditionalRatings(card);
             
-            /* ФОРСОВАНА СИНХРОНІЗАЦІЯ З БЕЗПЕЧНИМ ID */
             setTimeout(function() {
                 if (currentRatingsData && currentRatingsData.imdb && currentRatingsData.imdb.display) {
                     var ratingKey = getCardType(card) + '_' + card.id; 
