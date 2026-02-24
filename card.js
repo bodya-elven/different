@@ -214,11 +214,8 @@
     function initializePlugin() {
         console.log('Applecation', 'v' + APPLECATION_VERSION);
         
-        if (!Lampa.Platform.screen('tv')) {
-            console.log('Applecation', 'TV mode only');
-            return;
-        }
-
+        // Видалено перевірку на TV, щоб запускалося на телефоні
+        
         patchApiImg();
         addCustomTemplate();
         addOverlayTemplate();
