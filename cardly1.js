@@ -11,12 +11,13 @@
         if (data) {
             if (isMobile) {
                 var textlessPoster = null;
-                var images = data.images || (e.data && e.data.images);
+                // Шукаємо зображення в об'єкті
+                var images = data.images || (e.data && e.data.images) || (e.object && e.object.card && e.object.card.images);
                 
                 if (images && images.posters && images.posters.length) {
-                    // Шукаємо постер без мови
+                    // Шукаємо постер без мови (xx або null)
                     var textless = images.posters.filter(function(p) { 
-                        return p.iso_639_1 === 'xx' || p.iso_639_1 === null || p.iso_639_1 === false || p.iso_639_1 === ''; 
+                        return p.iso_639_1 === 'xx' || p.iso_639_1 === null || p.iso_639_1 === ''; 
                     });
                     if (textless.length) {
                         textlessPoster = textless[0].file_path;
@@ -46,18 +47,18 @@
 
     // 2. Встановлюємо Логотип замість тексту
     function applyLogoAndTitle(render, data, e) {
-        var images = data.images || (e.data && e.data.images);
-        if (!images || !images.logos || !images.logos.length) return; // Якщо лого немає, залишаємо стандартний текст
+        var images = data.images || (e.data && e.data.images) || (e.object && e.object.card && e.object.card.images);
+        if (!images || !images.logos || !images.logos.length) return; // Якщо лого немає, нічого не міняємо
 
         var logos = images.logos;
-        var logoUk = logos.find(function(l) { return l.iso_639_1 === 'uk'; });
-        var logoEn = logos.find(function(l) { return l.iso_639_1 === 'en'; });
-        var logoToUse = logoUk || logoEn || logos[0]; // Пріоритет: UK -> EN -> Будь-яке
+        var logoUk = logos.filter(function(l) { return l.iso_639_1 === 'uk'; })[0];
+        var logoEn = logos.filter(function(l) { return l.iso_639_1 === 'en'; })[0];
+        var logoToUse = logoUk || logoEn || logos[0];
 
         if (logoToUse) {
             var locTitle = data.title || data.name || "";
             var origTitle = data.original_title || data.original_name || "";
-            // Якщо лого українське - пишемо оригінальну (англійську) назву знизу, і навпаки
+            // Якщо лого українське - пишемо оригінальну назву знизу, якщо ні - локальну
             var subTitleText = (logoToUse.iso_639_1 === 'uk') ? origTitle : locTitle;
 
             var titleContainer = render.find('.full-start-new__title');
@@ -77,7 +78,6 @@
         var component = e.object.activity.component;
         var data = e.data && e.data.movie ? e.data.movie : (e.object && e.object.card ? e.object.card : null);
 
-        // Чистка зайвих слешів у сезонах
         var details = render.find(".full-start-new__details");
         if (details.length) {
             var nextEpisodeSpan = null;
@@ -103,15 +103,17 @@
             }
         }
 
-        // Ховаємо бейджі (4K, вік, статус) через JS додатково до CSS
-        render.find(".full-start__pg, .full-start__status").hide();
+        // Жорстко ховаємо бейджі (вік, статус, 4K)
+        render.find(".full-start__pg, .full-start__status, .full-start__tag").hide();
+        if (!Lampa.Storage.field("cardify_show_rating")) {
+            render.find(".full-start-new__rate-line.rate-fix").hide();
+        }
 
         if (data) {
             loadOriginalPoster(e, render, data);
             applyLogoAndTitle(render, data, e);
         }
 
-        // Підвантаження додаткового контенту (Актори, Схожі)
         if (component && component.rows && component.items && component.scroll && component.emit) {
             var add = component.rows.slice(component.items.length);
             if (add.length) {
@@ -125,10 +127,10 @@
         }
     }
 
-    // 3. Ініціалізація HTML-шаблону та CSS
+    // 4. Ініціалізація HTML-шаблону та CSS
     function initTemplatesAndStyles() {
         // Шаблон сторінки. 
-        // Зміни: кнопки об'єднані в один скрол-контейнер, прибрані зайві значки (вік, 4K).
+        // Зміни: кнопки зібрані в один скрол-контейнер, прибрані зайві значки.
         Lampa.Template.add(
             "full_start_new",
             `<div class="full-start-new cardify">
@@ -189,7 +191,7 @@
                                 </svg>
                             </div>
 
-                            <div class="hide buttons--container" style="display:flex; gap:0.5em;">
+                            <div class="hide buttons--container" style="display:flex; gap:0.6em;">
                                 <div class="full-start__button view--torrent hide">
                                     <svg xmlns="http://www.w3.org/2000/svg"  viewBox="0 0 50 50" width="50px" height="50px">
                                         <path d="M25,2C12.317,2,2,12.317,2,25s10.317,23,23,23s23-10.317,23-23S37.683,2,25,2z M40.5,30.963c-3.1,0-4.9-2.4-4.9-2.4 S34.1,35,27,35c-1.4,0-3.6-0.837-3.6-0.837l4.17,9.643C26.727,43.92,25.874,44,25,44c-2.157,0-4.222-0.377-6.155-1.039L9.237,16.851 c0,0-0.7-1.2,0.4-1.5c1.1-0.3,5.4-1.2,5.4-1.2s1.475-0.494,1.8,0.5c0.5,1.3,4.063,11.112,4.063,11.112S22.6,29,27.4,29 c4.7,0,5.9-3.437,5.7-3.937c-1.2-3-4.993-11.862-4.993-11.862s-0.6-1.1,0.8-1.4c1.4-0.3,3.8-0.7,3.8-0.7s1.105-0.163,1.6,0.8 c0.738,1.437,5.193,11.262,5.193,11.262s1.1,2.9,3.3,2.9c0.464,0,0.834-0.046,1.152-0.104c-0.082,1.635-0.348,3.221-0.817,4.722 C42.541,30.867,41.756,30.963,40.5,30.963z" fill="currentColor"/>
@@ -205,7 +207,6 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
 
                 <div class="cardify__right">
@@ -218,12 +219,148 @@
     </div>`
         );
         // Стилі: базові + вилизана мобільна адаптація, логотипи та скролл
-        var style = '\n        <style>\n        .cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}\n        .cardify .full-start-new__body{height:80vh; position: relative; z-index: 2;}\n        .cardify .full-start-new__right{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;-moz-box-align:end;-ms-flex-align:end;align-items:flex-end}\n        .cardify .full-start-new__title{text-shadow:0 0 .1em rgba(0,0,0,0.3); display:flex; flex-direction:column; align-items:flex-start;}\n        .cardify__left{-webkit-box-flex:1;-webkit-flex-grow:1;-moz-box-flex:1;-ms-flex-positive:1;flex-grow:1}\n        .cardify__right{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-webkit-align-items:center;-moz-box-align:center;-ms-flex-align:center;align-items:center;-webkit-flex-shrink:0;-ms-flex-negative:0;flex-shrink:0;position:relative}\n        .cardify__details{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex}\n        .cardify .full-start-new__reactions{margin:0;margin-right:-2.8em}\n        .cardify .full-start-new__reactions:not(.focus){margin:0}\n        .cardify .full-start-new__reactions:not(.focus)>div:not(:first-child){display:none}\n        .cardify .full-start-new__reactions:not(.focus) .reaction{position:relative}\n        .cardify .full-start-new__reactions:not(.focus) .reaction__count{position:absolute;top:28%;left:95%;font-size:1.2em;font-weight:500}\n        .cardify .full-start-new__rate-line.rate-fix{margin: 1em 0 1.7em 0}\n        .full-start-new__details{margin:0 0 1.4em -0.3em;}\n        .full-start-new__rate-line{margin:0;margin-left:3.5em}\n        .cardify .full-start-new__rate-line>*:last-child{margin-right:0 !important}\n        .cardify.nodisplay{-webkit-transform:translate3d(0,50%,0);-moz-transform:translate3d(0,50%,0);transform:translate3d(0,50%,0);opacity:0}\n        \n        /* Логотипи та субтитри */\n        .cardify-logo { max-width: 65%; max-height: 120px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n        .cardify-sub-title { font-size: 0.55em; font-weight: 500; opacity: 0.75; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 1px; }\n\n        /* Приховуємо вікові обмеження, 4K та інше */\n        .full-start__tag, .full-start__pg, .full-start__status { display: none !important; }\n\n        /* Новий кастомний фон (ТВ) */\n        .cardify-custom-bg {\n            position: absolute;\n            top: 0; left: 0; right: 0;\n            height: 100vh;\n            background-size: cover;\n            background-position: center top;\n            z-index: 0;\n            opacity: 0;\n            transition: opacity 0.5s ease;\n            -webkit-mask-image: linear-gradient(to bottom, white 50%, rgba(255,255,255,0) 100%);\n            mask-image: linear-gradient(to bottom, white 50%, rgba(255,255,255,0) 100%);\n        }\n        .cardify-custom-bg.loaded { opacity: 1; }\n\n        /* АДАПТАЦІЯ ДЛЯ ТЕЛЕФОНІВ */\n        @media (max-width: 768px) {\n            /* Вбиваємо ВСІ чорні плашки від мобільної теми Lampa */\n            .activity__body > .cardify,\n            .cardify.full-start-new,\n            .full-start__wrapper,\n            .full-start__bg {\n                background: transparent !important;\n                box-shadow: none !important;\n                border-radius: 0 !important;\n                margin: 0 !important;\n            }\n            \n            .cardify .full-start-new__left { display: none !important; }\n            \n            /* ГОЛОВНИЙ ГРАДІЄНТ: лежить на самому блоці і плавно переходить у #141414 */\n            .cardify {\n                background: linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(20,20,20,0.8) 65%, #141414 85%, #141414 100%) !important;\n            }\n\n            /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми - гарантовано на суцільному темному фоні */\n            .activity__body .scroll__item {\n                background-color: #141414 !important;\n                position: relative;\n                z-index: 2;\n            }\n            \n            .cardify .full-start-new__body {\n                height: auto !important;\n                min-height: 85vh;\n                flex-direction: column;\n                justify-content: flex-end;\n                padding-top: 45vh !important;\n                padding-bottom: 1.5em;\n                box-sizing: border-box;\n            }\n            \n            .cardify .full-start-new__right {\n                flex-direction: column;\n                align-items: flex-start;\n                width: 100%;\n                padding: 0 1.2em !important;\n                box-sizing: border-box;\n            }\n            \n            .cardify__left { width: 100%; position: relative; z-index: 2; }\n            .cardify__right { width: 100%; margin-top: 1em; justify-content: flex-start; }\n            \n            .full-start-new__title {\n                font-size: 2.2em !important;\n            }\n\n            /* ФОН: Фіксований на весь екран, вирівнювання зверху */\n            .cardify-custom-bg {\n                position: fixed !important;\n                top: 0 !important; left: 0 !important;\n                height: 100vh !important;\n                width: 100vw !important;\n                background-position: top center !important;\n                -webkit-mask-image: none !important;\n                mask-image: none !important;\n                z-index: -2 !important;\n            }\n            \n            /* ГОРИЗОНТАЛЬНИЙ СКРОЛЛ КНОПОК */\n            .cardify-buttons-scroll {\n                display: flex;\n                overflow-x: auto;\n                overflow-y: hidden;\n                width: 100%;\n                padding-bottom: 10px; /* Місце для скролбару, якщо він є */\n                margin-top: 1em;\n                -webkit-overflow-scrolling: touch;\n                scrollbar-width: none; /* Firefox */\n            }\n            .cardify-buttons-scroll::-webkit-scrollbar {\n                display: none; /* Chrome/Safari */\n            }\n            .cardify-buttons-scroll .full-start__buttons,\n            .cardify-buttons-scroll .buttons--container {\n                display: flex;\n                flex-wrap: nowrap !important;\n                gap: 0.6em;\n            }\n            .cardify-buttons-scroll .full-start__button {\n                flex-shrink: 0;\n                white-space: nowrap;\n                margin: 0 !important;\n            }\n        }\n        </style>\n    ';
+        var style = '\n' +
+        '<style>\n' +
+        '.cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}\n' +
+        '.cardify .full-start-new__body{height:80vh; position: relative; z-index: 2;}\n' +
+        '.cardify .full-start-new__right{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;-moz-box-align:end;-ms-flex-align:end;align-items:flex-end}\n' +
+        '.cardify .full-start-new__title{text-shadow:0 0 .1em rgba(0,0,0,0.3); display:flex; flex-direction:column; align-items:flex-start; width:100%;}\n' +
+        '.cardify__left{-webkit-box-flex:1;-webkit-flex-grow:1;-moz-box-flex:1;-ms-flex-positive:1;flex-grow:1}\n' +
+        '.cardify__right{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-webkit-align-items:center;-moz-box-align:center;-ms-flex-align:center;align-items:center;-webkit-flex-shrink:0;-ms-flex-negative:0;flex-shrink:0;position:relative}\n' +
+        '.cardify__details{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex}\n' +
+        '.cardify .full-start-new__reactions{margin:0;margin-right:-2.8em}\n' +
+        '.cardify .full-start-new__reactions:not(.focus){margin:0}\n' +
+        '.cardify .full-start-new__reactions:not(.focus)>div:not(:first-child){display:none}\n' +
+        '.cardify .full-start-new__reactions:not(.focus) .reaction{position:relative}\n' +
+        '.cardify .full-start-new__reactions:not(.focus) .reaction__count{position:absolute;top:28%;left:95%;font-size:1.2em;font-weight:500}\n' +
+        '.cardify .full-start-new__rate-line.rate-fix{margin: 1em 0 1.7em 0}\n' +
+        '.full-start-new__details{margin:0 0 1.4em -0.3em;}\n' +
+        '.full-start-new__rate-line{margin:0;margin-left:3.5em}\n' +
+        '.cardify .full-start-new__rate-line>*:last-child{margin-right:0 !important}\n' +
+        '.cardify.nodisplay{-webkit-transform:translate3d(0,50%,0);-moz-transform:translate3d(0,50%,0);transform:translate3d(0,50%,0);opacity:0}\n' +
+        '\n' +
+        '/* Логотипи та субтитри */\n' +
+        '.cardify-logo { max-width: 80%; max-height: 100px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n' +
+        '.cardify-sub-title { font-size: 0.55em; font-weight: 500; opacity: 0.75; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 1px; }\n' +
+        '\n' +
+        '/* Приховуємо вікові обмеження, 4K та інше */\n' +
+        '.full-start__tag, .full-start__pg, .full-start__status { display: none !important; }\n' +
+        '\n' +
+        '/* Новий кастомний фон (ТВ) */\n' +
+        '.cardify-custom-bg {\n' +
+        '    position: absolute;\n' +
+        '    top: 0; left: 0; right: 0;\n' +
+        '    height: 100vh;\n' +
+        '    background-size: cover;\n' +
+        '    background-position: center top;\n' +
+        '    z-index: 0;\n' +
+        '    opacity: 0;\n' +
+        '    transition: opacity 0.5s ease;\n' +
+        '    -webkit-mask-image: linear-gradient(to bottom, white 50%, rgba(255,255,255,0) 100%);\n' +
+        '    mask-image: linear-gradient(to bottom, white 50%, rgba(255,255,255,0) 100%);\n' +
+        '}\n' +
+        '.cardify-custom-bg.loaded { opacity: 1; }\n' +
+        '\n' +
+        '/* АДАПТАЦІЯ ДЛЯ ТЕЛЕФОНІВ */\n' +
+        '@media (max-width: 768px) {\n' +
+        '    /* Вбиваємо ВСІ чорні плашки від мобільної теми Lampa */\n' +
+        '    .activity__body > .cardify,\n' +
+        '    .cardify.full-start-new,\n' +
+        '    .full-start__wrapper,\n' +
+        '    .full-start__bg {\n' +
+        '        background: transparent !important;\n' +
+        '        box-shadow: none !important;\n' +
+        '        border-radius: 0 !important;\n' +
+        '        margin: 0 !important;\n' +
+        '        padding: 0 !important;\n' +
+        '    }\n' +
+        '    \n' +
+        '    .cardify .full-start-new__left { display: none !important; }\n' +
+        '    \n' +
+        '    /* ГОЛОВНИЙ ГРАДІЄНТ: лежить на самому блоці і плавно переходить у #141414 */\n' +
+        '    .cardify {\n' +
+        '        background: linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(20,20,20,0.8) 65%, #141414 85%, #141414 100%) !important;\n' +
+        '    }\n' +
+        '\n' +
+        '    /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми - гарантовано на суцільному темному фоні */\n' +
+        '    .activity__body .scroll__item {\n' +
+        '        background-color: #141414 !important;\n' +
+        '        position: relative;\n' +
+        '        z-index: 2;\n' +
+        '    }\n' +
+        '    .activity__body .scroll__item:first-child {\n' +
+        '        background-color: transparent !important;\n' +
+        '    }\n' +
+        '    \n' +
+        '    .cardify .full-start-new__body {\n' +
+        '        height: auto !important;\n' +
+        '        min-height: 85vh;\n' +
+        '        flex-direction: column;\n' +
+        '        justify-content: flex-end;\n' +
+        '        padding-top: 45vh !important;\n' +
+        '        padding-bottom: 1.5em !important;\n' +
+        '        box-sizing: border-box;\n' +
+        '    }\n' +
+        '    \n' +
+        '    .cardify .full-start-new__right {\n' +
+        '        flex-direction: column;\n' +
+        '        align-items: flex-start;\n' +
+        '        width: 100%;\n' +
+        '        padding: 0 1.2em !important;\n' +
+        '        box-sizing: border-box;\n' +
+        '    }\n' +
+        '    \n' +
+        '    .cardify__left { width: 100%; position: relative; z-index: 2; }\n' +
+        '    .cardify__right { width: 100%; margin-top: 1em; justify-content: flex-start; }\n' +
+        '    \n' +
+        '    .full-start-new__title {\n' +
+        '        font-size: 2.2em !important;\n' +
+        '    }\n' +
+        '\n' +
+        '    /* ФОН: Фіксований на весь екран, вирівнювання зверху (без зуму) */\n' +
+        '    .cardify-custom-bg {\n' +
+        '        position: fixed !important;\n' +
+        '        top: 0 !important; left: 0 !important;\n' +
+        '        height: 100vh !important;\n' +
+        '        width: 100vw !important;\n' +
+        '        background-position: top center !important;\n' +
+        '        -webkit-mask-image: none !important;\n' +
+        '        mask-image: none !important;\n' +
+        '        z-index: -2 !important;\n' +
+        '    }\n' +
+        '    \n' +
+        '    /* ГОРИЗОНТАЛЬНИЙ СКРОЛЛ КНОПОК */\n' +
+        '    .cardify-buttons-scroll {\n' +
+        '        display: flex;\n' +
+        '        overflow-x: auto;\n' +
+        '        overflow-y: hidden;\n' +
+        '        width: 100%;\n' +
+        '        padding-bottom: 10px; /* Місце для скролбару */\n' +
+        '        margin-top: 1em;\n' +
+        '        -webkit-overflow-scrolling: touch;\n' +
+        '        scrollbar-width: none; /* Firefox */\n' +
+        '    }\n' +
+        '    .cardify-buttons-scroll::-webkit-scrollbar {\n' +
+        '        display: none; /* Chrome/Safari */\n' +
+        '    }\n' +
+        '    .cardify-buttons-scroll .full-start__buttons,\n' +
+        '    .cardify-buttons-scroll .buttons--container {\n' +
+        '        display: flex;\n' +
+        '        flex-wrap: nowrap !important;\n' +
+        '        gap: 0.6em;\n' +
+        '    }\n' +
+        '    .cardify-buttons-scroll .full-start__button {\n' +
+        '        flex-shrink: 0;\n' +
+        '        white-space: nowrap;\n' +
+        '        margin: 0 !important;\n' +
+        '    }\n' +
+        '}\n' +
+        '</style>\n';
         Lampa.Template.add("cardify_css", style);
         $("body").append(Lampa.Template.get("cardify_css", {}, true));
     }
 
-    // 4. Запуск плагіна та підключення до ядра
+    // 5. Запуск плагіна та підключення до ядра
     function startPlugin() {
         initTemplatesAndStyles();
 
@@ -233,12 +370,6 @@
             component: "cardify",
             icon: icon,
             name: "Cardify"
-        });
-        
-        Lampa.SettingsApi.addParam({
-            component: "cardify",
-            param: { name: "cardify_show_status", type: "trigger", default: true },
-            field: { name: "Показывать статус" }
         });
         
         Lampa.SettingsApi.addParam({
@@ -265,4 +396,3 @@
     }
 
 })(); // Закриваємо головну функцію
-
