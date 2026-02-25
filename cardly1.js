@@ -209,7 +209,7 @@
     </div>`
         );
 
-        // Стилі: виправлено зсув, зменшено лого, повністю прозорий верх блоку
+        // Стилі: виправлено зсув, зменшено лого, повністю прозорий верх блоку, градієнт на рухомому блоці
         var style = '\n' +
         '<style>\n' +
         '.cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}\n' +
@@ -231,7 +231,7 @@
         '.cardify.nodisplay{-webkit-transform:translate3d(0,50%,0);-moz-transform:translate3d(0,50%,0);transform:translate3d(0,50%,0);opacity:0}\n' +
         '\n' +
         '/* Логотипи та субтитри (Логотип ще зменшено) */\n' +
-        '.cardify-logo { max-width: 50%; max-height: 55px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n' +
+        '.cardify-logo { max-width: 45%; max-height: 40px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n' +
         '.cardify-sub-title { font-size: 0.55em; font-weight: 500; opacity: 0.75; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 1px; }\n' +
         '\n' +
         '/* Приховуємо вікові обмеження, 4K та інше */\n' +
@@ -254,57 +254,55 @@
         '\n' +
         '/* АДАПТАЦІЯ ДЛЯ ТЕЛЕФОНІВ */\n' +
         '@media (max-width: 768px) {\n' +
-        '    /* Вбиваємо ВСІ чорні плашки, кути та системні відступи Lampa */\n' +
-        '    .activity__body,\n' +
-        '    .activity__body > div,\n' +
+        '    /* ГЛОБАЛЬНИЙ ЗАХИСТ ВІД ГОРИЗОНТАЛЬНОГО СКРОЛУ */\n' +
+        '    body, html, .activity, .activity__body {\n' +
+        '        overflow-x: hidden !important;\n' +
+        '        width: 100% !important;\n' +
+        '        max-width: 100% !important;\n' +
+        '    }\n' +
+        '    \n' +
+        '    /* Вбиваємо ВСІ чорні плашки, кути та системні відступи Lampa. Особливо .scroll__item:first-child */\n' +
+        '    .activity__body .scroll__item:first-child,\n' +
+        '    .activity__body .scroll__item:first-child > div,\n' +
         '    .full-start__wrapper,\n' +
         '    .full-start__bg,\n' +
         '    .full-start-new,\n' +
-        '    .cardify,\n' +
-        '    .cardify .full-start-new__body {\n' +
+        '    .cardify {\n' +
         '        background: transparent !important;\n' +
         '        background-color: transparent !important;\n' +
         '        box-shadow: none !important;\n' +
         '        border-radius: 0 !important;\n' +
         '        margin: 0 !important;\n' +
+        '        padding: 0 !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* Виправляємо зсув вліво */\n' +
-        '    .activity__body {\n' +
-        '        padding-left: 0 !important;\n' +
-        '        padding-right: 0 !important;\n' +
-        '        width: 100vw !important;\n' +
-        '        overflow-x: hidden !important;\n' +
-        '    }\n' +
-        '\n' +
         '    .cardify .full-start-new__left { display: none !important; }\n' +
         '\n' +
-        '    /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми - темний фон для читабельності */\n' +
-        '    .activity__body .scroll__item {\n' +
-        '        background-color: #141414 !important;\n' +
+        '    /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми - напівпрозорий темний фон для читабельності */\n' +
+        '    .activity__body .scroll__item:not(:first-child) {\n' +
+        '        background-color: rgba(20,20,20,0.85) !important;\n' +
         '        position: relative;\n' +
         '        z-index: 2;\n' +
-        '    }\n' +
-        '    .activity__body .scroll__item:first-child {\n' +
-        '        background-color: transparent !important;\n' +
+        '        border-radius: 0 !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* Контент кардіфай */\n' +
+        '    /* Контент кардіфай: ГРАДІЄНТ ТЕПЕР ТУТ. Зверху - 100% прозорий. Донизу - 85% затемнений. */\n' +
         '    .cardify .full-start-new__body {\n' +
         '        height: auto !important;\n' +
         '        min-height: 85vh;\n' +
         '        flex-direction: column;\n' +
         '        justify-content: flex-end;\n' +
-        '        padding-top: 50vh !important;\n' +
+        '        padding-top: 45vh !important;\n' +
         '        padding-bottom: 1.5em !important;\n' +
         '        box-sizing: border-box;\n' +
-        '        width: 100vw !important;\n' +
+        '        width: 100% !important;\n' +
+        '        background: linear-gradient(to bottom, rgba(20,20,20,0) 0%, rgba(20,20,20,0) 45%, rgba(20,20,20,0.6) 70%, rgba(20,20,20,0.85) 100%) !important;\n' +
         '    }\n' +
         '    \n' +
         '    .cardify .full-start-new__right {\n' +
         '        flex-direction: column;\n' +
         '        align-items: flex-start;\n' +
-        '        width: 100vw !important;\n' +
+        '        width: 100% !important;\n' +
         '        padding: 0 1.2em !important;\n' +
         '        box-sizing: border-box;\n' +
         '    }\n' +
@@ -316,26 +314,21 @@
         '        font-size: 2.2em !important;\n' +
         '    }\n' +
         '\n' +
-        '    /* ФОН: Фіксований на весь екран, вирівнювання зверху */\n' +
+        '    /* ФОН: Фіксований на весь екран, вирівнювання зверху, без градієнта */\n' +
         '    .cardify-custom-bg {\n' +
         '        position: fixed !important;\n' +
         '        top: 0 !important; left: 0 !important;\n' +
         '        height: 100vh !important;\n' +
-        '        width: 100vw !important;\n' +
+        '        width: 100% !important;\n' +
         '        background-position: top center !important;\n' +
         '        -webkit-mask-image: none !important;\n' +
         '        mask-image: none !important;\n' +
         '        z-index: -2 !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* ГРАДІЄНТ: Плівка поверх фіксованого фону (опущено нижче, щоб верх був прозорим) */\n' +
+        '    /* ВИДАЛЯЄМО стару плівку */\n' +
         '    .cardify-custom-bg::after {\n' +
-        '        content: "";\n' +
-        '        position: absolute;\n' +
-        '        top: 0; left: 0; right: 0; bottom: 0;\n' +
-        '        background: linear-gradient(to bottom, transparent 0%, transparent 45%, rgba(20,20,20,0.85) 75%, #141414 95%, #141414 100%) !important;\n' +
-        '        z-index: 1;\n' +
-        '        pointer-events: none;\n' +
+        '        display: none !important;\n' +
         '    }\n' +
         '    \n' +
         '    /* ГОРИЗОНТАЛЬНИЙ СКРОЛЛ КНОПОК */\n' +
@@ -369,7 +362,7 @@
         $("body").append(Lampa.Template.get("cardify_css", {}, true));
     }
 
-    // Запуск плагіна та підключення до ядра
+    // 5. Запуск плагіна та підключення до ядра
     function startPlugin() {
         initTemplatesAndStyles();
 
