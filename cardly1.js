@@ -209,7 +209,7 @@
     </div>`
         );
 
-        // Стилі: базові + вилизана мобільна адаптація, логотипи та скролл
+        // Стилі: виправлено зсув, зменшено лого, зроблено ідеальний прозорий перехід
         var style = '\n' +
         '<style>\n' +
         '.cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}\n' +
@@ -230,9 +230,12 @@
         '.cardify .full-start-new__rate-line>*:last-child{margin-right:0 !important}\n' +
         '.cardify.nodisplay{-webkit-transform:translate3d(0,50%,0);-moz-transform:translate3d(0,50%,0);transform:translate3d(0,50%,0);opacity:0}\n' +
         '\n' +
-        '/* Логотипи та субтитри */\n' +
-        '.cardify-logo { max-width: 80%; max-height: 100px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n' +
-        '.cardify-sub-title { font-size: 0.55em; font-weight: 500; opacity: 0.75; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 1px; }\n' +
+        '/* Логотипи та субтитри (зменшено на 25%) */\n' +
+        '.cardify-logo { max-width: 60%; max-height: 75px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n' +
+        '.cardify-sub-title { font-size: 0.45em; font-weight: 500; opacity: 0.75; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 1px; }\n' +
+        '\n' +
+        '/* Приховуємо вікові обмеження, 4K та інше */\n' +
+        '.full-start__tag, .full-start__pg, .full-start__status { display: none !important; }\n' +
         '\n' +
         '/* Новий кастомний фон (ТВ) */\n' +
         '.cardify-custom-bg {\n' +
@@ -251,22 +254,27 @@
         '\n' +
         '/* АДАПТАЦІЯ ДЛЯ ТЕЛЕФОНІВ */\n' +
         '@media (max-width: 768px) {\n' +
-        '    /* Вбиваємо ВСІ чорні плашки і відступи від мобільної теми Lampa */\n' +
+        '    /* Жорстко вбиваємо плашки, кути та відступи */\n' +
         '    .activity__body > .cardify,\n' +
         '    .cardify.full-start-new,\n' +
+        '    .full-start-new,\n' +
         '    .full-start__wrapper,\n' +
         '    .full-start__bg,\n' +
         '    .activity__body {\n' +
         '        background: transparent !important;\n' +
+        '        background-color: transparent !important;\n' +
         '        box-shadow: none !important;\n' +
         '        border-radius: 0 !important;\n' +
         '        margin: 0 !important;\n' +
         '        padding: 0 !important;\n' +
         '    }\n' +
         '    \n' +
+        '    /* Обнуляємо негативні margin, які робили зсув */\n' +
+        '    .cardify .full-start-new__reactions { margin: 0 !important; }\n' +
+        '    \n' +
         '    .cardify .full-start-new__left { display: none !important; }\n' +
         '\n' +
-        '    /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми - гарантовано на суцільному темному фоні */\n' +
+        '    /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми */\n' +
         '    .activity__body .scroll__item {\n' +
         '        background-color: #141414 !important;\n' +
         '        position: relative;\n' +
@@ -284,12 +292,14 @@
         '        padding-top: 50vh !important;\n' +
         '        padding-bottom: 1.5em !important;\n' +
         '        box-sizing: border-box;\n' +
+        '        width: 100vw !important;\n' +
+        '        overflow-x: hidden;\n' +
         '    }\n' +
         '    \n' +
         '    .cardify .full-start-new__right {\n' +
         '        flex-direction: column;\n' +
         '        align-items: flex-start;\n' +
-        '        width: 100%;\n' +
+        '        width: 100vw !important;\n' +
         '        padding: 0 1.2em !important;\n' +
         '        box-sizing: border-box;\n' +
         '    }\n' +
@@ -298,10 +308,10 @@
         '    .cardify__right { width: 100%; margin-top: 1em; justify-content: flex-start; }\n' +
         '    \n' +
         '    .full-start-new__title {\n' +
-        '        font-size: 2.2em !important;\n' +
+        '        font-size: 2em !important;\n' +
         '    }\n' +
         '\n' +
-        '    /* ФОН: Фіксований на весь екран, вирівнювання зверху (без зуму) */\n' +
+        '    /* ФОН: Фіксований на весь екран, вирівнювання зверху */\n' +
         '    .cardify-custom-bg {\n' +
         '        position: fixed !important;\n' +
         '        top: 0 !important; left: 0 !important;\n' +
@@ -313,12 +323,12 @@
         '        z-index: -2 !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* ГРАДІЄНТ: Плівка поверх фіксованого фону, зверху вниз */\n' +
+        '    /* ГРАДІЄНТ: Плівка поверх фіксованого фону */\n' +
         '    .cardify-custom-bg::after {\n' +
         '        content: "";\n' +
         '        position: absolute;\n' +
         '        top: 0; left: 0; right: 0; bottom: 0;\n' +
-        '        background: linear-gradient(to bottom, transparent 0%, transparent 30%, rgba(20,20,20,0.85) 65%, #141414 90%, #141414 100%);\n' +
+        '        background: linear-gradient(to bottom, transparent 0%, transparent 25%, rgba(20,20,20,0.85) 60%, #141414 90%, #141414 100%);\n' +
         '        z-index: 1;\n' +
         '        pointer-events: none;\n' +
         '    }\n' +
@@ -332,10 +342,10 @@
         '        padding-bottom: 10px; \n' +
         '        margin-top: 1em;\n' +
         '        -webkit-overflow-scrolling: touch;\n' +
-        '        scrollbar-width: none; /* Firefox */\n' +
+        '        scrollbar-width: none;\n' +
         '    }\n' +
         '    .cardify-buttons-scroll::-webkit-scrollbar {\n' +
-        '        display: none; /* Chrome/Safari */\n' +
+        '        display: none;\n' +
         '    }\n' +
         '    .cardify-buttons-scroll .full-start__buttons,\n' +
         '    .cardify-buttons-scroll .buttons--container {\n' +
@@ -354,7 +364,7 @@
         $("body").append(Lampa.Template.get("cardify_css", {}, true));
     }
 
-    // 5. Запуск плагіна та підключення до ядра
+    // Запуск плагіна та підключення до ядра
     function startPlugin() {
         initTemplatesAndStyles();
 
