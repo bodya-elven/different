@@ -209,7 +209,7 @@
     </div>`
         );
 
-        // Стилі: ідеальні шари (фіксований фон -> фіксований градієнт 0-60% -> прозорий рухомий контент)
+        // Стилі: розтягуємо на 100vw, робимо плавний градієнт з 0% до 85% та темний низ
         var style = '\n' +
         '<style>\n' +
         '.cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}\n' +
@@ -237,7 +237,7 @@
         '/* Приховуємо вікові обмеження, 4K та інше */\n' +
         '.full-start__tag, .full-start__pg, .full-start__status { display: none !important; }\n' +
         '\n' +
-        '/* ТВ ВЕРСІЯ (Залишаємо як було) */\n' +
+        '/* Новий кастомний фон (ТВ) */\n' +
         '.cardify-custom-bg {\n' +
         '    position: absolute;\n' +
         '    top: 0; left: 0; right: 0;\n' +
@@ -254,16 +254,17 @@
         '\n' +
         '/* АДАПТАЦІЯ ДЛЯ ТЕЛЕФОНІВ */\n' +
         '@media (max-width: 768px) {\n' +
-        '    /* 1. Блокуємо зсув екрану (горизонтальний скролл) */\n' +
+        '    /* 1. Блокуємо зсув екрану та видаляємо відступи самої Lampa, що створювали прогалину справа */\n' +
         '    body, html, .activity, .activity__body {\n' +
         '        overflow-x: hidden !important;\n' +
         '        width: 100% !important;\n' +
-        '        max-width: 100% !important;\n' +
+        '        max-width: 100vw !important;\n' +
+        '        padding: 0 !important;\n' +
+        '        margin: 0 !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* 2. Повне ЗНИЩЕННЯ сірих плашок, кутів та відступів від Lampa */\n' +
-        '    .activity__body .scroll__item,\n' +
-        '    .activity__body .scroll__item > div,\n' +
+        '    /* 2. Повне ЗНИЩЕННЯ сірих плашок, кутів та відступів від Lampa на першому блоці */\n' +
+        '    .activity__body .scroll__item:first-child,\n' +
         '    .full-start__wrapper,\n' +
         '    .full-start__bg,\n' +
         '    .full-start-new,\n' +
@@ -273,33 +274,28 @@
         '        box-shadow: none !important;\n' +
         '        border-radius: 0 !important;\n' +
         '        margin: 0 !important;\n' +
+        '        padding: 0 !important;\n' +
+        '        width: 100vw !important;\n' +
         '    }\n' +
         '    \n' +
         '    .cardify .full-start-new__left { display: none !important; }\n' +
         '    \n' +
-        '    /* 3. ШАР 1 + ШАР 2: Фіксований фон і фіксований градієнт на ньому */\n' +
+        '    /* 3. ФІКСОВАНИЙ ФОН: Просто чистий постер без жодних плівок і градієнтів */\n' +
         '    .cardify-custom-bg {\n' +
         '        position: fixed !important;\n' +
         '        top: 0 !important; left: 0 !important;\n' +
         '        height: 100vh !important;\n' +
-        '        width: 100% !important;\n' +
+        '        width: 100vw !important;\n' +
         '        background-position: top center !important;\n' +
         '        -webkit-mask-image: none !important;\n' +
         '        mask-image: none !important;\n' +
         '        z-index: -2 !important;\n' +
         '    }\n' +
-        '    \n' +
         '    .cardify-custom-bg::after {\n' +
-        '        content: "";\n' +
-        '        position: absolute;\n' +
-        '        top: 0; left: 0; right: 0; bottom: 0;\n' +
-        '        /* Зверху 100% прозорий, знизу ~60% затемнений. Зафіксовано назавжди! */\n' +
-        '        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.65) 100%) !important;\n' +
-        '        z-index: -1;\n' +
-        '        pointer-events: none;\n' +
+        '        display: none !important;\n' +
         '    }\n' +
         '\n' +
-        '    /* 4. ШАР 3: Контент. Опускаємо його вниз і робимо повністю прозорим */\n' +
+        '    /* 4. ШАР ГРАДІЄНТА: Від 0% прозорості зверху до 85% затемнення перед описом */\n' +
         '    .cardify .full-start-new__body {\n' +
         '        height: auto !important;\n' +
         '        min-height: 85vh;\n' +
@@ -308,8 +304,8 @@
         '        padding-top: 45vh !important;\n' +
         '        padding-bottom: 1.5em !important;\n' +
         '        box-sizing: border-box;\n' +
-        '        width: 100% !important;\n' +
-        '        background: transparent !important; /* Ніякого фону на самому блоці! */\n' +
+        '        width: 100vw !important;\n' +
+        '        background: linear-gradient(to bottom, rgba(20,20,20,0) 0%, rgba(20,20,20,0) 25%, rgba(20,20,20,0.5) 60%, rgba(20,20,20,0.85) 100%) !important;\n' +
         '    }\n' +
         '    \n' +
         '    .cardify .full-start-new__right {\n' +
@@ -327,7 +323,19 @@
         '        font-size: 2.2em !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* 5. ГОРИЗОНТАЛЬНИЙ СКРОЛЛ КНОПОК */\n' +
+        '    /* 5. ЗАЛИШОК СТОРІНКИ (Опис, Режисер, Актори): Гарантовано на затемненому фоні (85%) */\n' +
+        '    .activity__body .scroll__item:not(:first-child) {\n' +
+        '        background-color: rgba(20,20,20,0.85) !important;\n' +
+        '        position: relative;\n' +
+        '        z-index: 2;\n' +
+        '        border-radius: 0 !important;\n' +
+        '        width: 100vw !important;\n' +
+        '        padding: 1em 1.2em !important;\n' +
+        '        box-sizing: border-box;\n' +
+        '        margin: 0 !important;\n' +
+        '    }\n' +
+        '    \n' +
+        '    /* 6. ГОРИЗОНТАЛЬНИЙ СКРОЛЛ КНОПОК */\n' +
         '    .cardify-buttons-scroll {\n' +
         '        display: flex;\n' +
         '        overflow-x: auto;\n' +
