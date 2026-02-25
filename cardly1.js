@@ -209,7 +209,7 @@
     </div>`
         );
 
-        // Стилі: виправлено зсув, зменшено лого, повністю прозорий верх блоку, градієнт на рухомому блоці
+        // Стилі: ідеальні шари (фіксований фон -> фіксований градієнт 0-60% -> прозорий рухомий контент)
         var style = '\n' +
         '<style>\n' +
         '.cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}\n' +
@@ -230,14 +230,14 @@
         '.cardify .full-start-new__rate-line>*:last-child{margin-right:0 !important}\n' +
         '.cardify.nodisplay{-webkit-transform:translate3d(0,50%,0);-moz-transform:translate3d(0,50%,0);transform:translate3d(0,50%,0);opacity:0}\n' +
         '\n' +
-        '/* Логотипи та субтитри (Логотип ще зменшено) */\n' +
+        '/* Логотипи та субтитри */\n' +
         '.cardify-logo { max-width: 45%; max-height: 40px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n' +
         '.cardify-sub-title { font-size: 0.55em; font-weight: 500; opacity: 0.75; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 1px; }\n' +
         '\n' +
         '/* Приховуємо вікові обмеження, 4K та інше */\n' +
         '.full-start__tag, .full-start__pg, .full-start__status { display: none !important; }\n' +
         '\n' +
-        '/* Новий кастомний фон (ТВ) */\n' +
+        '/* ТВ ВЕРСІЯ (Залишаємо як було) */\n' +
         '.cardify-custom-bg {\n' +
         '    position: absolute;\n' +
         '    top: 0; left: 0; right: 0;\n' +
@@ -254,16 +254,16 @@
         '\n' +
         '/* АДАПТАЦІЯ ДЛЯ ТЕЛЕФОНІВ */\n' +
         '@media (max-width: 768px) {\n' +
-        '    /* ГЛОБАЛЬНИЙ ЗАХИСТ ВІД ГОРИЗОНТАЛЬНОГО СКРОЛУ */\n' +
+        '    /* 1. Блокуємо зсув екрану (горизонтальний скролл) */\n' +
         '    body, html, .activity, .activity__body {\n' +
         '        overflow-x: hidden !important;\n' +
         '        width: 100% !important;\n' +
         '        max-width: 100% !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* Вбиваємо ВСІ чорні плашки, кути та системні відступи Lampa. Особливо .scroll__item:first-child */\n' +
-        '    .activity__body .scroll__item:first-child,\n' +
-        '    .activity__body .scroll__item:first-child > div,\n' +
+        '    /* 2. Повне ЗНИЩЕННЯ сірих плашок, кутів та відступів від Lampa */\n' +
+        '    .activity__body .scroll__item,\n' +
+        '    .activity__body .scroll__item > div,\n' +
         '    .full-start__wrapper,\n' +
         '    .full-start__bg,\n' +
         '    .full-start-new,\n' +
@@ -273,20 +273,33 @@
         '        box-shadow: none !important;\n' +
         '        border-radius: 0 !important;\n' +
         '        margin: 0 !important;\n' +
-        '        padding: 0 !important;\n' +
         '    }\n' +
         '    \n' +
         '    .cardify .full-start-new__left { display: none !important; }\n' +
-        '\n' +
-        '    /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми - напівпрозорий темний фон для читабельності */\n' +
-        '    .activity__body .scroll__item:not(:first-child) {\n' +
-        '        background-color: rgba(20,20,20,0.85) !important;\n' +
-        '        position: relative;\n' +
-        '        z-index: 2;\n' +
-        '        border-radius: 0 !important;\n' +
+        '    \n' +
+        '    /* 3. ШАР 1 + ШАР 2: Фіксований фон і фіксований градієнт на ньому */\n' +
+        '    .cardify-custom-bg {\n' +
+        '        position: fixed !important;\n' +
+        '        top: 0 !important; left: 0 !important;\n' +
+        '        height: 100vh !important;\n' +
+        '        width: 100% !important;\n' +
+        '        background-position: top center !important;\n' +
+        '        -webkit-mask-image: none !important;\n' +
+        '        mask-image: none !important;\n' +
+        '        z-index: -2 !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* Контент кардіфай: ГРАДІЄНТ ТЕПЕР ТУТ. Зверху - 100% прозорий. Донизу - 85% затемнений. */\n' +
+        '    .cardify-custom-bg::after {\n' +
+        '        content: "";\n' +
+        '        position: absolute;\n' +
+        '        top: 0; left: 0; right: 0; bottom: 0;\n' +
+        '        /* Зверху 100% прозорий, знизу ~60% затемнений. Зафіксовано назавжди! */\n' +
+        '        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.65) 100%) !important;\n' +
+        '        z-index: -1;\n' +
+        '        pointer-events: none;\n' +
+        '    }\n' +
+        '\n' +
+        '    /* 4. ШАР 3: Контент. Опускаємо його вниз і робимо повністю прозорим */\n' +
         '    .cardify .full-start-new__body {\n' +
         '        height: auto !important;\n' +
         '        min-height: 85vh;\n' +
@@ -296,7 +309,7 @@
         '        padding-bottom: 1.5em !important;\n' +
         '        box-sizing: border-box;\n' +
         '        width: 100% !important;\n' +
-        '        background: linear-gradient(to bottom, rgba(20,20,20,0) 0%, rgba(20,20,20,0) 45%, rgba(20,20,20,0.6) 70%, rgba(20,20,20,0.85) 100%) !important;\n' +
+        '        background: transparent !important; /* Ніякого фону на самому блоці! */\n' +
         '    }\n' +
         '    \n' +
         '    .cardify .full-start-new__right {\n' +
@@ -313,25 +326,8 @@
         '    .full-start-new__title {\n' +
         '        font-size: 2.2em !important;\n' +
         '    }\n' +
-        '\n' +
-        '    /* ФОН: Фіксований на весь екран, вирівнювання зверху, без градієнта */\n' +
-        '    .cardify-custom-bg {\n' +
-        '        position: fixed !important;\n' +
-        '        top: 0 !important; left: 0 !important;\n' +
-        '        height: 100vh !important;\n' +
-        '        width: 100% !important;\n' +
-        '        background-position: top center !important;\n' +
-        '        -webkit-mask-image: none !important;\n' +
-        '        mask-image: none !important;\n' +
-        '        z-index: -2 !important;\n' +
-        '    }\n' +
         '    \n' +
-        '    /* ВИДАЛЯЄМО стару плівку */\n' +
-        '    .cardify-custom-bg::after {\n' +
-        '        display: none !important;\n' +
-        '    }\n' +
-        '    \n' +
-        '    /* ГОРИЗОНТАЛЬНИЙ СКРОЛЛ КНОПОК */\n' +
+        '    /* 5. ГОРИЗОНТАЛЬНИЙ СКРОЛЛ КНОПОК */\n' +
         '    .cardify-buttons-scroll {\n' +
         '        display: flex;\n' +
         '        overflow-x: auto;\n' +
@@ -362,7 +358,7 @@
         $("body").append(Lampa.Template.get("cardify_css", {}, true));
     }
 
-    // 5. Запуск плагіна та підключення до ядра
+    // Запуск плагіна та підключення до ядра
     function startPlugin() {
         initTemplatesAndStyles();
 
