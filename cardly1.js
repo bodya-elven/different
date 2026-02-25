@@ -209,7 +209,7 @@
     </div>`
         );
 
-        // Стилі: виправлено зсув, зменшено лого, зроблено ідеальний прозорий перехід
+        // Стилі: виправлено зсув, зменшено лого, повністю прозорий верх блоку
         var style = '\n' +
         '<style>\n' +
         '.cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}\n' +
@@ -230,9 +230,9 @@
         '.cardify .full-start-new__rate-line>*:last-child{margin-right:0 !important}\n' +
         '.cardify.nodisplay{-webkit-transform:translate3d(0,50%,0);-moz-transform:translate3d(0,50%,0);transform:translate3d(0,50%,0);opacity:0}\n' +
         '\n' +
-        '/* Логотипи та субтитри (зменшено на 25%) */\n' +
-        '.cardify-logo { max-width: 60%; max-height: 75px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n' +
-        '.cardify-sub-title { font-size: 0.45em; font-weight: 500; opacity: 0.75; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 1px; }\n' +
+        '/* Логотипи та субтитри (Логотип ще зменшено) */\n' +
+        '.cardify-logo { max-width: 50%; max-height: 55px; object-fit: contain; margin-bottom: 0.5em; filter: drop-shadow(0px 2px 8px rgba(0,0,0,0.8)); }\n' +
+        '.cardify-sub-title { font-size: 0.55em; font-weight: 500; opacity: 0.75; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 1px; }\n' +
         '\n' +
         '/* Приховуємо вікові обмеження, 4K та інше */\n' +
         '.full-start__tag, .full-start__pg, .full-start__status { display: none !important; }\n' +
@@ -254,27 +254,32 @@
         '\n' +
         '/* АДАПТАЦІЯ ДЛЯ ТЕЛЕФОНІВ */\n' +
         '@media (max-width: 768px) {\n' +
-        '    /* Жорстко вбиваємо плашки, кути та відступи */\n' +
-        '    .activity__body > .cardify,\n' +
-        '    .cardify.full-start-new,\n' +
-        '    .full-start-new,\n' +
+        '    /* Вбиваємо ВСІ чорні плашки, кути та системні відступи Lampa */\n' +
+        '    .activity__body,\n' +
+        '    .activity__body > div,\n' +
         '    .full-start__wrapper,\n' +
         '    .full-start__bg,\n' +
-        '    .activity__body {\n' +
+        '    .full-start-new,\n' +
+        '    .cardify,\n' +
+        '    .cardify .full-start-new__body {\n' +
         '        background: transparent !important;\n' +
         '        background-color: transparent !important;\n' +
         '        box-shadow: none !important;\n' +
         '        border-radius: 0 !important;\n' +
         '        margin: 0 !important;\n' +
-        '        padding: 0 !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* Обнуляємо негативні margin, які робили зсув */\n' +
-        '    .cardify .full-start-new__reactions { margin: 0 !important; }\n' +
-        '    \n' +
+        '    /* Виправляємо зсув вліво */\n' +
+        '    .activity__body {\n' +
+        '        padding-left: 0 !important;\n' +
+        '        padding-right: 0 !important;\n' +
+        '        width: 100vw !important;\n' +
+        '        overflow-x: hidden !important;\n' +
+        '    }\n' +
+        '\n' +
         '    .cardify .full-start-new__left { display: none !important; }\n' +
         '\n' +
-        '    /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми */\n' +
+        '    /* ЗАЛИШОК СТОРІНКИ: Актори, Схожі фільми - темний фон для читабельності */\n' +
         '    .activity__body .scroll__item {\n' +
         '        background-color: #141414 !important;\n' +
         '        position: relative;\n' +
@@ -284,6 +289,7 @@
         '        background-color: transparent !important;\n' +
         '    }\n' +
         '    \n' +
+        '    /* Контент кардіфай */\n' +
         '    .cardify .full-start-new__body {\n' +
         '        height: auto !important;\n' +
         '        min-height: 85vh;\n' +
@@ -293,7 +299,6 @@
         '        padding-bottom: 1.5em !important;\n' +
         '        box-sizing: border-box;\n' +
         '        width: 100vw !important;\n' +
-        '        overflow-x: hidden;\n' +
         '    }\n' +
         '    \n' +
         '    .cardify .full-start-new__right {\n' +
@@ -308,7 +313,7 @@
         '    .cardify__right { width: 100%; margin-top: 1em; justify-content: flex-start; }\n' +
         '    \n' +
         '    .full-start-new__title {\n' +
-        '        font-size: 2em !important;\n' +
+        '        font-size: 2.2em !important;\n' +
         '    }\n' +
         '\n' +
         '    /* ФОН: Фіксований на весь екран, вирівнювання зверху */\n' +
@@ -323,12 +328,12 @@
         '        z-index: -2 !important;\n' +
         '    }\n' +
         '    \n' +
-        '    /* ГРАДІЄНТ: Плівка поверх фіксованого фону */\n' +
+        '    /* ГРАДІЄНТ: Плівка поверх фіксованого фону (опущено нижче, щоб верх був прозорим) */\n' +
         '    .cardify-custom-bg::after {\n' +
         '        content: "";\n' +
         '        position: absolute;\n' +
         '        top: 0; left: 0; right: 0; bottom: 0;\n' +
-        '        background: linear-gradient(to bottom, transparent 0%, transparent 25%, rgba(20,20,20,0.85) 60%, #141414 90%, #141414 100%);\n' +
+        '        background: linear-gradient(to bottom, transparent 0%, transparent 45%, rgba(20,20,20,0.85) 75%, #141414 95%, #141414 100%) !important;\n' +
         '        z-index: 1;\n' +
         '        pointer-events: none;\n' +
         '    }\n' +
