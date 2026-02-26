@@ -1,20 +1,97 @@
 (function () {
     "use strict";
 
-    // 1. Головна функція обробки UI та запит до TMDB
+    // 1. Завантажуємо ідеальний фон (Шукаємо постер без тексту 'xx' або 'null')
+    function loadOriginalPoster(e, render, data) {
+        var tmdbPath = null;
+        var isMobile = window.innerWidth <= 768;
+
+        if (data) {
+            if (isMobile) {
+                var textlessPoster = null;
+                var images = data.images || (e.data && e.data.images) || (e.object && e.object.card && e.object.card.images);
+                
+                if (images && images.posters && images.posters.length) {
+                    var textless = images.posters.filter(function(p) { 
+                        return p.iso_639_1 === 'xx' || p.iso_639_1 === null || p.iso_639_1 === ''; 
+                    });
+                    if (textless.length) {
+                        textlessPoster = textless[0].file_path;
+                    }
+                }
+                tmdbPath = textlessPoster || data.poster_path || data.backdrop_path;
+            } else {
+                tmdbPath = data.backdrop_path || data.poster_path;
+            }
+        }
+
+        if (tmdbPath) {
+            var originalUrl = "https://image.tmdb.org/t/p/original" + tmdbPath;
+            render.find('.cardify-custom-bg').remove();
+            
+            var customBg = $('<div class="cardify-custom-bg"></div>');
+            var tempImg = new Image();
+            tempImg.onload = function () {
+                customBg.css('background-image', 'url(' + originalUrl + ')');
+                customBg.addClass('loaded');
+            };
+            tempImg.src = originalUrl;
+            render.prepend(customBg);
+        }
+    }
+
+    // 2. Встановлюємо Логотип замість тексту
+    function applyLogoAndTitle(render, data, e) {
+        var images = data.images || (e.data && e.data.images) || (e.object && e.object.card && e.object.card.images);
+        if (!images || !images.logos || !images.logos.length) return;
+
+        var logos = images.logos;
+        var logoUk = logos.filter(function(l) { return l.iso_639_1 === 'uk'; })[0];
+        var logoEn = logos.filter(function(l) { return l.iso_639_1 === 'en'; })[0];
+        var logoToUse = logoUk || logoEn || logos[0];
+
+        if (logoToUse) {
+            var locTitle = data.title || data.name || "";
+            var origTitle = data.original_title || data.original_name || "";
+            var subTitleText = (logoToUse.iso_639_1 === 'uk') ? origTitle : locTitle;
+
+            var titleContainer = render.find('.full-start-new__title');
+            var logoUrl = "https://image.tmdb.org/t/p/w500" + logoToUse.file_path;
+            
+            var html = '<img src="' + logoUrl + '" class="cardify-logo" alt="Logo"/>';
+            if (subTitleText) {
+                html += '<div class="cardify-sub-title">' + subTitleText + '</div>';
+            }
+            titleContainer.html(html);
+        }
+    }
+
+    // 3. Обробка UI та ЖОРСТКЕ видалення рамок Lampa
     function applyCardifyUI(e) {
         var render = e.object.activity.render();
         var component = e.object.activity.component;
         var data = e.data && e.data.movie ? e.data.movie : (e.object && e.object.card ? e.object.card : null);
 
-        // Жорстко ховаємо системний фон Lampa та зайві бейджі
-        render.find(".full-start__background, .full-start__pg, .full-start__status, .full-start__tag").hide();
-
-        if (!Lampa.Storage.field("cardify_show_rating")) {
-            render.find(".full-start-new__rate-line.rate-fix").hide();
+        // --- ЯДЕРНИЙ УДАР ПО РАМКАХ LAMPA (JS) ---
+        if (window.innerWidth <= 768) {
+            setTimeout(function() {
+                var $render = $(render);
+                
+                // 1. Вбиваємо відступи головного контейнера екрану
+                $render.parents('.activity__body').first().attr('style', 'padding-left: 0 !important; padding-right: 0 !important; overflow-x: hidden !important; width: 100vw !important;');
+                
+                // 2. Вбиваємо сірий фон, кути та відступи першого блоку (де лежить наш плагін)
+                $render.parents('.scroll__item').first().attr('style', 'background: transparent !important; padding: 0 !important; margin: 0 !important; width: 100vw !important; border-radius: 0 !important; box-shadow: none !important;');
+                
+                // 3. Робимо всі нижні блоки (Актори, Схожі) гарантовано темними
+                $render.parents('.scroll__item').first().nextAll('.scroll__item').attr('style', 'background: #141414 !important; padding: 1.5em !important; width: 100vw !important; border-radius: 0 !important;');
+                
+                // 4. Фізично видаляємо елементи Lampa, які малюють затемнення зверху
+                $render.find('.full-start__bg').remove();
+                $render.parents('.full-start__wrapper').attr('style', 'background: transparent !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important;');
+            }, 50); // Виконуємо одразу після того, як Lampa побудувала сторінку
         }
 
-        // Чистимо слеші в серіалах
         var details = render.find(".full-start-new__details");
         if (details.length) {
             var nextEpisodeSpan = null;
@@ -36,76 +113,16 @@
             }
         }
 
-        // Створюємо контейнер для нашого фону заздалегідь
-        render.find('.cardify-custom-bg').remove();
-        var customBg = $('<div class="cardify-custom-bg"></div>');
-        render.prepend(customBg);
-
-        // РОБИМО ПРЯМИЙ ЗАПИТ ДО TMDB ЗА ПОСТЕРАМИ 'xx' ТА ЛОГОТИПАМИ
-        if (data && data.id) {
-            var type = data.name ? 'tv' : 'movie';
-            var apiKey = "4ef0d7355d9ffb5151e987764708ce96"; // Публічний ключ Lampa
-            var url = "https://api.themoviedb.org/3/" + type + "/" + data.id + "/images?api_key=" + apiKey + "&include_image_language=uk,ru,en,xx,null";
-
-            $.get(url, function(res) {
-                var isMobile = window.innerWidth <= 768;
-                var tmdbPath = null;
-
-                // --- ЛОГІКА ПОСТЕРІВ ---
-                if (isMobile) {
-                    var textlessPoster = null;
-                    if (res.posters && res.posters.length) {
-                        // Шукаємо постер без мови (xx або null)
-                        var textless = res.posters.filter(function(p) { return p.iso_639_1 === 'xx' || p.iso_639_1 === null || p.iso_639_1 === ''; });
-                        if (textless.length) textlessPoster = textless[0].file_path;
-                    }
-                    // Пріоритет: Чистий постер -> Звичайний постер -> Бекдроп
-                    tmdbPath = textlessPoster || data.poster_path || data.backdrop_path;
-                } else {
-                    tmdbPath = data.backdrop_path || data.poster_path;
-                }
-
-                if (tmdbPath) {
-                    var imgUrl = "https://image.tmdb.org/t/p/original" + tmdbPath;
-                    var tempImg = new Image();
-                    tempImg.onload = function () {
-                        customBg.css('background-image', 'url(' + imgUrl + ')').addClass('loaded');
-                    };
-                    tempImg.src = imgUrl;
-                }
-
-                // --- ЛОГІКА ЛОГОТИПІВ ---
-                if (res.logos && res.logos.length) {
-                    var logoUk = res.logos.filter(function(l) { return l.iso_639_1 === 'uk'; })[0];
-                    var logoEn = res.logos.filter(function(l) { return l.iso_639_1 === 'en'; })[0];
-                    var logoToUse = logoUk || logoEn || res.logos[0];
-
-                    if (logoToUse) {
-                        var locTitle = data.title || data.name || "";
-                        var origTitle = data.original_title || data.original_name || "";
-                        // Якщо лого UK -> текст EN. Якщо лого EN -> текст UK.
-                        var subTitleText = (logoToUse.iso_639_1 === 'uk') ? origTitle : locTitle;
-
-                        var logoUrlFull = "https://image.tmdb.org/t/p/w500" + logoToUse.file_path;
-                        var titleContainer = render.find('.full-start-new__title');
-                        
-                        var html = '<img src="' + logoUrlFull + '" class="cardify-logo" alt="Logo"/>';
-                        if (subTitleText) {
-                            html += '<div class="cardify-sub-title">' + subTitleText + '</div>';
-                        }
-                        titleContainer.html(html);
-                    }
-                }
-            }).fail(function() {
-                // Якщо TMDB не відповів, ставимо хоча б звичайний фон
-                var tmdbPath = (window.innerWidth <= 768) ? (data.poster_path || data.backdrop_path) : (data.backdrop_path || data.poster_path);
-                if (tmdbPath) {
-                    customBg.css('background-image', 'url(https://image.tmdb.org/t/p/original' + tmdbPath + ')').addClass('loaded');
-                }
-            });
+        render.find(".full-start__pg, .full-start__status, .full-start__tag, .full-start__background").hide();
+        if (!Lampa.Storage.field("cardify_show_rating")) {
+            render.find(".full-start-new__rate-line.rate-fix").hide();
         }
 
-        // Підвантаження нижніх блоків (Актори, Схожі)
+        if (data) {
+            loadOriginalPoster(e, render, data);
+            applyLogoAndTitle(render, data, e);
+        }
+
         if (component && component.rows && component.items && component.scroll && component.emit) {
             var add = component.rows.slice(component.items.length);
             if (add.length) {
@@ -116,7 +133,6 @@
             }
         }
     }
-
     // 4. Ініціалізація HTML-шаблону
     function initTemplatesAndStyles() {
         Lampa.Template.add(
@@ -207,16 +223,14 @@
     </div>`
         );
     }
-
     // 5. Запуск плагіна, CSS та підключення до ядра
     function startPlugin() {
         initTemplatesAndStyles();
 
-        // АНТИКЕШ: Жорстко перезаписуємо стилі напряму в head при кожному запуску
+        // АНТИКЕШ: Перезаписуємо стилі напряму в head, щоб Lampa не підтягувала старе
         $('#cardify-mobile-styles').remove();
         var style = `
         <style id="cardify-mobile-styles">
-        /* Базові стилі */
         .cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}
         .cardify .full-start-new__body{height:80vh; position: relative; z-index: 2;}
         .cardify .full-start-new__right{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;-moz-box-align:end;-ms-flex-align:end;align-items:flex-end}
@@ -254,22 +268,34 @@
         /* АДАПТАЦІЯ ДЛЯ ТЕЛЕФОНІВ */
         @media (max-width: 768px) {
             
-            /* 1. Вбиваємо відступи на СТОРІНЦІ ФІЛЬМУ, щоб розширити на весь екран */
+            /* 1. РОЗШИРЮЄМО НА ВЕСЬ ЕКРАН */
+            body, html, .activity, .activity__body {
+                overflow-x: hidden !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
             .activity[data-component="full"] .activity__body > .scroll__item {
                 margin: 0 !important;
                 padding: 0 !important;
                 border-radius: 0 !important;
-                width: 100% !important;
+                width: 100vw !important;
+                box-sizing: border-box !important;
             }
 
-            /* 2. Знищуємо верхню сіру плашку на ПЕРШОМУ блоці (де постер) */
-            .activity[data-component="full"] .activity__body > .scroll__item:first-child {
+            /* 2. ЗНИЩУЄМО ВЕРХНЮ ПЛАШКУ LAMPA */
+            .activity[data-component="full"] .activity__body > .scroll__item:first-child,
+            .full-start__wrapper, .full-start__bg, .full-start-new, .cardify {
                 background: transparent !important;
                 background-color: transparent !important;
                 box-shadow: none !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
             }
 
-            /* 3. УСІ НИЖНІ БЛОКИ (Актори, Детально): Гарантовано темний фон 85% */
+            /* 3. УСІ НИЖНІ БЛОКИ (Актори, Схожі) НА ТЕМНОМУ ФОНІ */
             .activity[data-component="full"] .activity__body > .scroll__item:not(:first-child) {
                 background: rgba(20,20,20,0.85) !important;
                 padding: 1.5em !important;
@@ -277,12 +303,12 @@
             
             .cardify .full-start-new__left { display: none !important; }
             
-            /* 4. ФІКСОВАНИЙ ФОН: Чистий постер, закріплений позаду всього */
+            /* 4. ФІКСОВАНИЙ ФОН: Чистий постер без плівки */
             .cardify-custom-bg {
                 position: fixed !important;
                 top: 0 !important; left: 0 !important;
                 height: 100vh !important;
-                width: 100% !important;
+                width: 100vw !important;
                 background-position: top center !important;
                 -webkit-mask-image: none !important;
                 mask-image: none !important;
@@ -290,7 +316,7 @@
             }
             .cardify-custom-bg::after { display: none !important; }
 
-            /* 5. ПОВНІСТЮ ПРОЗОРИЙ РУХОМИЙ БЛОК */
+            /* 5. ГРАДІЄНТ НА РУХОМОМУ БЛОЦІ: ВЕРХ 100% ПРОЗОРИЙ */
             .cardify .full-start-new__body {
                 height: auto !important;
                 min-height: 85vh;
@@ -299,14 +325,15 @@
                 padding-top: 45vh !important;
                 padding-bottom: 1.5em !important;
                 box-sizing: border-box;
-                width: 100% !important;
-                background: transparent !important; /* Змінено на прозорий */
+                width: 100vw !important;
+                /* Зверху 0%, з середини починає темніти до 85% */
+                background: linear-gradient(to bottom, rgba(20,20,20,0) 0%, rgba(20,20,20,0) 25%, rgba(20,20,20,0.5) 60%, rgba(20,20,20,0.85) 100%) !important;
             }
             
             .cardify .full-start-new__right {
                 flex-direction: column;
                 align-items: flex-start;
-                width: 100% !important;
+                width: 100vw !important;
                 padding: 0 1.2em !important;
                 box-sizing: border-box;
             }
