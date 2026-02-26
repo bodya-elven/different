@@ -188,7 +188,7 @@
                                 </div>
                                 <div class="full-start__button selector view--trailer">
                                     <svg height="70" viewBox="0 0 80 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M71.2555 2.08955C74.6975 3.2397 77.4083 6.62804 78.3283 10.9306C80 18.7291 80 35 80 35C80 35 80 51.2709 78.3283 59.0694C77.4083 63.372 74.6975 66.7603 71.2555 67.9104C65.0167 70 40 70 40 70C40 70 14.9833 70 8.74453 67.9104C5.3025 66.7603 2.59172 63.372 1.67172 59.0694C0 51.2709 0 35 0 35C0 35 0 18.7291 1.67172 10.9306C2.59172 6.62804 5.3025 3.2395 8.74453 2.08955C14.9833 0 40 0 40 0C40 0 65.0167 0 71.2555 2.08955ZM55.5909 35.0004L29.9773 49.5714V20.4286L55.5909 35.0004Z" fill="currentColor"></path>
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M71.2555 2.08955C74.6975 3.2397 77.4083 6.62804 78.3283 10.9306C80 18.7291 80 35 80 35C80 35 80 51.2709 78.3283 59.0694C77.4083 63.372 74.6975 66.7603 71.2555 67.9104C65.0167 70 40 70 40 70C40 70 14.9833 70 8.74453 67.9104C5.3025 66.7603 2.59172 63.372 1.67172 59.0694C0 51.2709 0 35 0 35C0 18.7291 1.67172 10.9306C2.59172 6.62804 5.3025 3.2395 8.74453 2.08955C14.9833 0 40 0 40 0C40 0 65.0167 0 71.2555 2.08955ZM55.5909 35.0004L29.9773 49.5714V20.4286L55.5909 35.0004Z" fill="currentColor"></path>
                                     </svg>
                                     <span>#{full_trailers}</span>
                                 </div>
@@ -259,7 +259,7 @@
                 margin: 0 !important;
                 padding: 0 !important;
                 border-radius: 0 !important;
-                width: 100% !important; /* Саме 100%, щоб не було люфту в сторони */
+                width: 100% !important;
             }
 
             /* 2. Знищуємо верхню сіру плашку на ПЕРШОМУ блоці (де постер) */
@@ -290,7 +290,7 @@
             }
             .cardify-custom-bg::after { display: none !important; }
 
-            /* 5. ШАР ГРАДІЄНТА НА РУХОМОМУ БЛОЦІ: 0% зверху, 85% знизу */
+            /* 5. ПОВНІСТЮ ПРОЗОРИЙ РУХОМИЙ БЛОК */
             .cardify .full-start-new__body {
                 height: auto !important;
                 min-height: 85vh;
@@ -300,8 +300,7 @@
                 padding-bottom: 1.5em !important;
                 box-sizing: border-box;
                 width: 100% !important;
-                /* Той самий ідеальний перехід */
-                background: linear-gradient(to bottom, rgba(20,20,20,0) 0%, rgba(20,20,20,0) 30%, rgba(20,20,20,0.85) 85%, rgba(20,20,20,0.85) 100%) !important;
+                background: transparent !important; /* Змінено на прозорий */
             }
             
             .cardify .full-start-new__right {
