@@ -155,12 +155,16 @@
     
     ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; background: rgba(0, 0, 0, var(--lmp-bg-opacity)); }" +
     
-    ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; position: relative; height: calc(22px + var(--lmp-logo-offset)); width: auto; }" +
-    ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 2; object-fit: contain; height: 100% !important; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
+    /* ВИПРАВЛЕНО: Архітектура контейнера іконок (Миттєве фарбування без обрізання) */
+    ".lmp-custom-rate .source--name { display: inline-flex !important; align-items: center; justify-content: center; margin: 0; position: relative; height: calc(22px + var(--lmp-logo-offset)); width: auto; isolation: isolate; background: transparent; }" +
+    ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 1; object-fit: contain; height: 100% !important; width: auto; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
     
-    "body.lmp-enh--mono .source--name.is-colored::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(var(--lmp-icon-deg), var(--lmp-icon-c1), var(--lmp-icon-c2)); z-index: 3; mix-blend-mode: multiply; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; mask-size: contain; mask-repeat: no-repeat; mask-position: center; }" +
-    "body.lmp-enh--mono .source--name.is-colored img { filter: none !important; }" + 
-
+    /* Шар для кольорового накладання (multiply) */
+    "body.lmp-enh--mono .source--name.is-colored::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(var(--lmp-icon-deg), var(--lmp-icon-c1), var(--lmp-icon-c2)); z-index: 2; mix-blend-mode: multiply; pointer-events: none; }" +
+    
+    /* Спеціальний випадок для Радіального градієнта */
+    "body.lmp-enh--mono .source--name.is-colored[data-deg='radial-gradient']::after { background: radial-gradient(circle, var(--lmp-icon-c1), var(--lmp-icon-c2)); }" +
+    
     ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); }" +
     ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: calc(1.1em + var(--lmp-text-offset)); transition: color 0.2s; }" +
     ".lmp-custom-rate .rate--votes { font-size: calc(0.6em + (var(--lmp-text-offset) / 2)); opacity: 0.8; margin-left: 0.25em; line-height: 1; }" +
@@ -188,12 +192,11 @@
     ".menu-edit-list .selector { background: transparent !important; transition: background 0.2s ease; outline: none; border-radius: 6px; }" +
     ".menu-edit-list .selector.focus, .menu-edit-list .selector:hover { background: rgba(255, 255, 255, 0.15) !important; }" +
     
-    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB === */
+    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB (без змін) === */
     "body.omdb-plugin-active .card__vote { display: none !important; opacity: 0 !important; visibility: hidden !important; }" + 
     ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.75); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); transition: border 0.2s, box-shadow 0.2s; }" +
     ".omdb-custom-rate span { font-weight: bold; font-size: 1em; }" +
     ".omdb-custom-rate img { width: 1.2em; height: 1.2em; margin-left: 0.3em; object-fit: contain; filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)); }" +
-    
     "body.omdb-enh--glow .omdb-glow-green { border-color: rgba(46,204,113,0.7) !important; box-shadow: 0 0 8px rgba(46,204,113,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-blue { border-color: rgba(96,165,250,0.7) !important; box-shadow: 0 0 8px rgba(96,165,250,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-orange { border-color: rgba(245,158,11,0.7) !important; box-shadow: 0 0 8px rgba(245,158,11,0.6) !important; }" +
@@ -345,7 +348,7 @@
 
         if (src === 'imdb') res.imdb = item;
         else if (src === 'tmdb') res.tmdb = item;
-        else if (src === 'trakt') res.trakt = item;
+        else if (src === 'trakt) res.trakt = item;
         else if (src === 'letterboxd') res.letterboxd = item;
         else if (src.indexOf('metacritic') !== -1 && src.indexOf('user') === -1) res.metacritic = item;
         else if (src.indexOf('rotten') !== -1 || src.indexOf('tomato') !== -1) res.rottentomatoes = item;
@@ -379,7 +382,10 @@
     var cfg = getCfg();
     var elementsToInsert = [];
 
-    var isColored = cfg.bwLogos && (cfg.iconColor1.toLowerCase() !== '#ffffff' || cfg.iconColor2.toLowerCase() !== '#ffffff');
+    /* ВИПРАВЛЕНО: Інтелектуальна перевірка кольорів */
+    var hasC1 = cfg.iconColor1 && cfg.iconColor1.toLowerCase() !== '#ffffff';
+    var hasC2 = cfg.iconColor2 && cfg.iconColor2.toLowerCase() !== '#ffffff';
+    var isColored = cfg.bwLogos && (hasC1 || hasC2);
 
     cfg.sourcesConfig.forEach(function(src) {
       if (!src.enabled || !data[src.id]) return;
@@ -414,11 +420,13 @@
       else if (cfg.textPosition === 'bottom') dirClass = 'lmp-dir-bottom';
       else dirClass = 'lmp-dir-left';
 
-      var coloredAttr = isColored ? 'class="source--name is-colored" style="-webkit-mask-image: url(' + iconUrl + '); mask-image: url(' + iconUrl + ');"' : 'class="source--name"';
+      /* ВИПРАВЛЕНО: Додавання класу 'is-colored' та атрибуту для радіального градієнта */
+      var colorClassAttr = isColored ? 'is-colored' : '';
+      var degDataAttr = cfg.iconDeg === 'radial-gradient' ? 'data-deg="radial-gradient"' : '';
 
       var cont = $(
         '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + ' ' + glowClass + '">' +
-            '<div ' + coloredAttr + ' title="' + src.name + '">' + 
+            '<div class="source--name ' + colorClassAttr + '" title="' + src.name + '" ' + degDataAttr + '>' + 
                 '<img src="' + iconUrl + '" alt="' + src.name + '">' + 
             '</div>' +
             '<div class="rate--text-block">' + 
@@ -490,7 +498,6 @@
       }
     });
   }
-
   /*
   |==========================================================================
   | ЧАСТИНА 3: OMDb / TMDb ЛОГІКА (РЕАКТИВНИЙ СКАНЕР ПОСТЕРІВ)
@@ -863,6 +870,7 @@
       }
     });
   }
+
   function addSettingsSection() {
     if (window.lmp_ratings_add_param_ready) return;
     window.lmp_ratings_add_param_ready = true;
@@ -882,7 +890,6 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_spacing_val', type: 'select', values: { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2' }, "default": 's_0' }, field: { name: 'Відступи між рейтингами', description: '' } });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі іконки' } });
-    
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_color1', type: 'input', values: '', "default": '#ffffff' }, field: { name: 'Колір іконок 1 (HEX)', description: 'Основний колір для Ч/Б іконок (наприклад, #ff0000)' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_color2', type: 'input', values: '', "default": '#ffffff' }, field: { name: 'Колір іконок 2 (HEX)', description: 'Другий колір для градієнта (залиште білим, якщо не потрібен)' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_deg', type: 'select', values: { '90deg': 'Зліва направо', '180deg': 'Зверху вниз', '45deg': 'Діагональ 45°', '135deg': 'Діагональ 135°', 'radial-gradient': 'Радіальний' }, "default": '90deg' }, field: { name: 'Кут градієнта', description: '' } });
