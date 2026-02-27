@@ -153,15 +153,17 @@
     ".loading-dots__dot:nth-child(2) { animation-delay: -0.16s; }" +
     "@keyframes loading-dots-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.6; } 40% { transform: translateY(-0.5em); opacity: 1; } }" +
     
+    /* ОНОВЛЕНО: Ізоляція контейнера для mix-blend-mode (multiply) */
     ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; background: rgba(0, 0, 0, var(--lmp-bg-opacity)); isolation: isolate; }" +
     
     ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; position: relative; height: calc(22px + var(--lmp-logo-offset)); width: auto; background: transparent; }" +
     ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 1; object-fit: contain; height: 100% !important; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
     
-    /* ВИПРАВЛЕНО: Спеціальний контейнер, який буде фарбуватися через МАСКУ */
+    /* ОНОВЛЕНО: Спеціальний шар для маски, який буде фарбуватися через МАСКУ (radial rule removed) */
     ".source--logo-colored { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; background: linear-gradient(var(--lmp-icon-deg), var(--lmp-icon-c1), var(--lmp-icon-c2)); mix-blend-mode: multiply; pointer-events: none; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; mask-size: contain; mask-repeat: no-repeat; mask-position: center; }" +
-    "body:not(.lmp-enh--mono) .source--logo-colored { display: none !important; }" + /* Ховаємо, якщо Ч/Б вимкнено */
-    "body.lmp-enh--mono .source--name img { filter: none !important; }" + /* Вимикаємо drop-shadow, щоб маска лягла рівно */
+    
+    /* Вимикаємоdrop-shadow, щоб маска лягла рівно */
+    "body.lmp-enh--mono .source--name img { filter: none !important; }" + 
 
     ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); z-index: 1; }" +
     ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: calc(1.1em + var(--lmp-text-offset)); transition: color 0.2s; }" +
@@ -195,6 +197,7 @@
     ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.75); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); transition: border 0.2s, box-shadow 0.2s; }" +
     ".omdb-custom-rate span { font-weight: bold; font-size: 1em; }" +
     ".omdb-custom-rate img { width: 1.2em; height: 1.2em; margin-left: 0.3em; object-fit: contain; filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)); }" +
+    
     "body.omdb-enh--glow .omdb-glow-green { border-color: rgba(46,204,113,0.7) !important; box-shadow: 0 0 8px rgba(46,204,113,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-blue { border-color: rgba(96,165,250,0.7) !important; box-shadow: 0 0 8px rgba(96,165,250,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-orange { border-color: rgba(245,158,11,0.7) !important; box-shadow: 0 0 8px rgba(245,158,11,0.6) !important; }" +
@@ -207,6 +210,7 @@
   */
   var RATING_CACHE_KEY = 'lmp_enh_rating_cache';
 
+  /* ОНОВЛЕНО defaults: Порожній color2 для суцільного кольору */
   var RCFG_DEFAULT = {
     ratings_mdblist_key: '',
     ratings_cache_days: '3',
@@ -217,7 +221,7 @@
     ratings_spacing_val: 's_0',
     ratings_bw_logos: false,
     ratings_icon_color1: '#ffffff',
-    ratings_icon_color2: '#ffffff',
+    ratings_icon_color2: '',
     ratings_icon_deg: '90deg',
     ratings_bg_opacity: 'v_0',
     ratings_colorize_all: true,
@@ -417,7 +421,7 @@
       else if (cfg.textPosition === 'bottom') dirClass = 'lmp-dir-bottom';
       else dirClass = 'lmp-dir-left';
 
-      /* ВИПРАВЛЕНО: Додавання спеціального шару для маски, якщо увімкнено фарбування */
+      /* ОНОВЛЕНО: Додавання шару маски, якщо увімкнено фарбування */
       var coloredLayer = isColored ? '<div class="source--logo-colored" style="-webkit-mask-image: url(' + iconUrl + '); mask-image: url(' + iconUrl + ');"></div>' : '';
 
       var cont = $(
@@ -814,7 +818,9 @@
     s.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
     s.setProperty('--lmp-bg-opacity', cfg.bgOpacity);
     s.setProperty('--lmp-icon-c1', cfg.iconColor1);
-    s.setProperty('--lmp-icon-c2', cfg.iconColor2 || cfg.iconColor1);
+    
+    /* ВИПРАВЛЕНО: Якщо Колір 2 порожній, використовуємо Колір 1 (виходить суцільний колір) */
+    s.setProperty('--lmp-icon-c2', (cfg.iconColor2 && cfg.iconColor2.trim() !== '') ? cfg.iconColor2 : cfg.iconColor1);
     s.setProperty('--lmp-icon-deg', cfg.iconDeg);
     
     cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
@@ -888,8 +894,10 @@
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі іконки' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_color1', type: 'input', values: '', "default": '#ffffff' }, field: { name: 'Колір іконок 1 (HEX)', description: 'Основний колір для Ч/Б іконок (наприклад, #ff0000)' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_color2', type: 'input', values: '', "default": '#ffffff' }, field: { name: 'Колір іконок 2 (HEX)', description: 'Другий колір для градієнта (залиште білим, якщо не потрібен)' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_deg', type: 'select', values: { '90deg': 'Зліва направо', '180deg': 'Зверху вниз', '45deg': 'Діагональ 45°', '135deg': 'Діагональ 135°', 'radial-gradient': 'Радіальний' }, "default": '90deg' }, field: { name: 'Кут градієнта', description: '' } });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_color2', type: 'input', values: '', "default": '' }, field: { name: 'Колір іконок 2 (HEX)', description: 'Другий колір для градієнта (залиште порожнім, якщо не потрібен)' } });
+    
+    /* ВИПРАВЛЕНО: Прибрано радіальний градієнт із налаштувань */
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_deg', type: 'select', values: { '90deg': 'Зліва направо', '180deg': 'Зверху вниз', '45deg': 'Діагональ 45°', '135deg': 'Діагональ 135°' }, "default": '90deg' }, field: { name: 'Кут градієнта', description: '' } });
 
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bg_opacity', type: 'select', values: { 'v_0': '0%', 'v_0.2': '20%', 'v_0.3': '30%', 'v_0.4': '40%', 'v_0.5': '50%', 'v_0.6': '60%', 'v_0.8': '80%', 'v_1': '100%' }, "default": 'v_0' }, field: { name: 'Темний фон плитки', description: '' } });
