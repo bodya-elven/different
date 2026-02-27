@@ -348,7 +348,7 @@
 
         if (src === 'imdb') res.imdb = item;
         else if (src === 'tmdb') res.tmdb = item;
-        else if (src === 'trakt) res.trakt = item;
+        else if (src === 'trakt') res.trakt = item;
         else if (src === 'letterboxd') res.letterboxd = item;
         else if (src.indexOf('metacritic') !== -1 && src.indexOf('user') === -1) res.metacritic = item;
         else if (src.indexOf('rotten') !== -1 || src.indexOf('tomato') !== -1) res.rottentomatoes = item;
