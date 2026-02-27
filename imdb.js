@@ -153,19 +153,17 @@
     ".loading-dots__dot:nth-child(2) { animation-delay: -0.16s; }" +
     "@keyframes loading-dots-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.6; } 40% { transform: translateY(-0.5em); opacity: 1; } }" +
     
-    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; background: rgba(0, 0, 0, var(--lmp-bg-opacity)); }" +
+    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; background: rgba(0, 0, 0, var(--lmp-bg-opacity)); isolation: isolate; }" +
     
-    /* ВИПРАВЛЕНО: Архітектура контейнера іконок (Миттєве фарбування без обрізання) */
-    ".lmp-custom-rate .source--name { display: inline-flex !important; align-items: center; justify-content: center; margin: 0; position: relative; height: calc(22px + var(--lmp-logo-offset)); width: auto; isolation: isolate; background: transparent; }" +
-    ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 1; object-fit: contain; height: 100% !important; width: auto; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
+    ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; position: relative; height: calc(22px + var(--lmp-logo-offset)); width: auto; background: transparent; }" +
+    ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 1; object-fit: contain; height: 100% !important; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
     
-    /* Шар для кольорового накладання (multiply) */
-    "body.lmp-enh--mono .source--name.is-colored::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(var(--lmp-icon-deg), var(--lmp-icon-c1), var(--lmp-icon-c2)); z-index: 2; mix-blend-mode: multiply; pointer-events: none; }" +
-    
-    /* Спеціальний випадок для Радіального градієнта */
-    "body.lmp-enh--mono .source--name.is-colored[data-deg='radial-gradient']::after { background: radial-gradient(circle, var(--lmp-icon-c1), var(--lmp-icon-c2)); }" +
-    
-    ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); }" +
+    /* ВИПРАВЛЕНО: Спеціальний контейнер, який буде фарбуватися через МАСКУ */
+    ".source--logo-colored { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; background: linear-gradient(var(--lmp-icon-deg), var(--lmp-icon-c1), var(--lmp-icon-c2)); mix-blend-mode: multiply; pointer-events: none; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; mask-size: contain; mask-repeat: no-repeat; mask-position: center; }" +
+    "body:not(.lmp-enh--mono) .source--logo-colored { display: none !important; }" + /* Ховаємо, якщо Ч/Б вимкнено */
+    "body.lmp-enh--mono .source--name img { filter: none !important; }" + /* Вимикаємо drop-shadow, щоб маска лягла рівно */
+
+    ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); z-index: 1; }" +
     ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: calc(1.1em + var(--lmp-text-offset)); transition: color 0.2s; }" +
     ".lmp-custom-rate .rate--votes { font-size: calc(0.6em + (var(--lmp-text-offset) / 2)); opacity: 0.8; margin-left: 0.25em; line-height: 1; }" +
     
@@ -382,7 +380,6 @@
     var cfg = getCfg();
     var elementsToInsert = [];
 
-    /* ВИПРАВЛЕНО: Інтелектуальна перевірка кольорів */
     var hasC1 = cfg.iconColor1 && cfg.iconColor1.toLowerCase() !== '#ffffff';
     var hasC2 = cfg.iconColor2 && cfg.iconColor2.toLowerCase() !== '#ffffff';
     var isColored = cfg.bwLogos && (hasC1 || hasC2);
@@ -420,13 +417,13 @@
       else if (cfg.textPosition === 'bottom') dirClass = 'lmp-dir-bottom';
       else dirClass = 'lmp-dir-left';
 
-      /* ВИПРАВЛЕНО: Додавання класу 'is-colored' та атрибуту для радіального градієнта */
-      var colorClassAttr = isColored ? 'is-colored' : '';
-      var degDataAttr = cfg.iconDeg === 'radial-gradient' ? 'data-deg="radial-gradient"' : '';
+      /* ВИПРАВЛЕНО: Додавання спеціального шару для маски, якщо увімкнено фарбування */
+      var coloredLayer = isColored ? '<div class="source--logo-colored" style="-webkit-mask-image: url(' + iconUrl + '); mask-image: url(' + iconUrl + ');"></div>' : '';
 
       var cont = $(
         '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + ' ' + glowClass + '">' +
-            '<div class="source--name ' + colorClassAttr + '" title="' + src.name + '" ' + degDataAttr + '>' + 
+            '<div class="source--name" title="' + src.name + '">' + 
+                coloredLayer + /* Вставляємо шар маски */
                 '<img src="' + iconUrl + '" alt="' + src.name + '">' + 
             '</div>' +
             '<div class="rate--text-block">' + 
