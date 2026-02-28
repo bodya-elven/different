@@ -1,61 +1,37 @@
 (function () {
     'use strict';
 
-    // CSS: Дизайн в одну колонку + примусовий скрол пальцем для мобільних
+    // CSS: Лише безпечні стилі, які не ламають математику Lampa
     var customCss = `
     <style>
-        /* Активуємо нативний скрол для телефонів всередині компонента Lampa */
-        .custom_catalog_page .scroll__body {
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-            touch-action: pan-y !important;
-            display: flex !important;
-            flex-direction: column !important;
-            padding: 15px !important;
-            padding-bottom: 50px !important;
-        }
-        
-        /* Широка картка на всю екрану */
-        .custom_catalog_page .card {
-            width: 100% !important;
-            height: auto !important;
-            margin-bottom: 25px !important;
-            float: none !important;
-            position: relative !important;
-            padding: 0 !important;
-        }
-        
-        /* Постер 16:9 */
-        .custom_catalog_page .card__view {
-            padding-bottom: 56.25% !important; 
-            height: 0 !important;
-            border-radius: 12px !important;
-            overflow: hidden !important;
-        }
-        
-        .custom_catalog_page .card__img {
-            object-fit: cover !important;
-            width: 100% !important;
-            height: 100% !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-        }
-        
-        /* Повна назва */
-        .custom_catalog_page .card__title {
-            white-space: normal !important;
-            text-align: left !important;
-            padding-top: 10px !important;
-            line-height: 1.4 !important;
-            font-size: 1.1em !important;
-            height: auto !important;
-            display: block !important;
-        }
-        
-        .custom_catalog_page .card__age, 
-        .custom_catalog_page .card__textbox {
-            display: none !important;
+        /* Застосовуємо дизайн 1-ї колонки лише для мобільних екранів */
+        @media (max-width: 768px) {
+            .my-custom-wide-card {
+                width: 100% !important;
+                padding: 10px !important;
+                /* Важливо: не змінюємо float, щоб Lampa могла рахувати сітку */
+            }
+            .my-custom-wide-card .card__view {
+                padding-bottom: 56.25% !important; /* Пропорція 16:9 */
+                border-radius: 12px !important;
+            }
+            .my-custom-wide-card .card__img {
+                object-fit: cover !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+            .my-custom-wide-card .card__title {
+                white-space: normal !important;
+                line-height: 1.4 !important;
+                height: auto !important;
+                text-align: left !important;
+                padding-top: 8px !important;
+            }
+            /* Ховаємо вік та рейтинг */
+            .my-custom-wide-card .card__age, 
+            .my-custom-wide-card .card__textbox {
+                display: none !important;
+            }
         }
     </style>
     `;
@@ -75,7 +51,7 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    url: 'https://w.porno365.gold/feed.xml', // <--- ВСТАВ СЮДИ ПОСИЛАННЯ НА RSS FEED.XML !
+                    url: 'https://w.porno365.gold/feed.xml', // <--- ВСТАВ ПОСИЛАННЯ НА RSS
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
@@ -89,11 +65,12 @@
         var network = new Lampa.Reguest(); 
         var scroll  = new Lampa.Scroll({ mask: true, over: true });
         var html    = $('<div></div>');
+        var body    = $('<div class="category-full"></div>'); // Стандартний контейнер
         var items   = [];
 
         this.create = function () {
-            html.addClass('custom_catalog_page');
             html.append(scroll.render());
+            scroll.append(body);
             this.load();
             return this.render();
         };
@@ -105,14 +82,12 @@
             }, false, { dataType: 'text' });
         };
 
-        // 3. ПАРСИНГ RSS (Набагато надійніше за HTML)
         this.parseRSS = function (xmlText) {
             var parser = new DOMParser();
             var xmlDoc = parser.parseFromString(xmlText, "text/xml");
             var elements = xmlDoc.querySelectorAll('item');
             var results = [];
 
-            // Безпечний цикл for (щоб уникнути Script Error)
             for (var i = 0; i < elements.length; i++) {
                 var el = elements[i];
                 var titleEl = el.querySelector('title');
@@ -120,41 +95,37 @@
                 var descEl = el.querySelector('description');
 
                 if (titleEl && linkEl) {
-                    var title = titleEl.textContent;
-                    var link = linkEl.textContent;
                     var img = '';
-
-                    // Витягуємо посилання на картинку з тексту опису
                     if (descEl) {
-                        var descText = descEl.textContent;
-                        var imgMatch = descText.match(/src=["'](.*?)["']/);
-                        if (imgMatch && imgMatch[1]) {
-                            img = imgMatch[1];
+                        // Надійний Regex для пошуку посилання на картинку в CDATA
+                        var match = descEl.textContent.match(/<img[^>]+src=["']([^"']+)["']/i);
+                        if (match && match[1]) {
+                            img = match[1];
                             if (img.indexOf('//') === 0) img = 'https:' + img;
                         }
                     }
 
                     results.push({
-                        title: title.trim(),
-                        picture: img, 
-                        img: img,
-                        url: link.trim()
+                        title: titleEl.textContent.trim(),
+                        img: img, // Lampa використовує img для карток
+                        url: linkEl.textContent.trim()
                     });
                 }
             }
             this.build(results);
         };
 
-        // 4. Побудова карток і запуск відео
         this.build = function (data) {
             if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
 
             for (var i = 0; i < data.length; i++) {
                 var element = data[i];
-                var card = new Lampa.Card(element, { card_category: false });
+                var card = new Lampa.Card(element, {}); // Стандартна картка
                 card.create();
                 
-                // Перехоплення кліку (Замикання, щоб зберегти element)
+                // Додаємо клас для нашого CSS (щоб змінити вигляд на телефонах)
+                card.render().addClass('my-custom-wide-card');
+                
                 (function(currentElement) {
                     card.render().on('hover:enter', function () {
                         network.silent(currentElement.url, function(videoPageHtml) {
@@ -197,22 +168,22 @@
                     });
                 })(element);
 
-                scroll.append(card.render());
+                body.append(card.render());
                 items.push(card);
             }
 
-            // Навігація пультом
+            // Стандартна прив'язка до контролера Lampa (відновлює скрол)
             Lampa.Controller.add('content', {
                 toggle: function () {
-                    Lampa.Controller.collectionSet(scroll.render());
-                    Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, scroll.render());
+                    Lampa.Controller.collectionSet(html);
+                    Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, html);
                 },
                 left: function () { 
-                    if (Lampa.Controller.collectionFocus(false, scroll.render()).left) Lampa.Controller.toggle('menu'); 
+                    if (Lampa.Controller.collectionFocus(false, html).left) Lampa.Controller.toggle('menu'); 
                 },
-                right: function () { Lampa.Controller.collectionFocus(false, scroll.render()).right; },
-                up: function () { Lampa.Controller.collectionFocus(false, scroll.render()).up; },
-                down: function () { Lampa.Controller.collectionFocus(false, scroll.render()).down; }
+                right: function () { Lampa.Controller.collectionFocus(false, html).right; },
+                up: function () { Lampa.Controller.collectionFocus(false, html).up; },
+                down: function () { Lampa.Controller.collectionFocus(false, html).down; }
             });
             Lampa.Controller.toggle('content');
         };
