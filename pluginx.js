@@ -1,16 +1,9 @@
 (function () {
     'use strict';
 
-    // CSS: Тільки безпечні правила, які не ламають математику прокрутки Lampa
+    // CSS: Тільки дизайн карток. Жодних втручань у скролінг!
     var customCss = `
     <style>
-        /* Дозволяємо системний скрол пальцем для телефонів */
-        .custom_catalog_scroll .scroll__body {
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-        }
-        
-        /* Широка картка, але через безпечний float: left */
         .my-dynamic-card {
             width: 100% !important; 
             float: left !important;
@@ -18,11 +11,10 @@
             padding: 0 10px !important;
         }
         
-        /* Пропорції YouTube 16:9 */
         .my-dynamic-card .card__view {
             padding-bottom: 56.25% !important; 
             border-radius: 12px !important;
-            background-color: #202020 !important; /* Колір заглушки, поки вантажиться фото */
+            background-color: #202020 !important; 
         }
         
         .my-dynamic-card .card__img {
@@ -32,10 +24,9 @@
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
-            transition: opacity 0.3s ease-in; /* Плавна поява картинки */
+            transition: opacity 0.3s ease-in; 
         }
         
-        /* Читабельні повні назви */
         .my-dynamic-card .card__title {
             white-space: normal !important;
             text-align: left !important;
@@ -65,7 +56,7 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    url: 'https://w.porno365.gold/', // <--- ВСТАВ СЮДИ ГОЛОВНЕ ПОСИЛАННЯ
+                    url: 'https://w.porno365.gold/', // <--- ВСТАВ ПОСИЛАННЯ
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
@@ -82,14 +73,12 @@
         var items   = [];
 
         this.create = function () {
-            html.addClass('custom_catalog_scroll');
             html.append(scroll.render());
             scroll.append(body);
             this.load();
             return this.render();
         };
 
-        // КРОК 1: Завантажуємо головну сторінку для отримання списку
         this.load = function () {
             var url = object.url; 
             network.silent(url, this.parseMainPage.bind(this), function () {
@@ -112,7 +101,6 @@
                     results.push({
                         title: titleEl.innerText.trim(),
                         url: linkEl.getAttribute('href'),
-                        // Тимчасова порожня картинка (прозора)
                         img: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' 
                     });
                 }
@@ -120,7 +108,6 @@
             this.build(results);
         };
 
-        // КРОК 2: Будуємо сітку та запускаємо фонове завантаження зображень
         this.build = function (data) {
             if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
 
@@ -129,29 +116,26 @@
                 var card = new Lampa.Card(element, { card_category: false });
                 card.create();
                 
-                // Додаємо наш безпечний клас для широкого дизайну
                 card.render().addClass('my-dynamic-card');
 
-                // АСИНХРОННЕ ЗАВАНТАЖЕННЯ КАРТИНКИ "НА ЛЬОТУ"
+                // Асинхронне завантаження картинки
                 (function(currentElement, currentCard) {
                     network.silent(currentElement.url, function(videoPageHtml) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         
-                        // Шукаємо постер безпосередньо всередині сторінки відео
                         var preloaderImg = doc.querySelector('.mobile-preloader-img');
                         if (preloaderImg) {
                             var imgSrc = preloaderImg.getAttribute('src');
                             if (imgSrc && imgSrc.indexOf('//') === 0) {
                                 imgSrc = 'https:' + imgSrc;
                             }
-                            // Знаходимо тег img у нашій відмальованій картці і підміняємо src
                             currentCard.render().find('.card__img').attr('src', imgSrc);
                         }
                     }, false, false, { dataType: 'text' });
                 })(element, card);
 
-                // ОБРОБКА КЛІКУ: Збираємо посилання на плеєр (той самий HTML, що ми завантажили для картинки, але нам доведеться зробити запит ще раз при кліку, щоб не зберігати весь масив посилань у пам'яті)
+                // Обробка кліку
                 (function(currentElement) {
                     card.render().on('hover:enter', function () {
                         network.silent(currentElement.url, function(videoPageHtml) {
@@ -198,18 +182,18 @@
                 items.push(card);
             }
 
-            // Навігація
+            // ПРАВИЛЬНА НАВІГАЦІЯ: тепер Lampa фокусується на контейнері скролу
             Lampa.Controller.add('content', {
                 toggle: function () {
-                    Lampa.Controller.collectionSet(html);
-                    Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, html);
+                    Lampa.Controller.collectionSet(scroll.render());
+                    Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, scroll.render());
                 },
                 left: function () { 
-                    if (Lampa.Controller.collectionFocus(false, html).left) Lampa.Controller.toggle('menu'); 
+                    if (Lampa.Controller.collectionFocus(false, scroll.render()).left) Lampa.Controller.toggle('menu'); 
                 },
-                right: function () { Lampa.Controller.collectionFocus(false, html).right; },
-                up: function () { Lampa.Controller.collectionFocus(false, html).up; },
-                down: function () { Lampa.Controller.collectionFocus(false, html).down; }
+                right: function () { Lampa.Controller.collectionFocus(false, scroll.render()).right; },
+                up: function () { Lampa.Controller.collectionFocus(false, scroll.render()).up; },
+                down: function () { Lampa.Controller.collectionFocus(false, scroll.render()).down; }
             });
             Lampa.Controller.toggle('content');
         };
@@ -222,4 +206,6 @@
     }
 
     Lampa.Component.add('custom_catalog_comp', CustomCatalog);
+})();
+add('custom_catalog_comp', CustomCatalog);
 })();
