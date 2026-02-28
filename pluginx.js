@@ -24,7 +24,7 @@
                 this.activity.loader(true);
 
                 // ЗАМІНИ НА СВІЙ ДОМЕН
-                var url = 'ТУТ_ТВІЙ_ДОМЕН'; 
+                var url = 'https://w.porno365.gold/'; 
 
                 network.silent(url, function (htmlText) {
                     var parser = new DOMParser();
