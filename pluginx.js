@@ -123,13 +123,13 @@
             var doc = parser.parseFromString(responseText, 'text/html');
             var results = [];
 
-            // Шукаємо блоки відео. Правильний клас взяті з твоїх скріншотів
+            // Шукаємо блоки відео. Правильний клас взято з твого першого фото
             var elements = doc.querySelectorAll('li.video_block'); 
 
             elements.forEach(function(el) {
                 var linkEl = el.querySelector('a.image'); 
-                // ТУТ Я ВИПРАВИВ СЕЛЕКТОР! Тепер він шукає img всередині div, який лежить у a з класом image.
-                var imgEl = el.querySelector('.image div img');   
+                // ТУТ Я ВИПРАВИВ СЕЛЕКТОР! Тепер він шукає img з класом mobile-preloader-img всередині відео блоку.
+                var imgEl = el.querySelector('.mobile-preloader-img');   
                 var titleEl = el.querySelector('a.image p');    
 
                 if (linkEl && imgEl && titleEl) {
@@ -142,6 +142,7 @@
                     results.push({
                         title: titleEl.innerText.trim(),
                         picture: imageSrc, 
+                        img: imageSrc,
                         url: linkEl.getAttribute('href')
                     });
                 }
@@ -187,11 +188,15 @@
 
                         // Крок 3: Запуск плеєра Lampa
                         if (videoStreams.length > 0) {
+                            // Автоматично вибираємо НАЙКРАЩУ якість (останнє посилання в масиві, згідно з image_5.png)
+                            var bestStream = videoStreams[videoStreams.length - 1];
+
                             var playlist = [{
                                 title: element.title,
-                                url: videoStreams[0].url,
-                                quality: videoStreams
+                                url: bestStream.url, 
+                                quality: videoStreams // Передаємо всі якості, щоб їх можна було змінити в меню плеєра
                             }];
+                            
                             Lampa.Player.play(playlist[0]);
                             Lampa.Player.playlist(playlist);
                         } else {
