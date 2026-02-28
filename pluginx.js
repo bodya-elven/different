@@ -15,7 +15,7 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    url: 'https://w.porno365.gold', // <--- ЗАМІНИТИ ЦЕ (Разом з одинарними лапками)
+                    url: 'https://w.porno365.gold/', // <--- ЗАМІНИТИ ЦЕ (Разом з одинарними лапками)
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
