@@ -42,7 +42,7 @@
         this.load = function () {
             // Формуємо посилання для сторінок (якщо є пагінація)
             var url = object.url + 'page/' + object.page + '/'; 
-            network.request(url, this.parseHTML.bind(this), function () {
+        network.silent(url, this.parseHTML.bind(this), function () {
                 Lampa.Noty.show('Помилка завантаження сайту');
             }, false, { dataType: 'text' });
         };
@@ -84,7 +84,7 @@
                 
                 // ДІЯ ПРИ КЛІКУ НА КАРТКУ (ВІДКРИТТЯ ВІДЕО)
                 card.onHover('enter', function () {
-                    network.request(element.url, function(videoPageHtml) {
+                    network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         var videoStreams = []; 
