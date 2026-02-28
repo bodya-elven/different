@@ -15,7 +15,8 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    url: 'https://w.porno365.gold/', // <--- ЗАМІНИТИ ЦЕ (Разом з одинарними лапками)
+                    // ЗАМІНИ НАСТУПНИЙ РЯДОК НА СВІЙ ДОМЕН (залиш одинарні лапки)
+                    url: 'https://w.porno365.gold/', 
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
@@ -26,7 +27,7 @@
 
     // 2. СТВОРЮЄМО КОМПОНЕНТ КАТАЛОГУ
     function CustomCatalog(object) {
-        var network = new Lampa.Reguest();
+        var network = new Lampa.Reguest(); // Так, з помилкою в слові Reguest, це норма для Lampa
         var scroll  = new Lampa.Scroll({ mask: true, over: true });
         var html    = $('<div></div>');
         var body    = $('<div class="category-full"></div>');
@@ -40,7 +41,7 @@
         };
 
         this.load = function () {
-            // Просто беремо чисту URL-адресу, без додавання сторінок
+            // Беремо прямий лінк без додавання сторінок
             var url = object.url; 
             
             network.silent(url, this.parseHTML.bind(this), function () {
@@ -54,11 +55,10 @@
             var doc = parser.parseFromString(responseText, 'text/html');
             var results = [];
 
-            // <--- ЗАМІНИТИ СЮДИ_КЛАС_БЛОКУ_ВІДЕО
+            // Шукаємо блоки відео (класи взяті з твоїх скріншотів)
             var elements = doc.querySelectorAll('li.video_block'); 
 
             elements.forEach(function(el) {
-                // <--- ЗАМІНИТИ ЦІ ТРИ СЕЛЕКТОРИ
                 var linkEl = el.querySelector('a.image'); 
                 var imgEl = el.querySelector('div.tumba img');   
                 var titleEl = el.querySelector('a.image p');    
@@ -66,7 +66,7 @@
                 if (linkEl && imgEl && titleEl) {
                     results.push({
                         title: titleEl.innerText.trim(),
-                        picture: imgEl.getAttribute('src'),
+                        img: imgEl.getAttribute('src'), // Виправлено picture на img
                         url: linkEl.getAttribute('href')
                     });
                 }
@@ -83,24 +83,33 @@
                 var card = new Lampa.Card(element, { card_category: true });
                 card.create();
                 
-                // ДІЯ ПРИ КЛІКУ НА КАРТКУ (ВІДКРИТТЯ ВІДЕО)
+                // ОБРОБКА КЛІКУ ПО КАРТЦІ
                 card.render().on('hover:enter', function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         var videoStreams = []; 
 
-                        // <--- ЗАМІНИТИ СЮДИ_КЛАС_ВИБОРУ_ЯКОСТІ
-                        var qualityLinks = doc.querySelectorAll('quality_chooser a');
-
+                        // Крок 1: Шукаємо якості відео
+                        var qualityLinks = doc.querySelectorAll('.quality_chooser a');
                         qualityLinks.forEach(function(link) {
                             var videoUrl = link.getAttribute('href');
                             var qualityName = link.innerText.trim() || link.getAttribute('data-quality');
                             if (videoUrl) {
-                                videoStreams.push({ title: qualityName, url: videoUrl });
+                                videoStreams.push({ title: qualityName || 'Відео', url: videoUrl });
                             }
                         });
 
+                        // Крок 2: Резервний варіант - шукаємо лінк у головній кнопці Play
+                        if (videoStreams.length === 0) {
+                            var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
+                            if (mainPlayBtn) {
+                                var mainUrl = mainPlayBtn.getAttribute('href');
+                                if (mainUrl) videoStreams.push({ title: 'Оригінал', url: mainUrl });
+                            }
+                        }
+
+                        // Крок 3: Запуск плеєра Lampa
                         if (videoStreams.length > 0) {
                             var playlist = [{
                                 title: element.title,
@@ -133,6 +142,11 @@
 
         this.render = function () { return html; };
         this.destroy = function () { network.clear(); scroll.destroy(); html.remove(); items = null; };
+        
+        // 5. ДОДАНІ МЕТОДИ ЖИТТЄВОГО ЦИКЛУ (ЩОБ НЕ БУЛО ЗЕЛЕНОГО ЕКРАНУ)
+        this.start = function () {};
+        this.pause = function () {};
+        this.stop = function () {};
     }
 
     Lampa.Component.add('custom_catalog_comp', CustomCatalog);
