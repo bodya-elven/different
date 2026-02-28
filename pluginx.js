@@ -5,7 +5,6 @@
         if (window.my_custom_perfect_plugin_ready) return;
         window.my_custom_perfect_plugin_ready = true;
 
-        // CSS для вигляду "одна колонка" (YouTube style)
         var css = '<style>' +
             '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
@@ -23,7 +22,7 @@
                 var _this = this;
                 this.activity.loader(true);
 
-                // ВСТАВТЕ ВАШ ДОМЕН ТУТ
+                // ВСТАВ СВІЙ ДОМЕН
                 var url = 'https://w.porno365.gold/'; 
 
                 network.silent(url, function (htmlText) {
@@ -75,7 +74,7 @@
             };
 
             comp.cardRender = function (card, element, events) {
-                // Використовуємо прямий обробник кліку через об'єкт подій Lampa
+                // Використовуємо твою перевірену логіку парсингу відео
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
@@ -101,7 +100,6 @@
                         }
 
                         if (videoStreams.length > 0) {
-                            // Беремо найкращу якість (останню в списку)
                             var bestStream = videoStreams[videoStreams.length - 1];
                             var playlist = [{
                                 title: element.name,
@@ -111,8 +109,6 @@
                             
                             Lampa.Player.play(playlist[0]);
                             Lampa.Player.playlist(playlist);
-                        } else {
-                            Lampa.Noty.show('Не знайдено посилання на плеєр');
                         }
                     }, false, false, { dataType: 'text' });
                 };
@@ -145,67 +141,7 @@
 
     setTimeout(startPlugin, 200);
 })();
-    }
-                    }
-
-                    if (results.length > 0) {
-                        _this.build({ results: results, collection: true });
-                        _this.render().addClass('my-youtube-style');
-                        _this.activity.loader(false);
-                    } else {
-                        _this.empty();
-                    }
-                }, this.empty.bind(this), false, { dataType: 'text' });
-            };
-
-            comp.nextPageReuest = function (object, resolve, reject) {
-                resolve({ results: [] }); 
-            };
-
-            // Перехоплюємо рендер картки
-            comp.cardRender = function (card, element, events) {
-                // 1. Відключаємо стандартну поведінку Lampa при кліку
-                events.onEnter = function () {}; 
-                
-                // 2. Вішаємо твій 100% робочий код безпосередньо на картку
-                card.render().on('hover:enter', function () {
-                    // Жодних лоадерів та нотифікацій перед запитом, як у твоєму коді
-                    network.silent(element.url, function(videoPageHtml) {
-                        var parser = new DOMParser();
-                        var doc = parser.parseFromString(videoPageHtml, 'text/html');
-                        var videoStreams = []; 
-
-                        var qualityLinks = doc.querySelectorAll('.quality_chooser a');
-                        for (var j = 0; j < qualityLinks.length; j++) {
-                            var link = qualityLinks[j];
-                            var videoUrl = link.getAttribute('href');
-                            var qualityName = link.innerText.trim() || link.getAttribute('data-quality');
-                            if (videoUrl) {
-                                videoStreams.push({ title: qualityName || 'Відео', url: videoUrl });
-                            }
-                        }
-
-                        if (videoStreams.length === 0) {
-                            var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
-                            if (mainPlayBtn) {
-                                var mainUrl = mainPlayBtn.getAttribute('href');
-                                if (mainUrl) videoStreams.push({ title: 'Оригінал', url: mainUrl });
-                            }
-                        }
-
-                        if (videoStreams.length > 0) {
-                            // Беремо останнє в списку (найкраща якість), як ти і робив
-                            var bestStream = videoStreams[videoStreams.length - 1];
-                            var playlist = [{
-                                title: element.name, 
-                                url: bestStream.url, 
-                                quality: videoStreams 
-                            }];
-                            
-                            Lampa.Player.play(playlist[0]);
-                            Lampa.Player.playlist(playlist);
-                        } else {
-                            Lampa.Noty.show('Не знайдено посилання на плеєр');
+єр');
                         }
                     }, false, false, { dataType: 'text' });
                 });
