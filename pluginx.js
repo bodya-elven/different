@@ -33,6 +33,31 @@
         this.create = function () {
             html.append(scroll.render());
             scroll.append(body);
+
+            // ==========================================
+            // НОВЕ: ПІДТРИМКА СВАЙПІВ ДЛЯ МОБІЛЬНИХ (СЕНСОРІВ)
+            // ==========================================
+            var startY = 0;
+            html.on('touchstart', function (e) {
+                // Запам'ятовуємо початкову точку дотику
+                startY = e.originalEvent.touches[0].pageY;
+            });
+
+            html.on('touchmove', function (e) {
+                // Визначаємо, наскільки зсунувся палець
+                var currentY = e.originalEvent.touches[0].pageY;
+                var delta = startY - currentY;
+                
+                // Створюємо віртуальне прокручування коліщатком миші для Lampa
+                var event = new $.Event('mousewheel');
+                event.originalEvent = { deltaY: delta };
+                scroll.render().trigger(event);
+                
+                // Оновлюємо точку для наступного кадру руху
+                startY = currentY;
+            });
+            // ==========================================
+
             this.load();
             return this.render();
         };
@@ -59,14 +84,13 @@
                 if (linkEl && imgEl && titleEl) {
                     var imageSrc = imgEl.getAttribute('src');
                     
-                    // БЕЗПЕЧНА перевірка посилання на картинку (без startsWith)
                     if (imageSrc && imageSrc.indexOf('//') === 0) {
                         imageSrc = 'https:' + imageSrc;
                     }
 
                     results.push({
                         title: titleEl.innerText.trim(),
-                        picture: imageSrc, // Використовуємо правильну змінну для картинки
+                        picture: imageSrc, 
                         url: linkEl.getAttribute('href')
                     });
                 }
@@ -79,7 +103,6 @@
             if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
 
             data.forEach(function (element) {
-                // БЕЗПЕЧНЕ створення картки (повернуто card_category: true)
                 var card = new Lampa.Card(element, { card_category: true });
                 card.create();
                 
@@ -107,7 +130,6 @@
                         }
 
                         if (videoStreams.length > 0) {
-                            // Беремо найкращу якість (останнє посилання в масиві)
                             var bestQualityUrl = videoStreams[videoStreams.length - 1].url;
 
                             var playlist = [{
@@ -128,7 +150,6 @@
                 items.push(card);
             });
 
-            // Навігація для скролінгу пультом
             Lampa.Controller.add('content', {
                 toggle: function () {
                     Lampa.Controller.collectionSet(html);
