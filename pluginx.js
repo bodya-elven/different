@@ -1,7 +1,6 @@
 (function () {
     'use strict';
 
-    // 1. ДОДАЄМО КНОПКУ В МЕНЮ
     Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') {
             var myMenu = '<li class="menu__item selector" data-action="my_custom_catalog">' +
@@ -15,8 +14,7 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    // ЗАМІНИ НАСТУПНИЙ РЯДОК НА СВІЙ ДОМЕН (залиш одинарні лапки)
-                    url: 'https://w.porno365.gold/', 
+                    url: 'https://w.porno365.gold/', // <--- ТУТ ВСТАВ СВІЙ ДОМЕН
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
@@ -25,15 +23,146 @@
         }
     });
 
-    // 2. СТВОРЮЄМО КОМПОНЕНТ КАТАЛОГУ
     function CustomCatalog(object) {
-        var network = new Lampa.Reguest(); // Так, з помилкою в слові Reguest, це норма для Lampa
+        var network = new Lampa.Reguest();
         var scroll  = new Lampa.Scroll({ mask: true, over: true });
         var html    = $('<div></div>');
         var body    = $('<div class="category-full"></div>');
         var items   = [];
 
         this.create = function () {
+            html.append(scroll.render());
+            scroll.append(body);
+            this.load();
+            return this.render();
+        };
+
+        this.load = function () {
+            var url = object.url; 
+            network.silent(url, this.parseHTML.bind(this), function () {
+                Lampa.Noty.show('Помилка завантаження сайту');
+            }, false, { dataType: 'text' });
+        };
+
+        this.parseHTML = function (responseText) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(responseText, 'text/html');
+            var results = [];
+
+            var elements = doc.querySelectorAll('li.video_block'); 
+
+            elements.forEach(function(el) {
+                var linkEl = el.querySelector('a.image'); 
+                var imgEl = el.querySelector('div.tumba img');   
+                var titleEl = el.querySelector('a.image p');    
+
+                if (linkEl && imgEl && titleEl) {
+                    var imageSrc = imgEl.getAttribute('src');
+                    
+                    // Якщо посилання на картинку починається з // (без https), додаємо його
+                    if (imageSrc && imageSrc.startsWith('//')) {
+                        imageSrc = 'https:' + imageSrc;
+                    }
+
+                    results.push({
+                        title: titleEl.innerText.trim(),
+                        // ВИПРАВЛЕННЯ 3: Передаємо картинку в усі можливі поля, щоб Lampa точно її побачила
+                        picture: imageSrc, 
+                        img: imageSrc,
+                        background_image: imageSrc, 
+                        url: linkEl.getAttribute('href')
+                    });
+                }
+            });
+
+            this.build(results);
+        };
+
+        this.build = function (data) {
+            if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
+
+            data.forEach(function (element) {
+                // Вимкнув card_category: true, щоб картинки відображалися у правильних пропорціях (як постери)
+                var card = new Lampa.Card(element, {});
+                card.create();
+                
+                card.render().on('hover:enter', function () {
+                    network.silent(element.url, function(videoPageHtml) {
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(videoPageHtml, 'text/html');
+                        var videoStreams = []; 
+
+                        var qualityLinks = doc.querySelectorAll('.quality_chooser a');
+                        qualityLinks.forEach(function(link) {
+                            var videoUrl = link.getAttribute('href');
+                            var qualityName = link.innerText.trim() || link.getAttribute('data-quality');
+                            if (videoUrl) {
+                                videoStreams.push({ title: qualityName || 'Відео', url: videoUrl });
+                            }
+                        });
+
+                        if (videoStreams.length === 0) {
+                            var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
+                            if (mainPlayBtn) {
+                                var mainUrl = mainPlayBtn.getAttribute('href');
+                                if (mainUrl) videoStreams.push({ title: 'Оригінал', url: mainUrl });
+                            }
+                        }
+
+                        if (videoStreams.length > 0) {
+                            // ВИПРАВЛЕННЯ 1: Беремо останній елемент з масиву якостей (найкраща якість)
+                            var bestQualityUrl = videoStreams[videoStreams.length - 1].url;
+
+                            var playlist = [{
+                                title: element.title,
+                                url: bestQualityUrl, 
+                                quality: videoStreams // Передаємо всі якості, щоб їх можна було змінити в плеєрі
+                            }];
+                            
+                            Lampa.Player.play(playlist[0]);
+                            Lampa.Player.playlist(playlist);
+                        } else {
+                            Lampa.Noty.show('Не знайдено посилання на плеєр');
+                        }
+                    }, false, false, { dataType: 'text' });
+                });
+
+                body.append(card.render());
+                items.push(card);
+            });
+
+            // ВИПРАВЛЕННЯ 2: Додали команди для скролінгу вгору та вниз
+            Lampa.Controller.add('content', {
+                toggle: function () {
+                    Lampa.Controller.collectionSet(html);
+                    Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, html);
+                },
+                left: function () { 
+                    if (Lampa.Controller.collectionFocus(false, html).left) Lampa.Controller.toggle('menu'); 
+                },
+                right: function () { 
+                    Lampa.Controller.collectionFocus(false, html).right; 
+                },
+                up: function () { 
+                    Lampa.Controller.collectionFocus(false, html).up; 
+                },
+                down: function () { 
+                    Lampa.Controller.collectionFocus(false, html).down; 
+                }
+            });
+            Lampa.Controller.toggle('content');
+        };
+
+        this.render = function () { return html; };
+        this.destroy = function () { network.clear(); scroll.destroy(); html.remove(); items = null; };
+        
+        this.start = function () {};
+        this.pause = function () {};
+        this.stop = function () {};
+    }
+
+    Lampa.Component.add('custom_catalog_comp', CustomCatalog);
+})();
             html.append(scroll.render());
             scroll.append(body);
             this.load();
