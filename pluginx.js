@@ -14,7 +14,7 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    url: 'https://w.porno365.gold/', // <-- УВАГА: Одинарні лапки мають залишитися!
+                    url: 'https://w.porno365.gold/', // <--- Залиш одинарні лапки!
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
@@ -57,16 +57,16 @@
                 var titleEl = el.querySelector('a.image p');    
 
                 if (linkEl && imgEl && titleEl) {
-                    // БЕЗПЕЧНА ПЕРЕВІРКА КАРТИНКИ
-                    var imageSrc = imgEl.getAttribute('src') || '';
+                    var imageSrc = imgEl.getAttribute('src');
+                    
+                    // БЕЗПЕЧНА перевірка посилання на картинку (без startsWith)
                     if (imageSrc && imageSrc.indexOf('//') === 0) {
                         imageSrc = 'https:' + imageSrc;
                     }
 
                     results.push({
                         title: titleEl.innerText.trim(),
-                        img: imageSrc,
-                        picture: imageSrc,
+                        picture: imageSrc, // Використовуємо правильну змінну для картинки
                         url: linkEl.getAttribute('href')
                     });
                 }
@@ -79,7 +79,7 @@
             if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
 
             data.forEach(function (element) {
-                // Повернули card_category: true, щоб Lampa не видавала помилок рендеру
+                // БЕЗПЕЧНЕ створення картки (повернуто card_category: true)
                 var card = new Lampa.Card(element, { card_category: true });
                 card.create();
                 
@@ -107,7 +107,7 @@
                         }
 
                         if (videoStreams.length > 0) {
-                            // БЕРЕМО НАЙКРАЩУ ЯКІСТЬ (останній елемент у списку)
+                            // Беремо найкращу якість (останнє посилання в масиві)
                             var bestQualityUrl = videoStreams[videoStreams.length - 1].url;
 
                             var playlist = [{
@@ -128,16 +128,23 @@
                 items.push(card);
             });
 
-            // НАВІГАЦІЯ: Прибрали зайві кнопки, залишили тільки вихід вліво в меню
+            // Навігація для скролінгу пультом
             Lampa.Controller.add('content', {
                 toggle: function () {
                     Lampa.Controller.collectionSet(html);
                     Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, html);
                 },
                 left: function () { 
-                    if (Lampa.Controller.collectionFocus(false, html).left) {
-                        Lampa.Controller.toggle('menu'); 
-                    }
+                    if (Lampa.Controller.collectionFocus(false, html).left) Lampa.Controller.toggle('menu'); 
+                },
+                right: function () { 
+                    Lampa.Controller.collectionFocus(false, html).right; 
+                },
+                up: function () { 
+                    Lampa.Controller.collectionFocus(false, html).up; 
+                },
+                down: function () { 
+                    Lampa.Controller.collectionFocus(false, html).down; 
                 }
             });
             Lampa.Controller.toggle('content');
@@ -146,57 +153,6 @@
         this.render = function () { return html; };
         this.destroy = function () { network.clear(); scroll.destroy(); html.remove(); items = null; };
         
-        this.start = function () {};
-        this.pause = function () {};
-        this.stop = function () {};
-    }
-
-    Lampa.Component.add('custom_catalog_comp', CustomCatalog);
-})();
-аріант - шукаємо лінк у головній кнопці Play
-                        if (videoStreams.length === 0) {
-                            var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
-                            if (mainPlayBtn) {
-                                var mainUrl = mainPlayBtn.getAttribute('href');
-                                if (mainUrl) videoStreams.push({ title: 'Оригінал', url: mainUrl });
-                            }
-                        }
-
-                        // Крок 3: Запуск плеєра Lampa
-                        if (videoStreams.length > 0) {
-                            var playlist = [{
-                                title: element.title,
-                                url: videoStreams[0].url,
-                                quality: videoStreams
-                            }];
-                            Lampa.Player.play(playlist[0]);
-                            Lampa.Player.playlist(playlist);
-                        } else {
-                            Lampa.Noty.show('Не знайдено посилання на плеєр');
-                        }
-                    }, false, false, { dataType: 'text' });
-                });
-
-                body.append(card.render());
-                items.push(card);
-            });
-
-            // Навігація по сітці (керування пультом)
-            Lampa.Controller.add('content', {
-                toggle: function () {
-                    Lampa.Controller.collectionSet(html);
-                    Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, html);
-                },
-                left: function () { if (Lampa.Controller.collectionFocus(false, html).left) Lampa.Controller.toggle('menu'); },
-                up: function () {}, down: function () {}, right: function () { Lampa.Controller.collectionFocus(false, html).right; }
-            });
-            Lampa.Controller.toggle('content');
-        };
-
-        this.render = function () { return html; };
-        this.destroy = function () { network.clear(); scroll.destroy(); html.remove(); items = null; };
-        
-        // 5. ДОДАНІ МЕТОДИ ЖИТТЄВОГО ЦИКЛУ (ЩОБ НЕ БУЛО ЗЕЛЕНОГО ЕКРАНУ)
         this.start = function () {};
         this.pause = function () {};
         this.stop = function () {};
