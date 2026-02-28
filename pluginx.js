@@ -40,9 +40,10 @@
         };
 
         this.load = function () {
-            // Формуємо посилання для сторінок (якщо є пагінація)
-            var url = object.url + 'page/' + object.page + '/'; 
-        network.silent(url, this.parseHTML.bind(this), function () {
+            // Просто беремо чисту URL-адресу, без додавання сторінок
+            var url = object.url; 
+            
+            network.silent(url, this.parseHTML.bind(this), function () {
                 Lampa.Noty.show('Помилка завантаження сайту');
             }, false, { dataType: 'text' });
         };
