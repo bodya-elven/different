@@ -1,21 +1,29 @@
 (function () {
     'use strict';
 
-    // Впроваджуємо спеціальні CSS-стилі для горизонтальних постерів (YouTube style), повних назв та мобільного скролінгу
+    // Впроваджуємо CSS для нативного мобільного скролінгу та дизайну YouTube
     var customCss = `
     <style>
-        /* Примусово вмикаємо нативний скрол пальцем для мобільних */
+        /* АБСОЛЮТНО НАТИВНИЙ СКРОЛ (Ігноруємо обмеження Lampa) */
         .custom-mobile-scroll {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            height: 100% !important;
             overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-            touch-action: pan-y !important;
+            -webkit-overflow-scrolling: touch !important; /* Плавний скрол на iOS/Android */
+            overscroll-behavior-y: contain !important;
+            z-index: 10 !important;
         }
         
-        /* Робимо список однією колонкою (як на YouTube) */
+        /* Робимо список однією колонкою */
         .custom-catalog-list {
             display: flex !important;
             flex-direction: column !important;
-            padding: 10px 15px !important;
+            padding: 15px !important;
+            padding-bottom: 120px !important; /* Місце знизу, щоб останнє відео не ховалося */
         }
         
         /* Картка на 100% ширини екрану */
@@ -57,7 +65,6 @@
             display: block !important;
         }
         
-        /* Приховуємо зайві елементи стандартної картки (вік, рейтинг), якщо вони є */
         .custom-catalog-list .card__age, .custom-catalog-list .card__textbox {
             display: none !important;
         }
@@ -65,7 +72,6 @@
     `;
     $('body').append(customCss);
 
-    // 1. ДОДАЄМО КНОПКУ В МЕНЮ LAMPA
     Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') {
             var myMenu = '<li class="menu__item selector" data-action="my_custom_catalog">' +
@@ -89,46 +95,37 @@
         }
     });
 
-    // 2. СТВОРЮЄМО КОМПОНЕНТ КАТАЛОГУ
     function CustomCatalog(object) {
         var network = new Lampa.Reguest(); 
-        var scroll  = new Lampa.Scroll({ mask: true, over: true });
-        var html    = $('<div></div>');
-        var body    = $('<div class="category-full"></div>');
+        // ВАЖЛИВО: Ми видалили Lampa.Scroll і створили власну оболонку для нативного скролінгу
+        var html    = $('<div class="custom-mobile-scroll"></div>');
+        var body    = $('<div class="custom-catalog-list"></div>');
         var items   = [];
 
         this.create = function () {
-            // Додаємо наші CSS-класи для мобільного скролінгу та YouTube-подібного вигляду
-            html.addClass('custom-mobile-scroll');
-            body.addClass('custom-catalog-list');
-
-            html.append(scroll.render());
-            scroll.append(body);
+            // Тепер body лежить безпосередньо в нашій прокручуваній оболонці
+            html.append(body);
             this.load();
             return this.render();
         };
 
         this.load = function () {
-            // Беремо прямий лінк без додавання сторінок
             var url = object.url; 
-            
             network.silent(url, this.parseHTML.bind(this), function () {
                 Lampa.Noty.show('Помилка завантаження сайту');
             }, false, { dataType: 'text' });
         };
 
-        // 3. ПАРСИНГ ГОЛОВНОЇ СТОРІНКИ (КАТАЛОГУ)
         this.parseHTML = function (responseText) {
             var parser = new DOMParser();
             var doc = parser.parseFromString(responseText, 'text/html');
             var results = [];
 
-            // Шукаємо блоки відео. Правильний клас взято з твого першого фото
             var elements = doc.querySelectorAll('li.video_block'); 
 
             elements.forEach(function(el) {
                 var linkEl = el.querySelector('a.image'); 
-                // ТУТ Я ВИПРАВИВ СЕЛЕКТОР! Тепер він шукає img з класом mobile-preloader-img всередині відео блоку.
+                // Твій точний селектор для постера!
                 var imgEl = el.querySelector('.mobile-preloader-img');   
                 var titleEl = el.querySelector('a.image p');    
 
@@ -151,23 +148,19 @@
             this.build(results);
         };
 
-        // 4. ПОБУДОВА КАРТОК ТА ЗАПУСК ПЛЕЄРА
         this.build = function (data) {
             if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
 
             data.forEach(function (element) {
-                // Створюємо картку. card_category: false, бо ми самі повністю контролюємо вигляд за допомогою CSS
                 var card = new Lampa.Card(element, { card_category: false });
                 card.create();
                 
-                // ОБРОБКА КЛІКУ ПО КАРТЦІ
                 card.render().on('hover:enter', function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         var videoStreams = []; 
 
-                        // Крок 1: Шукаємо якості відео
                         var qualityLinks = doc.querySelectorAll('.quality_chooser a');
                         qualityLinks.forEach(function(link) {
                             var videoUrl = link.getAttribute('href');
@@ -177,7 +170,6 @@
                             }
                         });
 
-                        // Крок 2: Резервний варіант - шукаємо лінк у головній кнопці Play
                         if (videoStreams.length === 0) {
                             var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
                             if (mainPlayBtn) {
@@ -186,15 +178,13 @@
                             }
                         }
 
-                        // Крок 3: Запуск плеєра Lampa
                         if (videoStreams.length > 0) {
-                            // Автоматично вибираємо НАЙКРАЩУ якість (останнє посилання в масиві, згідно з image_5.png)
                             var bestStream = videoStreams[videoStreams.length - 1];
 
                             var playlist = [{
                                 title: element.title,
                                 url: bestStream.url, 
-                                quality: videoStreams // Передаємо всі якості, щоб їх можна було змінити в меню плеєра
+                                quality: videoStreams 
                             }];
                             
                             Lampa.Player.play(playlist[0]);
@@ -209,7 +199,6 @@
                 items.push(card);
             });
 
-            // Навігація по сітці (керування пультом, на випадок, якщо відкриєш на ТВ)
             Lampa.Controller.add('content', {
                 toggle: function () {
                     Lampa.Controller.collectionSet(html);
@@ -224,9 +213,9 @@
         };
 
         this.render = function () { return html; };
-        this.destroy = function () { network.clear(); scroll.destroy(); html.remove(); items = null; };
+        // Видалили scroll.destroy(), бо ми відмовилися від Lampa.Scroll
+        this.destroy = function () { network.clear(); html.remove(); items = null; };
         
-        // 5. ДОДАНІ МЕТОДИ ЖИТТЄВОГО ЦИКЛУ (ЩОБ НЕ БУЛО ЗЕЛЕНОГО ЕКРАНУ)
         this.start = function () {};
         this.pause = function () {};
         this.stop = function () {};
