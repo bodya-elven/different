@@ -1,21 +1,14 @@
 (function () {
     'use strict';
 
-    // Впроваджуємо CSS для нативного мобільного скролінгу та дизайну YouTube
+    // Впроваджуємо CSS для мобільного скролінгу та дизайну YouTube
     var customCss = `
     <style>
-        /* АБСОЛЮТНО НАТИВНИЙ СКРОЛ (Ігноруємо обмеження Lampa) */
-        .custom-mobile-scroll {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            height: 100% !important;
+        /* Дозволяємо прокрутку пальцем поверх стандартного скролу Lampa */
+        .custom-catalog-scroll .scroll__body {
             overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important; /* Плавний скрол на iOS/Android */
-            overscroll-behavior-y: contain !important;
-            z-index: 10 !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-y !important;
         }
         
         /* Робимо список однією колонкою */
@@ -23,7 +16,7 @@
             display: flex !important;
             flex-direction: column !important;
             padding: 15px !important;
-            padding-bottom: 120px !important; /* Місце знизу, щоб останнє відео не ховалося */
+            padding-bottom: 50px !important;
         }
         
         /* Картка на 100% ширини екрану */
@@ -85,8 +78,7 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    // ЗАМІНИ НАСТУПНИЙ РЯДОК НА СВІЙ ДОМЕН (залиш одинарні лапки)
-                    url: 'https://w.porno365.gold/', 
+                    url: 'https://w.porno365.gold/', // <--- Залиш одинарні лапки!
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
@@ -97,14 +89,16 @@
 
     function CustomCatalog(object) {
         var network = new Lampa.Reguest(); 
-        // ВАЖЛИВО: Ми видалили Lampa.Scroll і створили власну оболонку для нативного скролінгу
-        var html    = $('<div class="custom-mobile-scroll"></div>');
+        var scroll  = new Lampa.Scroll({ mask: true, over: true }); // Повернули Lampa.Scroll
+        var html    = $('<div></div>');
         var body    = $('<div class="custom-catalog-list"></div>');
         var items   = [];
 
         this.create = function () {
-            // Тепер body лежить безпосередньо в нашій прокручуваній оболонці
-            html.append(body);
+            // Додаємо клас для активації нашого мобільного CSS-скролу
+            html.addClass('custom-catalog-scroll');
+            html.append(scroll.render());
+            scroll.append(body);
             this.load();
             return this.render();
         };
@@ -125,8 +119,8 @@
 
             elements.forEach(function(el) {
                 var linkEl = el.querySelector('a.image'); 
-                // Твій точний селектор для постера!
-                var imgEl = el.querySelector('.mobile-preloader-img');   
+                // ПОВЕРНУЛИ ПРАВИЛЬНИЙ СЕЛЕКТОР ДЛЯ КАТАЛОГУ
+                var imgEl = el.querySelector('div.tumba img');   
                 var titleEl = el.querySelector('a.image p');    
 
                 if (linkEl && imgEl && titleEl) {
@@ -213,8 +207,7 @@
         };
 
         this.render = function () { return html; };
-        // Видалили scroll.destroy(), бо ми відмовилися від Lampa.Scroll
-        this.destroy = function () { network.clear(); html.remove(); items = null; };
+        this.destroy = function () { network.clear(); scroll.destroy(); html.remove(); items = null; };
         
         this.start = function () {};
         this.pause = function () {};
