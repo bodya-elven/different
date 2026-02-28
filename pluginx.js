@@ -5,6 +5,7 @@
         if (window.my_custom_perfect_plugin_ready) return;
         window.my_custom_perfect_plugin_ready = true;
 
+        // CSS тільки для 100% ширини карток (скрол тепер працює сам)
         var css = '<style>' +
             '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
@@ -22,8 +23,8 @@
                 var _this = this;
                 this.activity.loader(true);
 
-                // ЗАМІНИ НА СВІЙ ДОМЕН (залиш одинарні лапки)
-                var url = 'https://w.porno365.gold/'; 
+                // ЗАМІНИ НА СВІЙ ДОМЕН
+                var url = 'ТУТ_ТВІЙ_ДОМЕН'; 
 
                 network.silent(url, function (htmlText) {
                     var parser = new DOMParser();
@@ -73,66 +74,55 @@
                 resolve({ results: [] }); 
             };
 
+            // ОСЬ ТВОЯ РОБОЧА ЛОГІКА ВІДКРИТТЯ ВІДЕО
             comp.cardRender = function (card, element, events) {
                 events.onEnter = function () {
-                    Lampa.Noty.show('Запуск відео...'); 
                     Lampa.Activity.loader(true);
-                    
                     network.silent(element.url, function(videoPageHtml) {
                         Lampa.Activity.loader(false);
-                        if (!videoPageHtml) {
-                            return Lampa.Noty.show('Порожня відповідь від сторінки відео');
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(videoPageHtml, 'text/html');
+                        var videoStreams = []; 
+
+                        var qualityLinks = doc.querySelectorAll('.quality_chooser a');
+                        for (var j = 0; j < qualityLinks.length; j++) {
+                            var link = qualityLinks[j];
+                            var videoUrl = link.getAttribute('href');
+                            var qualityName = link.innerText.trim() || link.getAttribute('data-quality');
+                            if (videoUrl) {
+                                videoStreams.push({ title: qualityName || 'Відео', url: videoUrl });
+                            }
                         }
-                        
-                        try {
-                            var parser = new DOMParser();
-                            var doc = parser.parseFromString(videoPageHtml, 'text/html');
-                            
-                            var qualityObj = {};
-                            var lastUrl = ''; 
-                            
-                            var qLinks = doc.querySelectorAll('.quality_chooser a');
-                            for (var j = 0; j < qLinks.length; j++) {
-                                var link = qLinks[j];
-                                var href = link.getAttribute('href');
-                                var qName = link.innerText.trim() || link.getAttribute('data-quality') || ('Q' + j);
-                                
-                                if (href) {
-                                    qualityObj[qName] = href;
-                                    lastUrl = href; 
-                                }
+
+                        if (videoStreams.length === 0) {
+                            var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
+                            if (mainPlayBtn) {
+                                var mainUrl = mainPlayBtn.getAttribute('href');
+                                if (mainUrl) videoStreams.push({ title: 'Оригінал', url: mainUrl });
                             }
-                            
-                            if (!lastUrl) {
-                                var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
-                                if (mainPlayBtn) {
-                                    lastUrl = mainPlayBtn.getAttribute('href');
-                                    qualityObj['Оригінал'] = lastUrl;
-                                }
-                            }
-                            
-                            if (lastUrl) {
-                                var playData = { 
-                                    title: element.name, 
-                                    url: lastUrl, 
-                                    quality: qualityObj 
-                                };
-                                
-                                Lampa.Player.play(playData);
-                                Lampa.Player.playlist([playData]);
-                                
-                                Lampa.Player.callback(function() {
-                                    Lampa.Controller.toggle('content');
-                                });
-                            } else {
-                                Lampa.Noty.show('Не знайдено посилання на відео .mp4');
-                            }
-                        } catch (e) {
-                            Lampa.Noty.show('Помилка обробки: ' + e.message);
                         }
-                    }, function() { 
-                        Lampa.Activity.loader(false); 
-                        Lampa.Noty.show('Помилка мережі при завантаженні відео'); 
+
+                        if (videoStreams.length > 0) {
+                            var bestStream = videoStreams[videoStreams.length - 1];
+                            var playlist = [{
+                                title: element.name,
+                                url: bestStream.url, 
+                                quality: videoStreams 
+                            }];
+                            
+                            Lampa.Player.play(playlist[0]);
+                            Lampa.Player.playlist(playlist);
+                            
+                            // Повертаємо фокус після виходу з плеєра
+                            Lampa.Player.callback(function() {
+                                Lampa.Controller.toggle('content');
+                            });
+                        } else {
+                            Lampa.Noty.show('Не знайдено посилання на плеєр');
+                        }
+                    }, function() {
+                        Lampa.Activity.loader(false);
+                        Lampa.Noty.show('Помилка завантаження сторінки відео');
                     }, false, { dataType: 'text' });
                 };
             };
