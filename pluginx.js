@@ -31,7 +31,6 @@
                     var elements = doc.querySelectorAll('li.video_block, li.trailer');
                     var results = [];
 
-                    // Витягуємо базовий домен (наприклад, https://site.com), щоб додавати його до коротких посилань
                     var baseUrlMatch = url.match(/^(https?:\/\/[^\/]+)/);
                     var baseUrl = baseUrlMatch ? baseUrlMatch[1] : '';
 
@@ -46,7 +45,6 @@
                             if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
 
                             var videoUrl = linkEl.getAttribute('href');
-                            // Робимо посилання абсолютним, якщо воно відносне
                             if (videoUrl && videoUrl.indexOf('http') !== 0) {
                                 videoUrl = baseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
                             }
@@ -83,39 +81,54 @@
                     network.silent(element.url, function(videoPageHtml) {
                         Lampa.Activity.loader(false);
                         if (!videoPageHtml) {
-                            return Lampa.Noty.show('Помилка завантаження сторінки відео');
+                            return Lampa.Noty.show('Порожня відповідь від сторінки відео');
                         }
                         
-                        var p = new DOMParser();
-                        var d = p.parseFromString(videoPageHtml, 'text/html');
-                        var videoStreams = [];
-                        
-                        var qLinks = d.querySelectorAll('.quality_chooser a');
-                        for (var j = 0; j < qLinks.length; j++) {
-                            videoStreams.push({ 
-                                title: qLinks[j].innerText.trim() || qLinks[j].getAttribute('data-quality'), 
-                                url: qLinks[j].getAttribute('href') 
-                            });
-                        }
-                        
-                        if (videoStreams.length === 0) {
-                            var mainPlayBtn = d.querySelector('a.btn-play.play-video');
-                            if (mainPlayBtn) {
-                                videoStreams.push({ title: 'Оригінал', url: mainPlayBtn.getAttribute('href') });
-                            }
-                        }
-                        
-                        if (videoStreams.length > 0) {
-                            var bestStream = videoStreams[videoStreams.length - 1];
-                            Lampa.Player.play({ title: element.name, url: bestStream.url, quality: videoStreams });
-                            Lampa.Player.playlist([{ title: element.name, url: bestStream.url, quality: videoStreams }]);
+                        try {
+                            var parser = new DOMParser();
+                            var doc = parser.parseFromString(videoPageHtml, 'text/html');
                             
-                            // Повертаємо фокус після закриття плеєра
-                            Lampa.Player.callback(function() {
-                                Lampa.Controller.toggle('content');
-                            });
-                        } else {
-                            Lampa.Noty.show('Не знайдено посилання на відео');
+                            var qualityObj = {};
+                            var lastUrl = ''; 
+                            
+                            var qLinks = doc.querySelectorAll('.quality_chooser a');
+                            for (var j = 0; j < qLinks.length; j++) {
+                                var link = qLinks[j];
+                                var href = link.getAttribute('href');
+                                var qName = link.innerText.trim() || link.getAttribute('data-quality') || ('Q' + j);
+                                
+                                if (href) {
+                                    qualityObj[qName] = href;
+                                    lastUrl = href; 
+                                }
+                            }
+                            
+                            if (!lastUrl) {
+                                var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
+                                if (mainPlayBtn) {
+                                    lastUrl = mainPlayBtn.getAttribute('href');
+                                    qualityObj['Оригінал'] = lastUrl;
+                                }
+                            }
+                            
+                            if (lastUrl) {
+                                var playData = { 
+                                    title: element.name, 
+                                    url: lastUrl, 
+                                    quality: qualityObj 
+                                };
+                                
+                                Lampa.Player.play(playData);
+                                Lampa.Player.playlist([playData]);
+                                
+                                Lampa.Player.callback(function() {
+                                    Lampa.Controller.toggle('content');
+                                });
+                            } else {
+                                Lampa.Noty.show('Не знайдено посилання на відео .mp4');
+                            }
+                        } catch (e) {
+                            Lampa.Noty.show('Помилка обробки: ' + e.message);
                         }
                     }, function() { 
                         Lampa.Activity.loader(false); 
