@@ -149,8 +149,10 @@
                     });
                 })(element);
 
-                // Додаємо картку до рідного списку Lampa
-                _this.appendBody(card);
+               // Додаємо картку до тіла каталогу та в масив для навігації
+                _this.body.append(card.render());
+                _this.items.push(card);
+
             }
         };
 
