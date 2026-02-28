@@ -1,9 +1,9 @@
 (function () {
     'use strict';
 
-    // 1. БЕЗПЕЧНИЙ CSS (через звичайні рядки, щоб не було Script Error)
+    // 1. БЕЗПЕЧНИЙ CSS (без зворотних лапок для старих пристроїв)
     var css = '<style>' +
-        '.my-dynamic-card { width: 100% !important; padding: 10px !important; }' +
+        '.my-dynamic-card { width: 100% !important; padding: 10px !important; float: left !important; }' +
         '.my-dynamic-card .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; background-color: #202020 !important; }' +
         '.my-dynamic-card .card__img { object-fit: cover !important; width: 100% !important; height: 100% !important; position: absolute !important; top: 0 !important; left: 0 !important; transition: opacity 0.3s ease-in; }' +
         '.my-dynamic-card .card__title { white-space: normal !important; text-align: left !important; line-height: 1.4 !important; height: auto !important; padding-top: 10px !important; }' +
@@ -26,7 +26,7 @@
                 menuList.append(myMenu);
                 $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                     Lampa.Activity.push({
-                        url: 'https://w.porno365.gold/', // <--- ВСТАВ ПОСИЛАННЯ НА ГОЛОВНУ СТОРІНКУ
+                        url: 'https://w.porno365.gold/', 
                         title: 'Мій Каталог',
                         component: 'custom_catalog_comp',
                         page: 1
@@ -36,7 +36,7 @@
         }
     });
 
-    // 3. КОМПОНЕНТ КАТАЛОГУ (НА БАЗІ ВБУДОВАНОГО КЛАСУ LAMPA)
+    // 3. КОМПОНЕНТ КАТАЛОГУ
     function CustomCatalog(object) {
         var comp = new Lampa.InteractionCategory(object);
         var network = new Lampa.Reguest();
@@ -60,7 +60,6 @@
                         results.push({
                             title: titleEl.innerText.trim(),
                             url: linkEl.getAttribute('href'),
-                            // Тимчасова прозора картинка, щоб Lampa не сварилася
                             img: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' 
                         });
                     }
@@ -75,10 +74,9 @@
             }, this.empty.bind(this), false, { dataType: 'text' });
         };
 
-        // Блокуємо завантаження другої сторінки, бо ми парсимо лише першу
         comp.nextPageReuest = function () {};
 
-        // 4. ДИНАМІЧНА ЗАМІНА І ПОБУДОВА
+        // 4. ДОДАВАННЯ КАРТОК ТА ПІДВАНТАЖЕННЯ ЗОБРАЖЕНЬ
         comp.append = function (data) {
             var _this = this;
             
@@ -87,10 +85,9 @@
                 var card = new Lampa.Card(element, { card_category: false });
                 card.create();
                 
-                // Додаємо дизайн
                 card.render().addClass('my-dynamic-card');
 
-                // АСИНХРОННЕ ФОТО: Завантажуємо зображення з .mobile-preloader-img
+                // Фонове завантаження постера
                 (function(currentElement, currentCard) {
                     network.silent(currentElement.url, function(videoPageHtml) {
                         var parser = new DOMParser();
@@ -101,13 +98,12 @@
                             if (imgSrc && imgSrc.indexOf('//') === 0) {
                                 imgSrc = 'https:' + imgSrc;
                             }
-                            // Знаходимо картинку в готовій картці та змінюємо її
                             currentCard.render().find('.card__img').attr('src', imgSrc);
                         }
                     }, false, false, { dataType: 'text' });
                 })(element, card);
 
-                // ОБРОБКА КЛІКУ: Шукаємо плеєр
+                // Клік для запуску плеєра
                 (function(currentElement) {
                     card.render().on('hover:enter', function () {
                         network.silent(currentElement.url, function(videoPageHtml) {
@@ -149,10 +145,9 @@
                     });
                 })(element);
 
-               // Додаємо картку до тіла каталогу та в масив для навігації
-                _this.body.append(card.render());
+                // ВИПРАВЛЕНО: Використовуємо .container замість .body
+                _this.container.append(card.render());
                 _this.items.push(card);
-
             }
         };
 
