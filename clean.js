@@ -8,14 +8,17 @@
   */
   var CONFIG = {
     get blockedCountries() {
-        var val = Lampa.Storage.get('lmp_filter_countries', 'ru');
+        var val = Lampa.Storage.get('lmp_filter_countries');
+        // Якщо користувач ще нічого не вводив і не зберігав, тихо блокуємо 'ru' під капотом
+        if (val === null || val === undefined) return ['ru'];
         return val ? val.toLowerCase().split(',').map(function(s) { return s.trim(); }) : [];
     },
     get minRating() {
         return parseFloat(Lampa.Storage.get('lmp_filter_min_rating', '0')) || 0;
     },
     get enabled() {
-        return Lampa.Storage.get('lmp_filter_enabled', true);
+        // Для trigger краще використовувати field()
+        return Lampa.Storage.field('lmp_filter_enabled') !== false; 
     }
   };
 
@@ -31,9 +34,13 @@
      var minR = CONFIG.minRating;
 
      return results.filter(function(item) {
+         // 1. АВТОФІЛЬТР: Жорстко прибираємо, якщо голосів менше 5
          if (item.vote_count !== undefined && item.vote_count < 5) return false;
+
+         // 2. ФІЛЬТР ЗА РЕЙТИНГОМ
          if (item.vote_average !== undefined && item.vote_average < minR) return false;
 
+         // 3. ФІЛЬТР ЗА КРАЇНОЮ (за мовою оригіналу)
          var lang = (item.original_language || '').toLowerCase();
          if (blocked.indexOf(lang) !== -1) return false;
 
@@ -49,7 +56,6 @@
   function startInterceptor() {
      if (window.lmp_filter_intercepted) return;
      
-     // Якщо Lampa.Api ще не готовий, чекаємо 100мс і пробуємо знову
      if (!Lampa.Api || !Lampa.Api.get) {
          setTimeout(startInterceptor, 100);
          return;
@@ -78,7 +84,6 @@
   function initSettings() {
       if (window.lmp_filter_settings_ready) return;
       
-      // Якщо SettingsApi ще не готовий, чекаємо
       if (!Lampa.SettingsApi) {
           setTimeout(initSettings, 100);
           return;
@@ -100,7 +105,7 @@
 
       Lampa.SettingsApi.addParam({
           component: 'lmp_content_filter',
-          param: { name: 'lmp_filter_countries', type: 'input', "default": 'ru' },
+          param: { name: 'lmp_filter_countries', type: 'input', "default": '' }, // <-- Виправили краш тут
           field: { name: 'Блокування за країною', description: 'Вводь коди мови оригіналу (наприклад: ru, hi, ko) через кому.' }
       });
 
@@ -122,7 +127,6 @@
       startInterceptor();
   }
 
-  // Запускаємо тільки тоді, коли ядро програми повідомить, що воно готове
   if (window.appready) {
       bootPlugin();
   } else {
