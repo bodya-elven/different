@@ -26,7 +26,7 @@
                 menuList.append(myMenu);
                 $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                     Lampa.Activity.push({
-                        url: 'ТУТ_ТВІЙ_ДОМЕН', // <--- ВСТАВ ПОСИЛАННЯ НА ГОЛОВНУ СТОРІНКУ
+                        url: 'https://w.porno365.gold/', // <--- ВСТАВ ПОСИЛАННЯ НА ГОЛОВНУ СТОРІНКУ
                         title: 'Мій Каталог',
                         component: 'custom_catalog_comp',
                         page: 1
