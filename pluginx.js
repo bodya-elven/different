@@ -14,7 +14,7 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    url: 'https://w.porno365.gold/', // <--- ТУТ ВСТАВ СВІЙ ДОМЕН
+                    url: 'https://w.porno365.gold/', // <-- УВАГА: Одинарні лапки мають залишитися!
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
@@ -57,19 +57,16 @@
                 var titleEl = el.querySelector('a.image p');    
 
                 if (linkEl && imgEl && titleEl) {
-                    var imageSrc = imgEl.getAttribute('src');
-                    
-                    // Якщо посилання на картинку починається з // (без https), додаємо його
-                    if (imageSrc && imageSrc.startsWith('//')) {
+                    // БЕЗПЕЧНА ПЕРЕВІРКА КАРТИНКИ
+                    var imageSrc = imgEl.getAttribute('src') || '';
+                    if (imageSrc && imageSrc.indexOf('//') === 0) {
                         imageSrc = 'https:' + imageSrc;
                     }
 
                     results.push({
                         title: titleEl.innerText.trim(),
-                        // ВИПРАВЛЕННЯ 3: Передаємо картинку в усі можливі поля, щоб Lampa точно її побачила
-                        picture: imageSrc, 
                         img: imageSrc,
-                        background_image: imageSrc, 
+                        picture: imageSrc,
                         url: linkEl.getAttribute('href')
                     });
                 }
@@ -82,8 +79,8 @@
             if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
 
             data.forEach(function (element) {
-                // Вимкнув card_category: true, щоб картинки відображалися у правильних пропорціях (як постери)
-                var card = new Lampa.Card(element, {});
+                // Повернули card_category: true, щоб Lampa не видавала помилок рендеру
+                var card = new Lampa.Card(element, { card_category: true });
                 card.create();
                 
                 card.render().on('hover:enter', function () {
@@ -110,13 +107,13 @@
                         }
 
                         if (videoStreams.length > 0) {
-                            // ВИПРАВЛЕННЯ 1: Беремо останній елемент з масиву якостей (найкраща якість)
+                            // БЕРЕМО НАЙКРАЩУ ЯКІСТЬ (останній елемент у списку)
                             var bestQualityUrl = videoStreams[videoStreams.length - 1].url;
 
                             var playlist = [{
                                 title: element.title,
                                 url: bestQualityUrl, 
-                                quality: videoStreams // Передаємо всі якості, щоб їх можна було змінити в плеєрі
+                                quality: videoStreams 
                             }];
                             
                             Lampa.Player.play(playlist[0]);
@@ -131,23 +128,16 @@
                 items.push(card);
             });
 
-            // ВИПРАВЛЕННЯ 2: Додали команди для скролінгу вгору та вниз
+            // НАВІГАЦІЯ: Прибрали зайві кнопки, залишили тільки вихід вліво в меню
             Lampa.Controller.add('content', {
                 toggle: function () {
                     Lampa.Controller.collectionSet(html);
                     Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, html);
                 },
                 left: function () { 
-                    if (Lampa.Controller.collectionFocus(false, html).left) Lampa.Controller.toggle('menu'); 
-                },
-                right: function () { 
-                    Lampa.Controller.collectionFocus(false, html).right; 
-                },
-                up: function () { 
-                    Lampa.Controller.collectionFocus(false, html).up; 
-                },
-                down: function () { 
-                    Lampa.Controller.collectionFocus(false, html).down; 
+                    if (Lampa.Controller.collectionFocus(false, html).left) {
+                        Lampa.Controller.toggle('menu'); 
+                    }
                 }
             });
             Lampa.Controller.toggle('content');
@@ -163,73 +153,7 @@
 
     Lampa.Component.add('custom_catalog_comp', CustomCatalog);
 })();
-            html.append(scroll.render());
-            scroll.append(body);
-            this.load();
-            return this.render();
-        };
-
-        this.load = function () {
-            // Беремо прямий лінк без додавання сторінок
-            var url = object.url; 
-            
-            network.silent(url, this.parseHTML.bind(this), function () {
-                Lampa.Noty.show('Помилка завантаження сайту');
-            }, false, { dataType: 'text' });
-        };
-
-        // 3. ПАРСИНГ ГОЛОВНОЇ СТОРІНКИ (КАТАЛОГУ)
-        this.parseHTML = function (responseText) {
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(responseText, 'text/html');
-            var results = [];
-
-            // Шукаємо блоки відео (класи взяті з твоїх скріншотів)
-            var elements = doc.querySelectorAll('li.video_block'); 
-
-            elements.forEach(function(el) {
-                var linkEl = el.querySelector('a.image'); 
-                var imgEl = el.querySelector('div.tumba img');   
-                var titleEl = el.querySelector('a.image p');    
-
-                if (linkEl && imgEl && titleEl) {
-                    results.push({
-                        title: titleEl.innerText.trim(),
-                        img: imgEl.getAttribute('src'), // Виправлено picture на img
-                        url: linkEl.getAttribute('href')
-                    });
-                }
-            });
-
-            this.build(results);
-        };
-
-        // 4. ПОБУДОВА КАРТОК ТА ЗАПУСК ПЛЕЄРА
-        this.build = function (data) {
-            if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
-
-            data.forEach(function (element) {
-                var card = new Lampa.Card(element, { card_category: true });
-                card.create();
-                
-                // ОБРОБКА КЛІКУ ПО КАРТЦІ
-                card.render().on('hover:enter', function () {
-                    network.silent(element.url, function(videoPageHtml) {
-                        var parser = new DOMParser();
-                        var doc = parser.parseFromString(videoPageHtml, 'text/html');
-                        var videoStreams = []; 
-
-                        // Крок 1: Шукаємо якості відео
-                        var qualityLinks = doc.querySelectorAll('.quality_chooser a');
-                        qualityLinks.forEach(function(link) {
-                            var videoUrl = link.getAttribute('href');
-                            var qualityName = link.innerText.trim() || link.getAttribute('data-quality');
-                            if (videoUrl) {
-                                videoStreams.push({ title: qualityName || 'Відео', url: videoUrl });
-                            }
-                        });
-
-                        // Крок 2: Резервний варіант - шукаємо лінк у головній кнопці Play
+аріант - шукаємо лінк у головній кнопці Play
                         if (videoStreams.length === 0) {
                             var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
                             if (mainPlayBtn) {
