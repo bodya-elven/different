@@ -74,12 +74,15 @@
                 resolve({ results: [] }); 
             };
 
-            // ОСЬ ТВОЯ РОБОЧА ЛОГІКА ВІДКРИТТЯ ВІДЕО
+            // Перехоплюємо рендер картки
             comp.cardRender = function (card, element, events) {
-                events.onEnter = function () {
-                    Lampa.Activity.loader(true);
+                // 1. Відключаємо стандартну поведінку Lampa при кліку
+                events.onEnter = function () {}; 
+                
+                // 2. Вішаємо твій 100% робочий код безпосередньо на картку
+                card.render().on('hover:enter', function () {
+                    // Жодних лоадерів та нотифікацій перед запитом, як у твоєму коді
                     network.silent(element.url, function(videoPageHtml) {
-                        Lampa.Activity.loader(false);
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         var videoStreams = []; 
@@ -103,29 +106,23 @@
                         }
 
                         if (videoStreams.length > 0) {
+                            // Беремо останнє в списку (найкраща якість), як ти і робив
                             var bestStream = videoStreams[videoStreams.length - 1];
                             var playlist = [{
-                                title: element.name,
+                                title: element.name, 
                                 url: bestStream.url, 
                                 quality: videoStreams 
                             }];
                             
                             Lampa.Player.play(playlist[0]);
                             Lampa.Player.playlist(playlist);
-                            
-                            // Повертаємо фокус після виходу з плеєра
-                            Lampa.Player.callback(function() {
-                                Lampa.Controller.toggle('content');
-                            });
                         } else {
                             Lampa.Noty.show('Не знайдено посилання на плеєр');
                         }
-                    }, function() {
-                        Lampa.Activity.loader(false);
-                        Lampa.Noty.show('Помилка завантаження сторінки відео');
-                    }, false, { dataType: 'text' });
-                };
+                    }, false, false, { dataType: 'text' });
+                });
             };
+            
 
             return comp;
         }
