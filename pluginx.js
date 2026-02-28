@@ -1,6 +1,70 @@
 (function () {
     'use strict';
 
+    // Впроваджуємо спеціальні CSS-стилі для горизонтальних постерів (на всю ширину) та мобільного скролінгу
+    var customCss = `
+    <style>
+        /* Примусово вмикаємо нативний скрол пальцем для мобільних */
+        .custom-mobile-scroll {
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-y !important;
+        }
+        
+        /* Робимо список однією колонкою */
+        .custom-catalog-list {
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 10px 15px !important;
+        }
+        
+        /* Картка на 100% ширини екрану */
+        .custom-catalog-list .card {
+            width: 100% !important;
+            height: auto !important;
+            margin-bottom: 20px !important;
+            float: none !important;
+            position: relative !important;
+            padding: 0 !important;
+        }
+        
+        /* Горизонтальний постер (пропорція 16:9) */
+        .custom-catalog-list .card__view {
+            padding-bottom: 56.25% !important; 
+            height: 0 !important;
+            border-radius: 12px !important;
+            overflow: hidden !important;
+        }
+        
+        /* Зображення заповнює весь блок постеру */
+        .custom-catalog-list .card__img {
+            object-fit: cover !important;
+            width: 100% !important;
+            height: 100% !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+        }
+        
+        /* Гарний багаторядковий текст під постером */
+        .custom-catalog-list .card__title {
+            white-space: normal !important;
+            text-align: left !important;
+            padding-top: 10px !important;
+            line-height: 1.4 !important;
+            font-size: 1.1em !important;
+            height: auto !important;
+            display: block !important;
+        }
+        
+        /* Приховуємо зайві елементи стандартної картки (вік, рейтинг), якщо вони є */
+        .custom-catalog-list .card__age, .custom-catalog-list .card__textbox {
+            display: none !important;
+        }
+    </style>
+    `;
+    $('body').append(customCss);
+
     Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') {
             var myMenu = '<li class="menu__item selector" data-action="my_custom_catalog">' +
@@ -31,33 +95,12 @@
         var items   = [];
 
         this.create = function () {
+            // Додаємо наші класи для CSS
+            html.addClass('custom-mobile-scroll');
+            body.addClass('custom-catalog-list');
+
             html.append(scroll.render());
             scroll.append(body);
-
-            // ==========================================
-            // НОВЕ: ПІДТРИМКА СВАЙПІВ ДЛЯ МОБІЛЬНИХ (СЕНСОРІВ)
-            // ==========================================
-            var startY = 0;
-            html.on('touchstart', function (e) {
-                // Запам'ятовуємо початкову точку дотику
-                startY = e.originalEvent.touches[0].pageY;
-            });
-
-            html.on('touchmove', function (e) {
-                // Визначаємо, наскільки зсунувся палець
-                var currentY = e.originalEvent.touches[0].pageY;
-                var delta = startY - currentY;
-                
-                // Створюємо віртуальне прокручування коліщатком миші для Lampa
-                var event = new $.Event('mousewheel');
-                event.originalEvent = { deltaY: delta };
-                scroll.render().trigger(event);
-                
-                // Оновлюємо точку для наступного кадру руху
-                startY = currentY;
-            });
-            // ==========================================
-
             this.load();
             return this.render();
         };
@@ -103,7 +146,8 @@
             if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
 
             data.forEach(function (element) {
-                var card = new Lampa.Card(element, { card_category: true });
+                // Створюємо картку. card_category: false, бо ми самі повністю контролюємо вигляд
+                var card = new Lampa.Card(element, { card_category: false });
                 card.create();
                 
                 card.render().on('hover:enter', function () {
