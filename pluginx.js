@@ -1,8 +1,9 @@
 (function () {
     'use strict';
 
-    // 1. CSS: Дизайн на 100% ширини та повні назви
+    // Додаємо 100% висоту для оболонки, щоб скрол міг розраховувати координати
     var css = '<style>' +
+        '.my-catalog-wrapper { width: 100%; height: 100%; }' +
         '.my-dynamic-card { width: 100% !important; padding: 10px !important; float: left !important; clear: both; }' +
         '.my-dynamic-card .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; background-color: #202020 !important; }' +
         '.my-dynamic-card .card__img { object-fit: cover !important; width: 100% !important; height: 100% !important; position: absolute !important; top: 0 !important; left: 0 !important; transition: opacity 0.3s ease-in; }' +
@@ -11,7 +12,6 @@
         '</style>';
     $('body').append(css);
 
-    // 2. Кнопка в меню
     Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') {
             var myMenu = '<li class="menu__item selector" data-action="my_custom_catalog">' +
@@ -36,14 +36,16 @@
         }
     });
 
-    // 3. Компонент каталогу
     function CustomCatalog(object) {
         var network = new Lampa.Reguest();
-        var scroll  = new Lampa.Scroll({ mask: true, over: true, scroll_step: 200 });
-        var html    = $('<div class="category-full"></div>');
+        var scroll  = new Lampa.Scroll({ mask: true, over: true });
+        var html    = $('<div class="my-catalog-wrapper"></div>');
+        var body    = $('<div class="category-full"></div>');
         var items   = [];
 
         this.create = function () {
+            html.append(scroll.render());
+            scroll.append(body);
             this.load();
             return this.render();
         };
@@ -52,7 +54,7 @@
             var _this = this;
             network.silent(object.url, function (htmlText) {
                 if (!htmlText) {
-                    Lampa.Noty.show('Порожня відповідь від сервера');
+                    Lampa.Noty.show('Порожня відповідь');
                     return;
                 }
                 var parser = new DOMParser();
@@ -75,21 +77,18 @@
                 if (results.length > 0) {
                     _this.build(results);
                 } else {
-                    Lampa.Noty.show('Не знайдено відео на сторінці');
+                    Lampa.Noty.show('Не знайдено відео');
                 }
-            }, function() { Lampa.Noty.show('Помилка мережі 🌐'); }, false, { dataType: 'text' });
+            }, function() { Lampa.Noty.show('Помилка мережі'); }, false, { dataType: 'text' });
         };
 
         this.build = function (data) {
-            scroll.append(html);
-
             for (var i = 0; i < data.length; i++) {
                 (function(element) {
                     var card = new Lampa.Card(element, { card_category: false });
                     card.create();
                     card.render().addClass('my-dynamic-card');
 
-                    // Постери на льоту 🖼️
                     network.silent(element.url, function(videoPageHtml) {
                         if (!videoPageHtml) return;
                         var p = new DOMParser();
@@ -102,13 +101,12 @@
                         }
                     }, false, false, { dataType: 'text' });
 
-                    // Клік для плеєра ▶️
                     card.render().on('hover:enter', function () {
                         Lampa.Activity.loader(true);
                         network.silent(element.url, function(vHtml) {
                             Lampa.Activity.loader(false);
                             if (!vHtml) {
-                                Lampa.Noty.show('Помилка завантаження відео');
+                                Lampa.Noty.show('Помилка завантаження');
                                 return;
                             }
                             var p = new DOMParser();
@@ -140,38 +138,30 @@
                         }, false, { dataType: 'text' });
                     });
 
-                    html.append(card.render());
+                    body.append(card.render());
                     items.push(card);
                 })(data[i]);
             }
 
-            // Ініціалізація контролера для рухомої сітки 🎮
             Lampa.Controller.add('content', {
                 toggle: function () {
-                    Lampa.Controller.collectionSet(scroll.render());
-                    Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, scroll.render());
+                    Lampa.Controller.collectionSet(html);
+                    Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, html);
                 },
-                up: function () { 
-                    if (Lampa.Controller.collectionFocus(false, scroll.render()).up) {
-                        Lampa.Controller.collectionFocus(false, scroll.render()).up(); 
-                    }
-                },
-                down: function () { 
-                    if (Lampa.Controller.collectionFocus(false, scroll.render()).down) {
-                        Lampa.Controller.collectionFocus(false, scroll.render()).down(); 
-                    }
-                },
+                // ЗВЕРНИ УВАГУ: БЕЗ ДУЖОК () !
+                up: function () { Lampa.Controller.collectionFocus(false, html).up; },
+                down: function () { Lampa.Controller.collectionFocus(false, html).down; },
                 left: function () { 
-                    if (Lampa.Controller.collectionFocus(false, scroll.render()).left) {
+                    if (Lampa.Controller.collectionFocus(false, html).left) {
                         Lampa.Controller.toggle('menu'); 
                     }
                 },
-                right: function () {}
+                right: function () { Lampa.Controller.collectionFocus(false, html).right; }
             });
             Lampa.Controller.toggle('content');
         };
 
-        this.render = function () { return scroll.render(); };
+        this.render = function () { return html; };
         this.destroy = function () { network.clear(); scroll.destroy(); html.remove(); items = null; };
         this.start = function () {};
         this.pause = function () {};
@@ -180,33 +170,7 @@
 
     Lampa.Component.add('custom_catalog_comp', CustomCatalog);
 })();
-add('custom_catalog_comp', CustomCatalog);
-})();
-    });
-
-    // 3. КОМПОНЕНТ КАТАЛОГУ
-    function CustomCatalog(object) {
-        var comp = new Lampa.InteractionCategory(object);
-        var network = new Lampa.Reguest();
-
-        comp.create = function () {
-            var _this = this;
-            this.activity.loader(true);
-
-            network.silent(object.url, function (htmlText) {
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(htmlText, 'text/html');
-                var elements = doc.querySelectorAll('li.video_block'); 
-                var results = [];
-
-                for (var i = 0; i < elements.length; i++) {
-                    var el = elements[i];
-                    var linkEl = el.querySelector('a.image'); 
-                    var titleEl = el.querySelector('a.image p');    
-
-                    if (linkEl && titleEl) {
-                        results.push({
-                            title: titleEl.innerText.trim(),
+El.innerText.trim(),
                             url: linkEl.getAttribute('href'),
                             img: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' 
                         });
