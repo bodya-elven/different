@@ -84,7 +84,7 @@
                 card.create();
                 
                 // ДІЯ ПРИ КЛІКУ НА КАРТКУ (ВІДКРИТТЯ ВІДЕО)
-                card.onHover('enter', function () {
+                card.render().on('hover:enter', function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
