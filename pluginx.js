@@ -1,9 +1,6 @@
 (function () {
     'use strict';
 
-    (function () {
-    'use strict';
-
     function startPlugin() {
         if (window.my_custom_perfect_plugin_ready) return;
         window.my_custom_perfect_plugin_ready = true;
@@ -146,66 +143,9 @@
         else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') addMenu(); });
     }
 
-    // Затримка ініціалізації для стабільності
     setTimeout(startPlugin, 200);
 })();
-    startPlugin() {
-        if (window.my_custom_perfect_plugin_ready) return;
-        window.my_custom_perfect_plugin_ready = true;
-
-        // CSS тільки для 100% ширини карток (скрол тепер працює сам)
-        var css = '<style>' +
-            '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
-            '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
-            '.my-youtube-style .card__img { object-fit: cover !important; }' +
-            '.my-youtube-style .card__title { white-space: normal !important; text-align: left !important; line-height: 1.4 !important; height: auto !important; padding-top: 10px !important; }' +
-            '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
-            '</style>';
-        $('body').append(css);
-
-        function CustomCatalog(object) {
-            var comp = new Lampa.InteractionCategory(object);
-            var network = new Lampa.Reguest();
-
-            comp.create = function () {
-                var _this = this;
-                this.activity.loader(true);
-
-                // ЗАМІНИ НА СВІЙ ДОМЕН
-                var url = 'https://w.porno365.gold/'; 
-
-                network.silent(url, function (htmlText) {
-                    var parser = new DOMParser();
-                    var doc = parser.parseFromString(htmlText, 'text/html');
-                    var elements = doc.querySelectorAll('li.video_block, li.trailer');
-                    var results = [];
-
-                    var baseUrlMatch = url.match(/^(https?:\/\/[^\/]+)/);
-                    var baseUrl = baseUrlMatch ? baseUrlMatch[1] : '';
-
-                    for (var i = 0; i < elements.length; i++) {
-                        var el = elements[i];
-                        var linkEl = el.querySelector('a.image');
-                        var titleEl = el.querySelector('a.image p, .title');
-                        var imgEl = el.querySelector('img'); 
-
-                        if (linkEl && titleEl) {
-                            var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
-                            if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
-
-                            var videoUrl = linkEl.getAttribute('href');
-                            if (videoUrl && videoUrl.indexOf('http') !== 0) {
-                                videoUrl = baseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
-                            }
-
-                            results.push({
-                                name: titleEl.innerText.trim(), 
-                                url: videoUrl,
-                                picture: imgSrc,
-                                background_image: imgSrc,
-                                img: imgSrc
-                            });
-                        }
+    }
                     }
 
                     if (results.length > 0) {
