@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    // Впроваджуємо спеціальні CSS-стилі для горизонтальних постерів (на всю ширину) та мобільного скролінгу
+    // Впроваджуємо спеціальні CSS-стилі для горизонтальних постерів (YouTube style), повних назв та мобільного скролінгу
     var customCss = `
     <style>
         /* Примусово вмикаємо нативний скрол пальцем для мобільних */
@@ -11,7 +11,7 @@
             touch-action: pan-y !important;
         }
         
-        /* Робимо список однією колонкою */
+        /* Робимо список однією колонкою (як на YouTube) */
         .custom-catalog-list {
             display: flex !important;
             flex-direction: column !important;
@@ -22,7 +22,7 @@
         .custom-catalog-list .card {
             width: 100% !important;
             height: auto !important;
-            margin-bottom: 20px !important;
+            margin-bottom: 25px !important;
             float: none !important;
             position: relative !important;
             padding: 0 !important;
@@ -46,7 +46,7 @@
             left: 0 !important;
         }
         
-        /* Гарний багаторядковий текст під постером */
+        /* Гарний багаторядковий текст під постером (повна назва) */
         .custom-catalog-list .card__title {
             white-space: normal !important;
             text-align: left !important;
@@ -65,6 +65,7 @@
     `;
     $('body').append(customCss);
 
+    // 1. ДОДАЄМО КНОПКУ В МЕНЮ LAMPA
     Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') {
             var myMenu = '<li class="menu__item selector" data-action="my_custom_catalog">' +
@@ -78,7 +79,8 @@
 
             $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
                 Lampa.Activity.push({
-                    url: 'https://w.porno365.gold/', // <--- Залиш одинарні лапки!
+                    // ЗАМІНИ НАСТУПНИЙ РЯДОК НА СВІЙ ДОМЕН (залиш одинарні лапки)
+                    url: 'https://w.porno365.gold/', 
                     title: 'Мій Каталог',
                     component: 'custom_catalog_comp',
                     page: 1
@@ -87,15 +89,16 @@
         }
     });
 
+    // 2. СТВОРЮЄМО КОМПОНЕНТ КАТАЛОГУ
     function CustomCatalog(object) {
-        var network = new Lampa.Reguest();
+        var network = new Lampa.Reguest(); 
         var scroll  = new Lampa.Scroll({ mask: true, over: true });
         var html    = $('<div></div>');
         var body    = $('<div class="category-full"></div>');
         var items   = [];
 
         this.create = function () {
-            // Додаємо наші класи для CSS
+            // Додаємо наші CSS-класи для мобільного скролінгу та YouTube-подібного вигляду
             html.addClass('custom-mobile-scroll');
             body.addClass('custom-catalog-list');
 
@@ -106,22 +109,27 @@
         };
 
         this.load = function () {
+            // Беремо прямий лінк без додавання сторінок
             var url = object.url; 
+            
             network.silent(url, this.parseHTML.bind(this), function () {
                 Lampa.Noty.show('Помилка завантаження сайту');
             }, false, { dataType: 'text' });
         };
 
+        // 3. ПАРСИНГ ГОЛОВНОЇ СТОРІНКИ (КАТАЛОГУ)
         this.parseHTML = function (responseText) {
             var parser = new DOMParser();
             var doc = parser.parseFromString(responseText, 'text/html');
             var results = [];
 
+            // Шукаємо блоки відео. Правильний клас взяті з твоїх скріншотів
             var elements = doc.querySelectorAll('li.video_block'); 
 
             elements.forEach(function(el) {
                 var linkEl = el.querySelector('a.image'); 
-                var imgEl = el.querySelector('div.tumba img');   
+                // ТУТ Я ВИПРАВИВ СЕЛЕКТОР! Тепер він шукає img всередині div, який лежить у a з класом image.
+                var imgEl = el.querySelector('.image div img');   
                 var titleEl = el.querySelector('a.image p');    
 
                 if (linkEl && imgEl && titleEl) {
@@ -142,20 +150,23 @@
             this.build(results);
         };
 
+        // 4. ПОБУДОВА КАРТОК ТА ЗАПУСК ПЛЕЄРА
         this.build = function (data) {
             if (data.length === 0) return Lampa.Noty.show('Нічого не знайдено');
 
             data.forEach(function (element) {
-                // Створюємо картку. card_category: false, бо ми самі повністю контролюємо вигляд
+                // Створюємо картку. card_category: false, бо ми самі повністю контролюємо вигляд за допомогою CSS
                 var card = new Lampa.Card(element, { card_category: false });
                 card.create();
                 
+                // ОБРОБКА КЛІКУ ПО КАРТЦІ
                 card.render().on('hover:enter', function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         var videoStreams = []; 
 
+                        // Крок 1: Шукаємо якості відео
                         var qualityLinks = doc.querySelectorAll('.quality_chooser a');
                         qualityLinks.forEach(function(link) {
                             var videoUrl = link.getAttribute('href');
@@ -165,6 +176,7 @@
                             }
                         });
 
+                        // Крок 2: Резервний варіант - шукаємо лінк у головній кнопці Play
                         if (videoStreams.length === 0) {
                             var mainPlayBtn = doc.querySelector('a.btn-play.play-video');
                             if (mainPlayBtn) {
@@ -173,15 +185,13 @@
                             }
                         }
 
+                        // Крок 3: Запуск плеєра Lampa
                         if (videoStreams.length > 0) {
-                            var bestQualityUrl = videoStreams[videoStreams.length - 1].url;
-
                             var playlist = [{
                                 title: element.title,
-                                url: bestQualityUrl, 
-                                quality: videoStreams 
+                                url: videoStreams[0].url,
+                                quality: videoStreams
                             }];
-                            
                             Lampa.Player.play(playlist[0]);
                             Lampa.Player.playlist(playlist);
                         } else {
@@ -194,23 +204,16 @@
                 items.push(card);
             });
 
+            // Навігація по сітці (керування пультом, на випадок, якщо відкриєш на ТВ)
             Lampa.Controller.add('content', {
                 toggle: function () {
                     Lampa.Controller.collectionSet(html);
                     Lampa.Controller.collectionFocus(items.length ? items[0].render()[0] : false, html);
                 },
-                left: function () { 
-                    if (Lampa.Controller.collectionFocus(false, html).left) Lampa.Controller.toggle('menu'); 
-                },
-                right: function () { 
-                    Lampa.Controller.collectionFocus(false, html).right; 
-                },
-                up: function () { 
-                    Lampa.Controller.collectionFocus(false, html).up; 
-                },
-                down: function () { 
-                    Lampa.Controller.collectionFocus(false, html).down; 
-                }
+                left: function () { if (Lampa.Controller.collectionFocus(false, html).left) Lampa.Controller.toggle('menu'); },
+                right: function () { Lampa.Controller.collectionFocus(false, html).right; },
+                up: function () { Lampa.Controller.collectionFocus(false, html).up; },
+                down: function () { Lampa.Controller.collectionFocus(false, html).down; }
             });
             Lampa.Controller.toggle('content');
         };
@@ -218,6 +221,7 @@
         this.render = function () { return html; };
         this.destroy = function () { network.clear(); scroll.destroy(); html.remove(); items = null; };
         
+        // 5. ДОДАНІ МЕТОДИ ЖИТТЄВОГО ЦИКЛУ (ЩОБ НЕ БУЛО ЗЕЛЕНОГО ЕКРАНУ)
         this.start = function () {};
         this.pause = function () {};
         this.stop = function () {};
