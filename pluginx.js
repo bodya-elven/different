@@ -88,13 +88,17 @@
             }
 
             function parseCardsLenkino(doc, siteBaseUrl) {
-                var elements = doc.querySelectorAll('.item');
+                var elements = doc.querySelectorAll('.grd-vid .item, #list_videos_videos_list_items .item');
+                if (elements.length === 0) {
+                    elements = doc.querySelectorAll('.item'); 
+                }
+                
                 var results = [];
                 for (var i = 0; i < elements.length; i++) {
                     var el = elements[i];
                     var linkEl = el.querySelector('a');
                     var titleEl = el.querySelector('.itm-tit');
-                    var imgEl = el.querySelector('img.lzy');
+                    var imgEl = el.querySelector('img.lzy') || el.querySelector('img');
                     var timeEl = el.querySelector('.itm-dur');
                     
                     if (linkEl && titleEl) {
