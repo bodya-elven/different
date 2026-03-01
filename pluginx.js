@@ -96,7 +96,7 @@
 
                     if (results.length > 0) {
                         // Важливо: передаємо номер сторінки для ініціалізації пагінації
-                        _this.build({ results: results, collection: true, page: 1 });
+                        _this.build({ results: results, collection: true, page: 1, next_page: true });
                         _this.render().addClass('my-youtube-style');
                     } else {
                         _this.empty();
