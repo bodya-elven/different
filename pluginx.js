@@ -3,7 +3,7 @@
 
     // ==========================================
     // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
-    var MY_CATALOG_DOMAIN = 'https://w.porno365.gold/'; 
+    var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
     // ==========================================
 
     function startPlugin() {
@@ -109,8 +109,72 @@
                 }, this.empty.bind(this), false, { dataType: 'text' });
             };
 
+            // НОВА ЛОГІКА: Підвантаження наступних сторінок
             comp.nextPageReuest = function (object, resolve, reject) {
-                resolve({ results: [] }); 
+                // Відключаємо пагінацію для "Схожих відео"
+                if (object.is_related) return reject();
+
+                var baseUrl = object.url || MY_CATALOG_DOMAIN;
+                
+                // Формуємо URL: Домен + (слеш, якщо його немає) + номер сторінки
+                var pageUrl = baseUrl + (baseUrl.endsWith('/') ? '' : '/') + object.page;
+
+                network.silent(pageUrl, function (htmlText) {
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(htmlText, 'text/html');
+                    
+                    var elements = doc.querySelectorAll('li.video_block, li.trailer');
+                    var results = [];
+
+                    var baseUrlMatch = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/);
+                    var siteBaseUrl = baseUrlMatch ? baseUrlMatch[1] : '';
+
+                    for (var i = 0; i < elements.length; i++) {
+                        var el = elements[i];
+                        var linkEl = el.querySelector('a.image');
+                        var titleEl = el.querySelector('a.image p, .title');
+                        var imgEl = el.querySelector('img'); 
+                        
+                        var timeEl = el.querySelector('.duration'); 
+                        var qualityEl = el.querySelector('.quality, .video-hd-mark, .hd-mark'); 
+
+                        if (linkEl && titleEl) {
+                            var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
+                            if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
+
+                            var videoUrl = linkEl.getAttribute('href');
+                            if (videoUrl && videoUrl.indexOf('http') !== 0) {
+                                videoUrl = siteBaseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
+                            }
+
+                            var rawTitle = titleEl.innerText.trim();
+                            var timeText = timeEl ? timeEl.innerText.trim() : '';
+                            var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
+
+                            var finalTitle = '';
+                            if (timeText) finalTitle += '[' + timeText + '] ';
+                            if (qualityText) finalTitle += '[' + qualityText + '] ';
+                            finalTitle += rawTitle;
+
+                            results.push({
+                                name: finalTitle, 
+                                url: videoUrl,
+                                picture: imgSrc,
+                                background_image: imgSrc,
+                                img: imgSrc
+                            });
+                        }
+                    }
+
+                    // Якщо відео знайдені, віддаємо їх Лампі. Якщо ні — зупиняємо підвантаження
+                    if (results.length > 0) {
+                        resolve({ results: results });
+                    } else {
+                        reject(); 
+                    }
+                }, function () {
+                    reject();
+                }, false, { dataType: 'text' });
             };
 
             comp.cardRender = function (card, element, events) {
@@ -153,7 +217,6 @@
                     }, false, false, { dataType: 'text' });
                 };
 
-                // ДОВГЕ НАТИСКАННЯ: Завантажуємо дані лише в момент виклику меню
                 events.onMenu = function () {
                     network.silent(element.url, function (htmlText) {
                         var parser = new DOMParser();
@@ -161,27 +224,21 @@
 
                         var menuItems = [];
 
-                        // 1. Моделі (Додаємо першими, лише їх імена)
                         var modelElements = doc.querySelectorAll('.video-categories.video-models a');
                         for (var m = 0; m < modelElements.length; m++) {
                             var mHref = modelElements[m].getAttribute('href');
                             var mText = modelElements[m].innerText.trim();
                             if (mHref && mText) {
                                 menuItems.push({ 
-                                    title: mText, // Без префікса "Модель:"
+                                    title: mText,
                                     action: 'direct_link', 
                                     url: mHref 
                                 });
                             }
                         }
 
-                        // 2. Категорії
                         menuItems.push({ title: 'Категорії', action: 'categories' });
-
-                        // 3. Теги
                         menuItems.push({ title: 'Теги', action: 'tags' });
-
-                        // 4. Схожі відео
                         menuItems.push({ title: 'Схожі відео', action: 'similar' });
 
                         Lampa.Select.show({
@@ -197,7 +254,6 @@
                                         is_related: true
                                     });
                                 } else if (a.action === 'direct_link') {
-                                    // Відкриваємо каталог моделі
                                     Lampa.Activity.push({
                                         url: a.url,
                                         title: a.title,
@@ -205,7 +261,6 @@
                                         page: 1
                                     });
                                 } else {
-                                    // Категорії або теги
                                     var selector = (a.action === 'categories') ? '.video-categories:not(.video-models) a' : '.video-tags a';
                                     var selectTitle = (a.action === 'categories') ? 'Категорії' : 'Теги';
                                     
@@ -232,7 +287,7 @@
                                                 });
                                             },
                                             onBack: function () {
-                                                events.onMenu(); // Повернення до головного списку дій
+                                                events.onMenu(); 
                                             }
                                         });
                                     } else {
