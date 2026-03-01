@@ -127,6 +127,10 @@
                             var link = qualityLinks[j];
                             if (link.getAttribute('href')) videoStreams.push({ title: link.innerText.trim() || 'Відео', url: link.getAttribute('href') });
                         }
+                        if (videoStreams.length === 0) {
+                            var playBtn = doc.querySelector('a.btn-play.play-video');
+                            if (playBtn && playBtn.getAttribute('href')) videoStreams.push({ title: 'Оригінал', url: playBtn.getAttribute('href') });
+                        }
                         if (videoStreams.length > 0) {
                             var best = videoStreams[videoStreams.length - 1];
                             Lampa.Player.play({ title: element.name, url: best.url, quality: videoStreams });
@@ -182,43 +186,46 @@
         Lampa.Component.add('pluginx_comp', CustomCatalog);
     }
 
-    function addMenu() {
-        if (window.pluginx_menu_added) return;
+    // Відновлює пункт, якщо його видалив інший плагін
+    function ensureMenuExists() {
         var menuList = $('.menu .menu__list').eq(0);
         if (menuList.length) {
-            var item = $('<li class="menu__item selector" data-action="pluginx" id="menu_pluginx">' +
-                         '<div class="menu__ico">' +
-                         '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" />' +
-                         '</div>' +
-                         '<div class="menu__text">Каталог Х</div>' +
-                         '</li>');
-            
-            item.on('hover:enter', function () {
-                Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
-            });
+            if (menuList.find('[data-action="pluginx"]').length === 0) {
+                var item = $('<li class="menu__item selector" data-action="pluginx" id="menu_pluginx">' +
+                             '<div class="menu__ico">' +
+                             '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" />' +
+                             '</div>' +
+                             '<div class="menu__text">Каталог Х</div>' +
+                             '</li>');
+                
+                item.on('hover:enter', function () {
+                    Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
+                });
 
-            var settings = menuList.find('[data-action="settings"]');
-            if (settings.length) item.insertBefore(settings);
-            else menuList.append(item);
+                var settings = menuList.find('[data-action="settings"]');
+                if (settings.length) item.insertBefore(settings);
+                else menuList.append(item);
 
-            window.pluginx_menu_added = true;
-            if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
+                if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
+            }
         }
     }
 
-    var menuCheck = setInterval(function() {
-        if (window.appready) {
-            addMenu();
-            startPlugin();
+    // БЕЗПЕЧНИЙ ЗАПУСК
+    var startInterval = setInterval(function() {
+        if (window.appready && window.Lampa && window.Lampa.Component && window.Lampa.InteractionCategory) {
+            clearInterval(startInterval); 
+            startPlugin(); 
+            
+            var checkCount = 0;
+            var menuWatcher = setInterval(function() {
+                ensureMenuExists();
+                checkCount++;
+                if (checkCount >= 10) { // Зупиняємо перевірку через 5 секунд (10 разів * 500 мс)
+                    clearInterval(menuWatcher);
+                }
+            }, 500); 
         }
-    }, 200);
-
-    Lampa.Listener.follow('app', function (e) {
-        if (e.type == 'ready') {
-            setTimeout(addMenu, 100);
-            setTimeout(addMenu, 1000);
-        }
-    });
+    }, 100);
 
 })();
-        
