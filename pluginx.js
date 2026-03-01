@@ -100,9 +100,7 @@
                 }, reject, false, { dataType: 'text' });
             };
 
-            // КОНТЕКСТНИЙ ФІЛЬТР
             comp.filter = function () {
-                // 1. Отримуємо чистий базовий URL (без параметрів сортування)
                 var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0];
                 var baseUrl = currentUrl
                     .replace(/\/popular\/week\/?$/, '')
@@ -114,7 +112,6 @@
                 
                 if (!baseUrl.endsWith('/')) baseUrl += '/';
 
-                // 2. Визначаємо поточний розділ
                 var isTagOrModel = baseUrl.indexOf('/tag') !== -1 || baseUrl.indexOf('/model') !== -1;
                 var isCategory = baseUrl.indexOf('/categor') !== -1 || baseUrl.indexOf('/cat/') !== -1;
 
@@ -138,7 +135,6 @@
                                 Lampa.Controller.toggle('content');
                             });
                         } else if (a.action === 'popular_menu') {
-                            // 3. Формуємо підменю залежно від розділу
                             var popularItems = [
                                 { title: 'За весь час', url: baseUrl + 'popular/' }
                             ];
@@ -147,7 +143,7 @@
                                 popularItems.push({ title: 'За місяць', url: baseUrl + 'popular/month/' });
                                 popularItems.push({ title: 'За рік', url: baseUrl + 'popular/year/' });
                                 
-                                if (!isCategory) { // Якщо це головна сторінка
+                                if (!isCategory) { 
                                     popularItems.push({ title: 'За тиждень', url: baseUrl + 'popular/week/' });
                                 }
                             }
@@ -244,10 +240,11 @@
 
         Lampa.Component.add('pluginx_comp', CustomCatalog);
 
-        // ВЕРХНЯ КНОПКА ФІЛЬТРА ТА ПОШУКУ
+        // ВЕРХНЯ КНОПКА ФІЛЬТРА ТА ПОШУКУ (ВИПРАВЛЕНО)
         (function() {
             var currentActivity;
-            var filterBtn = $('<div class="head__action selector">\n' +
+            var hideTimeout;
+            var filterBtn = $('<div class="head__action head__settings selector">\n' +
                 '            <svg height="36" viewBox="0 0 38 36" fill="none" xmlns="http://www.w3.org/2000/svg">\n' +
                 '                <rect x="1.5" y="1.5" width="35" height="33" rx="1.5" stroke="currentColor" stroke-width="3"></rect>\n' +
                 '                <rect x="7" y="8" width="24" height="3" rx="1.5" fill="currentColor"></rect>\n' +
@@ -259,11 +256,21 @@
                 '            </svg>\n' +
                 '        </div>');
 
-            filterBtn.hide().on('hover:enter', function() {
-                if (currentActivity && currentActivity.component) {
-                    var c = currentActivity.component;
-                    if (typeof c.filter === 'function') c.filter();
-                    else if (typeof c().filter === 'function') c().filter();
+            // Додано click для дотиків/миші і безпечний виклик
+            filterBtn.hide().on('hover:enter click', function() {
+                try {
+                    if (currentActivity) {
+                        var comp = currentActivity.activity ? currentActivity.activity.component : currentActivity.component;
+                        if (comp) {
+                            if (typeof comp.filter === 'function') {
+                                comp.filter();
+                            } else if (typeof comp === 'function' && comp() && typeof comp().filter === 'function') {
+                                comp().filter();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('Помилка виклику фільтра:', e);
                 }
             });
 
@@ -271,8 +278,20 @@
 
             Lampa.Listener.follow('activity', function(e) {
                 if (e.type == 'start') currentActivity = e.object;
-                if (e.component == 'pluginx_comp') filterBtn.show();
-                else filterBtn.hide();
+                
+                // Затримка перед приховуванням, як у xx.js
+                clearTimeout(hideTimeout);
+                hideTimeout = setTimeout(function() {
+                    if (currentActivity && currentActivity.component !== 'pluginx_comp') {
+                        filterBtn.hide();
+                        currentActivity = false;
+                    }
+                }, 1000);
+
+                if (e.type == 'start' && e.component == 'pluginx_comp') {
+                    filterBtn.show();
+                    currentActivity = e.object;
+                }
             });
         })();
     }
@@ -310,3 +329,4 @@
     }, 100);
 
 })();
+        
