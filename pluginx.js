@@ -41,7 +41,6 @@
             var comp = new Lampa.InteractionCategory(object);
             var network = new Lampa.Reguest();
 
-            // Звичайна функція парсингу
             function parseCards(doc, siteBaseUrl, isRelated) {
                 var selector = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
                 var elements = doc.querySelectorAll(selector);
@@ -77,6 +76,12 @@
                 return results;
             }
 
+            // Надійне отримання базового домену, щоб не було помилок match
+            function getBase(url) {
+                var m = (url || '').match(/^(https?:\/\/[^\/]+)/);
+                return m ? m[1] : url;
+            }
+
             comp.create = function () {
                 var _this = this;
                 this.activity.loader(true);
@@ -84,17 +89,20 @@
                 var url = object.url || MY_CATALOG_DOMAIN;
 
                 network.silent(url, function (htmlText) {
-                    var parser = new DOMParser();
-                    var doc = parser.parseFromString(htmlText, 'text/html');
-                    var siteBaseUrl = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
-                    var results = parseCards(doc, siteBaseUrl, object.is_related);
+                    try {
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(htmlText, 'text/html');
+                        var siteBaseUrl = getBase(MY_CATALOG_DOMAIN);
+                        var results = parseCards(doc, siteBaseUrl, object.is_related);
 
-                    if (results.length > 0) {
-                        // Точно як у xx.js: просто collection: true
-                        _this.build({ results: results, collection: true });
-                        _this.render().addClass('my-youtube-style');
-                    } else { 
-                        _this.empty(); 
+                        if (results.length > 0) {
+                            _this.build({ results: results, collection: true });
+                            _this.render().addClass('my-youtube-style');
+                        } else { 
+                            _this.empty(); 
+                        }
+                    } catch (e) {
+                        _this.empty(); // Тихий фейл замість червоного екрану
                     }
                 }, this.empty.bind(this), false, { dataType: 'text' });
             };
@@ -103,20 +111,22 @@
                 if (object.is_related) return reject();
                 
                 var baseUrl = object.url || MY_CATALOG_DOMAIN;
-                // Формуємо URL: домен + / + номер сторінки (який Лампа вже збільшила)
                 var pageUrl = baseUrl + (baseUrl.endsWith('/') ? '' : '/') + object.page;
 
                 network.silent(pageUrl, function (htmlText) {
-                    var parser = new DOMParser();
-                    var doc = parser.parseFromString(htmlText, 'text/html');
-                    var siteBaseUrl = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
-                    var results = parseCards(doc, siteBaseUrl, false);
-                    
-                    if (results.length > 0) {
-                        // Точно як у xx.js: передаємо масив безпосередньо в resolve
-                        resolve(results); 
-                    } else { 
-                        reject(); 
+                    try {
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(htmlText, 'text/html');
+                        var siteBaseUrl = getBase(MY_CATALOG_DOMAIN);
+                        var results = parseCards(doc, siteBaseUrl, false);
+                        
+                        if (results.length > 0) {
+                            resolve(results); // Передаємо масив, як у xx.js
+                        } else { 
+                            reject(); 
+                        }
+                    } catch (e) {
+                        reject();
                     }
                 }, reject, false, { dataType: 'text' });
             };
@@ -193,48 +203,44 @@
         Lampa.Component.add('pluginx_comp', CustomCatalog);
     }
 
-    // Додає пункт у меню, якщо його ще там немає
-    function ensureMenuExists() {
-        if (typeof $ === 'undefined') return; 
+    // Окрема легка функція для меню
+    function addMenu() {
         var menuList = $('.menu .menu__list').eq(0);
-        if (menuList.length) {
-            if (menuList.find('[data-action="pluginx"]').length === 0) {
-                var item = $('<li class="menu__item selector" data-action="pluginx" id="menu_pluginx">' +
-                             '<div class="menu__ico">' +
-                             '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" />' +
-                             '</div>' +
-                             '<div class="menu__text">Каталог Х</div>' +
-                             '</li>');
-                
-                item.on('hover:enter', function () {
-                    Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
-                });
+        if (menuList.length && menuList.find('[data-action="pluginx"]').length === 0) {
+            var item = $('<li class="menu__item selector" data-action="pluginx">' +
+                         '<div class="menu__ico">' +
+                         '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" />' +
+                         '</div>' +
+                         '<div class="menu__text">Каталог Х</div>' +
+                         '</li>');
+            
+            item.on('hover:enter', function () {
+                Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
+            });
 
-                var settings = menuList.find('[data-action="settings"]');
-                if (settings.length) item.insertBefore(settings);
-                else menuList.append(item);
+            var settings = menuList.find('[data-action="settings"]');
+            if (settings.length) item.insertBefore(settings);
+            else menuList.append(item);
 
-                if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
-            }
+            if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
         }
     }
 
-    // Запуск плагіна
-    var startInterval = setInterval(function() {
-        if (window.appready && window.Lampa && window.Lampa.Component && window.Lampa.InteractionCategory && typeof $ !== 'undefined') {
-            clearInterval(startInterval); 
-            startPlugin(); 
-            
-            var checkCount = 0;
-            var menuWatcher = setInterval(function() {
-                ensureMenuExists();
-                checkCount++;
-                if (checkCount >= 10) { 
-                    clearInterval(menuWatcher);
-                }
-            }, 500); 
-        }
-    }, 100);
+    // Класичний, швидкий метод запуску плагіна для Лампи
+    if (window.appready) {
+        startPlugin();
+        addMenu();
+    } else {
+        Lampa.Listener.follow('app', function (e) {
+            if (e.type == 'ready') {
+                startPlugin();
+                addMenu();
+                // Страховка від менеджера меню (перевіряє 3 рази і вимикається)
+                setTimeout(addMenu, 500);
+                setTimeout(addMenu, 1000);
+                setTimeout(addMenu, 2000);
+            }
+        });
+    }
 
 })();
-                                                                                           
