@@ -2,7 +2,7 @@
     'use strict';
 
     var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
-    var LENKINO_DOMAIN = 'https://wes.lenkino.adult';
+    var LENKINO_DOMAIN = 'https://mob.lenkino.love';
 
     function startPlugin() {
         if (window.pluginx_ready) return;
