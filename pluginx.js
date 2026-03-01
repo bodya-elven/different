@@ -49,9 +49,10 @@
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
                         var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
 
-                        // Тривалість відео тепер у кінці назви
-                        var finalTitle = rawTitle;
-                        if (qualityText) finalTitle = '[' + qualityText + '] ' + finalTitle;
+                        // Якість на початку, тривалість у кінці
+                        var finalTitle = '';
+                        if (qualityText) finalTitle += '[' + qualityText + '] ';
+                        finalTitle += rawTitle;
                         if (timeText) finalTitle += ' (' + timeText + ')';
 
                         results.push({
@@ -98,12 +99,12 @@
                     var results = parseCards(doc, siteBaseUrl, object.is_related);
 
                     if (results.length > 0) {
-                        // Логіка з xx.js: явно вказуємо початок пагінації
+                        // next_page: true активує слухач скролу в Лампі
                         _this.build({ 
                             results: results, 
                             collection: true, 
                             page: 1, 
-                            next_page: results.length > 0 
+                            next_page: true 
                         });
                         _this.render().addClass('my-youtube-style');
                     } else {
@@ -126,10 +127,9 @@
                     var results = parseCards(doc, siteBaseUrl, false);
 
                     if (results.length > 0) {
-                        // Передаємо результати та номер поточної сторінки
+                        // Передаємо нові результати і кажемо, що є ще
                         resolve({ 
                             results: results, 
-                            page: object.page,
                             next_page: true 
                         });
                     } else {
