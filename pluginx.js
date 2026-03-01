@@ -95,11 +95,10 @@
                         var results = parseCards(doc, siteBaseUrl, object.is_related);
 
                         if (results.length > 0) {
-                            // КЛЮЧ ДО ПАГІНАЦІЇ: total_pages
                             _this.build({ 
                                 results: results, 
                                 collection: true,
-                                total_pages: 30, // Примусово кажемо, що сторінок багато
+                                total_pages: 50, 
                                 page: 1
                             });
                             _this.render().addClass('my-youtube-style');
@@ -126,7 +125,6 @@
                         var results = parseCards(doc, siteBaseUrl, false);
                         
                         if (results.length > 0) {
-                            // КЛЮЧ ДО ПАГІНАЦІЇ: Повертаємо об'єкт з total_pages
                             resolve({
                                 results: results,
                                 collection: true,
@@ -134,6 +132,7 @@
                                 page: object.page
                             });
                         } else { 
+                            // Якщо результатів 0 (сторінки закінчились) - пагінація зупиняється
                             reject(); 
                         }
                     } catch (e) {
@@ -143,11 +142,10 @@
             };
 
             comp.cardRender = function (card, element, events) {
-                // Відкриття відео (тут ми робимо запит за якістю, це нормально)
+                
+                // Відкриття відео (напис прибрано)
                 events.onEnter = function () {
-                    var loading = Lampa.Noty.show('Завантаження відео...');
                     network.silent(element.url, function(videoPageHtml) {
-                        if(loading) loading.remove(); // Ховаємо сповіщення
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         var videoStreams = []; 
@@ -165,31 +163,54 @@
                             var best = videoStreams[videoStreams.length - 1];
                             Lampa.Player.play({ title: element.name, url: best.url, quality: videoStreams });
                             Lampa.Player.playlist([{ title: element.name, url: best.url, quality: videoStreams }]);
-                        } else {
-                            Lampa.Noty.show('Відео не знайдено');
                         }
-                    }, function() {
-                        if(loading) loading.remove();
-                        Lampa.Noty.show('Помилка з\'єднання');
-                    }, false, { dataType: 'text' });
+                    }, false, false, { dataType: 'text' });
                 };
 
-                // МИТТЄВЕ МЕНЮ: Без мережевих запитів
+                // Повноцінне меню з моделями, категоріями та тегами
                 events.onMenu = function () {
-                    var menuItems = [
-                        { title: 'Схожі відео', action: 'similar' }
-                    ];
+                    network.silent(element.url, function (htmlText) {
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(htmlText, 'text/html');
+                        var menuItems = [];
+                        
+                        // Парсимо моделей
+                        var modelElements = doc.querySelectorAll('.video-categories.video-models a');
+                        for (var m = 0; m < modelElements.length; m++) {
+                            menuItems.push({ title: modelElements[m].innerText.trim(), action: 'direct_link', url: modelElements[m].getAttribute('href') });
+                        }
+                        
+                        // Додаємо стандартні пункти
+                        menuItems.push({ title: 'Категорії', action: 'categories' }, { title: 'Теги', action: 'tags' }, { title: 'Схожі відео', action: 'similar' });
 
-                    Lampa.Select.show({
-                        title: 'Дії',
-                        items: menuItems,
-                        onSelect: function (a) {
-                            if (a.action === 'similar') {
-                                Lampa.Activity.push({ url: element.url, title: 'Схожі', component: 'pluginx_comp', page: 1, is_related: true });
-                            }
-                        },
-                        onBack: function () { Lampa.Controller.toggle('content'); }
-                    });
+                        Lampa.Select.show({
+                            title: 'Дії',
+                            items: menuItems,
+                            onSelect: function (a) {
+                                if (a.action === 'similar') {
+                                    Lampa.Activity.push({ url: element.url, title: 'Схожі', component: 'pluginx_comp', page: 1, is_related: true });
+                                } else if (a.action === 'direct_link') {
+                                    Lampa.Activity.push({ url: a.url, title: a.title, component: 'pluginx_comp', page: 1 });
+                                } else {
+                                    var selector = (a.action === 'categories') ? '.video-categories:not(.video-models) a' : '.video-tags a';
+                                    var subItems = [];
+                                    var subEls = doc.querySelectorAll(selector);
+                                    for (var i = 0; i < subEls.length; i++) {
+                                        if (subEls[i].getAttribute('href')) subItems.push({ title: subEls[i].innerText.trim(), url: subEls[i].getAttribute('href') });
+                                    }
+                                    if (subItems.length > 0) {
+                                        Lampa.Select.show({
+                                            title: a.action === 'categories' ? 'Категорії' : 'Теги',
+                                            items: subItems,
+                                            onSelect: function (item) { Lampa.Activity.push({ url: item.url, title: item.title, component: 'pluginx_comp', page: 1 }); },
+                                            onBack: function () { events.onMenu(); }
+                                        });
+                                    }
+                                }
+                            },
+                            onBack: function () { Lampa.Controller.toggle('content'); }
+                        });
+                    }, null, false, { dataType: 'text' });
                 };
             };
             return comp;
@@ -237,3 +258,4 @@
     }
 
 })();
+                                            
