@@ -23,13 +23,56 @@
             var comp = new Lampa.InteractionCategory(object);
             var network = new Lampa.Reguest();
 
+            // Функція для парсингу карток (винесена окремо для повторного використання)
+            function parseCards(doc, siteBaseUrl, isRelated) {
+                var selector = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
+                var elements = doc.querySelectorAll(selector);
+                var results = [];
+
+                for (var i = 0; i < elements.length; i++) {
+                    var el = elements[i];
+                    var linkEl = el.querySelector('a.image');
+                    var titleEl = el.querySelector('a.image p, .title');
+                    var imgEl = el.querySelector('img'); 
+                    var timeEl = el.querySelector('.duration'); 
+                    var qualityEl = el.querySelector('.quality, .video-hd-mark, .hd-mark'); 
+
+                    if (linkEl && titleEl) {
+                        var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
+                        if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
+
+                        var videoUrl = linkEl.getAttribute('href');
+                        if (videoUrl && videoUrl.indexOf('http') !== 0) {
+                            videoUrl = siteBaseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
+                        }
+
+                        var rawTitle = titleEl.innerText.trim();
+                        var timeText = timeEl ? timeEl.innerText.trim() : '';
+                        var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
+
+                        var finalTitle = '';
+                        if (timeText) finalTitle += '[' + timeText + '] ';
+                        if (qualityText) finalTitle += '[' + qualityText + '] ';
+                        finalTitle += rawTitle;
+
+                        results.push({
+                            name: finalTitle, 
+                            url: videoUrl,
+                            picture: imgSrc,
+                            background_image: imgSrc,
+                            img: imgSrc
+                        });
+                    }
+                }
+                return results;
+            }
+
             comp.filter = function () {
                 var filter_items = [
                     { title: 'Нові', url: MY_CATALOG_DOMAIN + '/' },
                     { title: 'Популярні', url: MY_CATALOG_DOMAIN + '/popular/' }, 
                     { title: 'Найкращі', url: MY_CATALOG_DOMAIN + '/top/' }
                 ];
-
                 Lampa.Select.show({
                     title: 'Фільтр / Сортування',
                     items: filter_items,
@@ -39,66 +82,19 @@
                         comp.activity.loader(true);
                         comp.create();
                     },
-                    onBack: function () {
-                        Lampa.Controller.toggle('content');
-                    }
+                    onBack: function () { Lampa.Controller.toggle('content'); }
                 });
             };
 
             comp.create = function () {
                 var _this = this;
                 this.activity.loader(true);
-
                 var url = object.url || MY_CATALOG_DOMAIN; 
-                var isRelated = object.is_related || false;
-
                 network.silent(url, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
-                    
-                    var selector = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
-                    var elements = doc.querySelectorAll(selector);
-                    var results = [];
-
-                    var baseUrlMatch = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/);
-                    var baseUrl = baseUrlMatch ? baseUrlMatch[1] : '';
-
-                    for (var i = 0; i < elements.length; i++) {
-                        var el = elements[i];
-                        var linkEl = el.querySelector('a.image');
-                        var titleEl = el.querySelector('a.image p, .title');
-                        var imgEl = el.querySelector('img'); 
-                        
-                        var timeEl = el.querySelector('.duration'); 
-                        var qualityEl = el.querySelector('.quality, .video-hd-mark, .hd-mark'); 
-
-                        if (linkEl && titleEl) {
-                            var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
-                            if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
-
-                            var videoUrl = linkEl.getAttribute('href');
-                            if (videoUrl && videoUrl.indexOf('http') !== 0) {
-                                videoUrl = baseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
-                            }
-
-                            var rawTitle = titleEl.innerText.trim();
-                            var timeText = timeEl ? timeEl.innerText.trim() : '';
-                            var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
-
-                            var finalTitle = '';
-                            if (timeText) finalTitle += '[' + timeText + '] ';
-                            if (qualityText) finalTitle += '[' + qualityText + '] ';
-                            finalTitle += rawTitle;
-
-                            results.push({
-                                name: finalTitle, 
-                                url: videoUrl,
-                                picture: imgSrc,
-                                background_image: imgSrc,
-                                img: imgSrc
-                            });
-                        }
-                    }
+                    var siteBaseUrl = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
+                    var results = parseCards(doc, siteBaseUrl, object.is_related);
 
                     if (results.length > 0) {
                         _this.build({ results: results, collection: true });
@@ -109,72 +105,23 @@
                 }, this.empty.bind(this), false, { dataType: 'text' });
             };
 
-            // НОВА ЛОГІКА: Підвантаження наступних сторінок
             comp.nextPageReuest = function (object, resolve, reject) {
-                // Відключаємо пагінацію для "Схожих відео"
                 if (object.is_related) return reject();
-
                 var baseUrl = object.url || MY_CATALOG_DOMAIN;
-                
-                // Формуємо URL: Домен + (слеш, якщо його немає) + номер сторінки
+                // Нова логіка пагінації: домен/номер
                 var pageUrl = baseUrl + (baseUrl.endsWith('/') ? '' : '/') + object.page;
+                
+                Lampa.Noty.show('Завантаження сторінки: ' + object.page); // Діагностика
 
                 network.silent(pageUrl, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
-                    
-                    var elements = doc.querySelectorAll('li.video_block, li.trailer');
-                    var results = [];
+                    var siteBaseUrl = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
+                    var results = parseCards(doc, siteBaseUrl, false);
 
-                    var baseUrlMatch = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/);
-                    var siteBaseUrl = baseUrlMatch ? baseUrlMatch[1] : '';
-
-                    for (var i = 0; i < elements.length; i++) {
-                        var el = elements[i];
-                        var linkEl = el.querySelector('a.image');
-                        var titleEl = el.querySelector('a.image p, .title');
-                        var imgEl = el.querySelector('img'); 
-                        
-                        var timeEl = el.querySelector('.duration'); 
-                        var qualityEl = el.querySelector('.quality, .video-hd-mark, .hd-mark'); 
-
-                        if (linkEl && titleEl) {
-                            var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
-                            if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
-
-                            var videoUrl = linkEl.getAttribute('href');
-                            if (videoUrl && videoUrl.indexOf('http') !== 0) {
-                                videoUrl = siteBaseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
-                            }
-
-                            var rawTitle = titleEl.innerText.trim();
-                            var timeText = timeEl ? timeEl.innerText.trim() : '';
-                            var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
-
-                            var finalTitle = '';
-                            if (timeText) finalTitle += '[' + timeText + '] ';
-                            if (qualityText) finalTitle += '[' + qualityText + '] ';
-                            finalTitle += rawTitle;
-
-                            results.push({
-                                name: finalTitle, 
-                                url: videoUrl,
-                                picture: imgSrc,
-                                background_image: imgSrc,
-                                img: imgSrc
-                            });
-                        }
-                    }
-
-                    // Якщо відео знайдені, віддаємо їх Лампі. Якщо ні — зупиняємо підвантаження
-                    if (results.length > 0) {
-                        resolve({ results: results });
-                    } else {
-                        reject(); 
-                    }
-                }, function () {
-                    reject();
-                }, false, { dataType: 'text' });
+                    if (results.length > 0) resolve({ results: results });
+                    else reject();
+                }, reject, false, { dataType: 'text' });
             };
 
             comp.cardRender = function (card, element, events) {
@@ -183,36 +130,21 @@
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         var videoStreams = []; 
-
                         var qualityLinks = doc.querySelectorAll('.quality_chooser a');
                         for (var j = 0; j < qualityLinks.length; j++) {
                             var link = qualityLinks[j];
                             var vUrl = link.getAttribute('href');
                             var qName = link.innerText.trim() || link.getAttribute('data-quality');
-                            if (vUrl) {
-                                videoStreams.push({ title: qName || 'Відео', url: vUrl });
-                            }
+                            if (vUrl) videoStreams.push({ title: qName || 'Відео', url: vUrl });
                         }
-
                         if (videoStreams.length === 0) {
                             var playBtn = doc.querySelector('a.btn-play.play-video');
-                            if (playBtn && playBtn.getAttribute('href')) {
-                                videoStreams.push({ title: 'Оригінал', url: playBtn.getAttribute('href') });
-                            }
+                            if (playBtn && playBtn.getAttribute('href')) videoStreams.push({ title: 'Оригінал', url: playBtn.getAttribute('href') });
                         }
-
                         if (videoStreams.length > 0) {
                             var best = videoStreams[videoStreams.length - 1];
-                            Lampa.Player.play({
-                                title: element.name,
-                                url: best.url,
-                                quality: videoStreams
-                            });
-                            Lampa.Player.playlist([{
-                                title: element.name,
-                                url: best.url,
-                                quality: videoStreams
-                            }]);
+                            Lampa.Player.play({ title: element.name, url: best.url, quality: videoStreams });
+                            Lampa.Player.playlist([{ title: element.name, url: best.url, quality: videoStreams }]);
                         }
                     }, false, false, { dataType: 'text' });
                 };
@@ -221,116 +153,57 @@
                     network.silent(element.url, function (htmlText) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(htmlText, 'text/html');
-
                         var menuItems = [];
-
                         var modelElements = doc.querySelectorAll('.video-categories.video-models a');
                         for (var m = 0; m < modelElements.length; m++) {
                             var mHref = modelElements[m].getAttribute('href');
                             var mText = modelElements[m].innerText.trim();
-                            if (mHref && mText) {
-                                menuItems.push({ 
-                                    title: mText,
-                                    action: 'direct_link', 
-                                    url: mHref 
-                                });
-                            }
+                            if (mHref && mText) menuItems.push({ title: mText, action: 'direct_link', url: mHref });
                         }
-
-                        menuItems.push({ title: 'Категорії', action: 'categories' });
-                        menuItems.push({ title: 'Теги', action: 'tags' });
-                        menuItems.push({ title: 'Схожі відео', action: 'similar' });
+                        menuItems.push({ title: 'Категорії', action: 'categories' }, { title: 'Теги', action: 'tags' }, { title: 'Схожі відео', action: 'similar' });
 
                         Lampa.Select.show({
                             title: 'Дії',
                             items: menuItems,
                             onSelect: function (a) {
                                 if (a.action === 'similar') {
-                                    Lampa.Activity.push({
-                                        url: element.url,
-                                        title: 'Схожі',
-                                        component: 'pluginx_comp',
-                                        page: 1,
-                                        is_related: true
-                                    });
+                                    Lampa.Activity.push({ url: element.url, title: 'Схожі', component: 'pluginx_comp', page: 1, is_related: true });
                                 } else if (a.action === 'direct_link') {
-                                    Lampa.Activity.push({
-                                        url: a.url,
-                                        title: a.title,
-                                        component: 'pluginx_comp',
-                                        page: 1
-                                    });
+                                    Lampa.Activity.push({ url: a.url, title: a.title, component: 'pluginx_comp', page: 1 });
                                 } else {
                                     var selector = (a.action === 'categories') ? '.video-categories:not(.video-models) a' : '.video-tags a';
-                                    var selectTitle = (a.action === 'categories') ? 'Категорії' : 'Теги';
-                                    
                                     var subItems = [];
                                     var subEls = doc.querySelectorAll(selector);
                                     for (var i = 0; i < subEls.length; i++) {
-                                        var sHref = subEls[i].getAttribute('href');
-                                        var sText = subEls[i].innerText.trim();
-                                        if (sHref && sText) {
-                                            subItems.push({ title: sText, url: sHref });
-                                        }
+                                        if (subEls[i].getAttribute('href')) subItems.push({ title: subEls[i].innerText.trim(), url: subEls[i].getAttribute('href') });
                                     }
-
                                     if (subItems.length > 0) {
                                         Lampa.Select.show({
-                                            title: selectTitle,
+                                            title: a.action === 'categories' ? 'Категорії' : 'Теги',
                                             items: subItems,
-                                            onSelect: function (item) {
-                                                Lampa.Activity.push({
-                                                    url: item.url,
-                                                    title: item.title,
-                                                    component: 'pluginx_comp',
-                                                    page: 1
-                                                });
-                                            },
-                                            onBack: function () {
-                                                events.onMenu(); 
-                                            }
+                                            onSelect: function (item) { Lampa.Activity.push({ url: item.url, title: item.title, component: 'pluginx_comp', page: 1 }); },
+                                            onBack: function () { events.onMenu(); }
                                         });
-                                    } else {
-                                        Lampa.Noty.show('Нічого не знайдено');
                                     }
                                 }
                             },
-                            onBack: function () {
-                                Lampa.Controller.toggle('content');
-                            }
+                            onBack: function () { Lampa.Controller.toggle('content'); }
                         });
-                    }, function() {
-                        Lampa.Noty.show('Помилка завантаження даних');
-                    }, false, { dataType: 'text' });
+                    }, null, false, { dataType: 'text' });
                 };
             };
-
             return comp;
         }
 
         Lampa.Component.add('pluginx_comp', CustomCatalog);
-
         function addMenu() {
             var menuList = $('.menu .menu__list').eq(0);
-            if (!menuList.length) return;
-            if (menuList.find('[data-action="pluginx"]').length === 0) {
-                var myMenu = '<li class="menu__item selector" data-action="pluginx">' +
-                             '<div class="menu__ico">' +
-                             '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="object-fit: contain; filter: brightness(0) invert(1);" />' +
-                             '</div>' +
-                             '<div class="menu__text">Каталог Х</div>' +
-                             '</li>';
-                menuList.append(myMenu);
-                $('.menu__item[data-action="pluginx"]').on('hover:enter', function () {
-                    Lampa.Activity.push({
-                        title: 'Каталог Х',
-                        component: 'pluginx_comp',
-                        page: 1
-                    });
-                });
-            }
+            if (!menuList.length || menuList.find('[data-action="pluginx"]').length) return;
+            menuList.append('<li class="menu__item selector" data-action="pluginx"><div class="menu__ico"><img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" /></div><div class="menu__text">Каталог Х</div></li>');
+            $('.menu__item[data-action="pluginx"]').on('hover:enter', function () {
+                Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
+            });
         }
-
         addMenu();
     }
 
@@ -340,5 +213,5 @@
             startPlugin();
         }
     }, 100);
-
 })();
+                                
