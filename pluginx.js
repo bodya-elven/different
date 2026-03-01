@@ -2,7 +2,7 @@
     'use strict';
 
     // ==========================================
-    // ВСТАВТЕ ВАШ ДОМЕН ТУТ (обов'язково з https://):
+    // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
     var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
     // ==========================================
 
@@ -45,28 +45,21 @@
                 var selector = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
                 var elements = doc.querySelectorAll(selector);
                 var results = [];
-
                 for (var i = 0; i < elements.length; i++) {
                     var el = elements[i];
                     var linkEl = el.querySelector('a.image');
                     var titleEl = el.querySelector('a.image p, .title');
                     var imgEl = el.querySelector('img'); 
                     var timeEl = el.querySelector('.duration'); 
-
                     if (linkEl && titleEl) {
                         var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
                         if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
-
                         var videoUrl = linkEl.getAttribute('href');
                         if (videoUrl && videoUrl.indexOf('http') !== 0) {
                             videoUrl = siteBaseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
                         }
-
-                        var rawTitle = titleEl.innerText.trim();
-                        var timeText = timeEl ? timeEl.innerText.trim() : '';
-
                         results.push({
-                            name: rawTitle + (timeText ? ' (' + timeText + ')' : ''), 
+                            name: titleEl.innerText.trim() + (timeEl ? ' (' + timeEl.innerText.trim() + ')' : ''), 
                             url: videoUrl,
                             picture: imgSrc,
                             img: imgSrc
@@ -76,81 +69,120 @@
                 return results;
             }
 
-            function getBase(url) {
-                var m = (url || '').match(/^(https?:\/\/[^\/]+)/);
-                return m ? m[1] : url;
-            }
-
             comp.create = function () {
                 var _this = this;
                 this.activity.loader(true);
-                
-                var url = object.url || MY_CATALOG_DOMAIN;
-
-                network.silent(url, function (htmlText) {
-                    try {
-                        var parser = new DOMParser();
-                        var doc = parser.parseFromString(htmlText, 'text/html');
-                        var siteBaseUrl = getBase(MY_CATALOG_DOMAIN);
-                        var results = parseCards(doc, siteBaseUrl, object.is_related);
-
-                        if (results.length > 0) {
-                            _this.build({ 
-                                results: results, 
-                                collection: true,
-                                total_pages: 50, 
-                                page: 1
-                            });
-                            _this.render().addClass('my-youtube-style');
-                        } else { 
-                            _this.empty(); 
-                        }
-                    } catch (e) {
-                        _this.empty(); 
-                    }
+                network.silent(object.url || MY_CATALOG_DOMAIN, function (htmlText) {
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(htmlText, 'text/html');
+                    var siteBase = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
+                    var results = parseCards(doc, siteBase, object.is_related);
+                    if (results.length > 0) {
+                        _this.build({ results: results, collection: true, total_pages: 50, page: 1 });
+                        _this.render().addClass('my-youtube-style');
+                    } else { _this.empty(); }
                 }, this.empty.bind(this), false, { dataType: 'text' });
             };
 
             comp.nextPageReuest = function (object, resolve, reject) {
                 if (object.is_related) return reject();
-                
                 var baseUrl = object.url || MY_CATALOG_DOMAIN;
-                var pageUrl = baseUrl + (baseUrl.endsWith('/') ? '' : '/') + object.page;
-
+                var separator = baseUrl.indexOf('?') !== -1 ? '&' : '/';
+                var pageUrl = baseUrl + (baseUrl.endsWith('/') ? '' : separator) + object.page;
+                
                 network.silent(pageUrl, function (htmlText) {
-                    try {
-                        var parser = new DOMParser();
-                        var doc = parser.parseFromString(htmlText, 'text/html');
-                        var siteBaseUrl = getBase(MY_CATALOG_DOMAIN);
-                        var results = parseCards(doc, siteBaseUrl, false);
-                        
-                        if (results.length > 0) {
-                            resolve({
-                                results: results,
-                                collection: true,
-                                total_pages: 30,
-                                page: object.page
-                            });
-                        } else { 
-                            // Якщо результатів 0 (сторінки закінчились) - пагінація зупиняється
-                            reject(); 
-                        }
-                    } catch (e) {
-                        reject();
-                    }
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(htmlText, 'text/html');
+                    var siteBase = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
+                    var results = parseCards(doc, siteBase, false);
+                    if (results.length > 0) resolve({ results: results, collection: true, total_pages: 50, page: object.page });
+                    else reject();
                 }, reject, false, { dataType: 'text' });
             };
 
-            comp.cardRender = function (card, element, events) {
+            // КОНТЕКСТНИЙ ФІЛЬТР
+            comp.filter = function () {
+                // 1. Отримуємо чистий базовий URL (без параметрів сортування)
+                var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0];
+                var baseUrl = currentUrl
+                    .replace(/\/popular\/week\/?$/, '')
+                    .replace(/\/popular\/month\/?$/, '')
+                    .replace(/\/popular\/year\/?$/, '')
+                    .replace(/\/popular\/?$/, '')
+                    .replace(/\/toprated\/?$/, '')
+                    .replace(/\/top\/?$/, '');
                 
-                // Відкриття відео (напис прибрано)
+                if (!baseUrl.endsWith('/')) baseUrl += '/';
+
+                // 2. Визначаємо поточний розділ
+                var isTagOrModel = baseUrl.indexOf('/tag') !== -1 || baseUrl.indexOf('/model') !== -1;
+                var isCategory = baseUrl.indexOf('/categor') !== -1 || baseUrl.indexOf('/cat/') !== -1;
+
+                var filter_items = [
+                    { title: '🔍 Пошук', action: 'search' },
+                    { title: 'Нові', url: baseUrl },
+                    { title: 'Топ рейтингу', url: baseUrl + 'toprated/' },
+                    { title: 'Топ переглядів', action: 'popular_menu' }
+                ];
+
+                Lampa.Select.show({
+                    title: 'Сортування',
+                    items: filter_items,
+                    onSelect: function (a) {
+                        if (a.action === 'search') {
+                            Lampa.Input.edit({ title: 'Пошук', value: '', free: true, nosave: true }, function(value) {
+                                if (value) {
+                                    var searchUrl = MY_CATALOG_DOMAIN + '/search/?q=' + encodeURIComponent(value);
+                                    Lampa.Activity.push({ url: searchUrl, title: 'Пошук: ' + value, component: 'pluginx_comp', page: 1 });
+                                }
+                                Lampa.Controller.toggle('content');
+                            });
+                        } else if (a.action === 'popular_menu') {
+                            // 3. Формуємо підменю залежно від розділу
+                            var popularItems = [
+                                { title: 'За весь час', url: baseUrl + 'popular/' }
+                            ];
+                            
+                            if (!isTagOrModel) {
+                                popularItems.push({ title: 'За місяць', url: baseUrl + 'popular/month/' });
+                                popularItems.push({ title: 'За рік', url: baseUrl + 'popular/year/' });
+                                
+                                if (!isCategory) { // Якщо це головна сторінка
+                                    popularItems.push({ title: 'За тиждень', url: baseUrl + 'popular/week/' });
+                                }
+                            }
+
+                            Lampa.Select.show({
+                                title: 'Топ переглядів',
+                                items: popularItems,
+                                onSelect: function(sub) {
+                                    object.url = sub.url;
+                                    object.page = 1;
+                                    comp.empty();
+                                    comp.activity.loader(true);
+                                    comp.create();
+                                },
+                                onBack: function() { comp.filter(); }
+                            });
+                        } else {
+                            object.url = a.url;
+                            object.page = 1;
+                            comp.empty();
+                            comp.activity.loader(true);
+                            comp.create();
+                        }
+                    },
+                    onBack: function () { Lampa.Controller.toggle('content'); }
+                });
+            };
+
+            comp.cardRender = function (card, element, events) {
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(videoPageHtml, 'text/html');
                         var videoStreams = []; 
                         var qualityLinks = doc.querySelectorAll('.quality_chooser a');
-                        
                         for (var j = 0; j < qualityLinks.length; j++) {
                             var link = qualityLinks[j];
                             if (link.getAttribute('href')) videoStreams.push({ title: link.innerText.trim() || 'Відео', url: link.getAttribute('href') });
@@ -167,22 +199,16 @@
                     }, false, false, { dataType: 'text' });
                 };
 
-                // Повноцінне меню з моделями, категоріями та тегами
                 events.onMenu = function () {
                     network.silent(element.url, function (htmlText) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(htmlText, 'text/html');
                         var menuItems = [];
-                        
-                        // Парсимо моделей
                         var modelElements = doc.querySelectorAll('.video-categories.video-models a');
                         for (var m = 0; m < modelElements.length; m++) {
                             menuItems.push({ title: modelElements[m].innerText.trim(), action: 'direct_link', url: modelElements[m].getAttribute('href') });
                         }
-                        
-                        // Додаємо стандартні пункти
                         menuItems.push({ title: 'Категорії', action: 'categories' }, { title: 'Теги', action: 'tags' }, { title: 'Схожі відео', action: 'similar' });
-
                         Lampa.Select.show({
                             title: 'Дії',
                             items: menuItems,
@@ -217,45 +243,70 @@
         }
 
         Lampa.Component.add('pluginx_comp', CustomCatalog);
+
+        // ВЕРХНЯ КНОПКА ФІЛЬТРА ТА ПОШУКУ
+        (function() {
+            var currentActivity;
+            var filterBtn = $('<div class="head__action selector">\n' +
+                '            <svg height="36" viewBox="0 0 38 36" fill="none" xmlns="http://www.w3.org/2000/svg">\n' +
+                '                <rect x="1.5" y="1.5" width="35" height="33" rx="1.5" stroke="currentColor" stroke-width="3"></rect>\n' +
+                '                <rect x="7" y="8" width="24" height="3" rx="1.5" fill="currentColor"></rect>\n' +
+                '                <rect x="7" y="16" width="24" height="3" rx="1.5" fill="currentColor"></rect>\n' +
+                '                <rect x="7" y="25" width="24" height="3" rx="1.5" fill="currentColor"></rect>\n' +
+                '                <circle cx="13.5" cy="17.5" r="3.5" fill="currentColor"></circle>\n' +
+                '                <circle cx="23.5" cy="26.5" r="3.5" fill="currentColor"></circle>\n' +
+                '                <circle cx="21.5" cy="9.5" r="3.5" fill="currentColor"></circle>\n' +
+                '            </svg>\n' +
+                '        </div>');
+
+            filterBtn.hide().on('hover:enter', function() {
+                if (currentActivity && currentActivity.component) {
+                    var c = currentActivity.component;
+                    if (typeof c.filter === 'function') c.filter();
+                    else if (typeof c().filter === 'function') c().filter();
+                }
+            });
+
+            $('.head .open--search').after(filterBtn);
+
+            Lampa.Listener.follow('activity', function(e) {
+                if (e.type == 'start') currentActivity = e.object;
+                if (e.component == 'pluginx_comp') filterBtn.show();
+                else filterBtn.hide();
+            });
+        })();
     }
 
-    // Додавання меню (безпечне, з перевірками)
     function addMenu() {
         var menuList = $('.menu .menu__list').eq(0);
         if (menuList.length && menuList.find('[data-action="pluginx"]').length === 0) {
-            var item = $('<li class="menu__item selector" data-action="pluginx">' +
+            var item = $('<li class="menu__item selector" data-action="pluginx" id="menu_pluginx">' +
                          '<div class="menu__ico">' +
                          '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" />' +
                          '</div>' +
                          '<div class="menu__text">Каталог Х</div>' +
                          '</li>');
-            
             item.on('hover:enter', function () {
                 Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
             });
-
             var settings = menuList.find('[data-action="settings"]');
             if (settings.length) item.insertBefore(settings);
             else menuList.append(item);
-
             if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
         }
     }
 
-    if (window.appready) {
-        startPlugin();
-        addMenu();
-    } else {
-        Lampa.Listener.follow('app', function (e) {
-            if (e.type == 'ready') {
-                startPlugin();
+    var startInterval = setInterval(function() {
+        if (window.appready && window.Lampa && window.Lampa.Component && window.Lampa.InteractionCategory && typeof $ !== 'undefined') {
+            clearInterval(startInterval); 
+            startPlugin(); 
+            var checkCount = 0;
+            var menuWatcher = setInterval(function() {
                 addMenu();
-                setTimeout(addMenu, 500);
-                setTimeout(addMenu, 1000);
-                setTimeout(addMenu, 2000);
-            }
-        });
-    }
+                checkCount++;
+                if (checkCount >= 10) clearInterval(menuWatcher);
+            }, 500); 
+        }
+    }, 100);
 
 })();
-                                            
