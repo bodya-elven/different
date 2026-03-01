@@ -35,6 +35,23 @@
             '</style>';
         $('body').append(css);
 
+        var previewTimeout;
+        var activePreviewNode;
+
+        function hidePreview() {
+            clearTimeout(previewTimeout);
+            if (activePreviewNode) {
+                var vid = activePreviewNode.find('video')[0];
+                if (vid) {
+                    try { vid.pause(); } catch(e) {}
+                    vid.removeAttribute('src');
+                    vid.load();
+                }
+                activePreviewNode.remove();
+                activePreviewNode = null;
+            }
+        }
+
         function CustomCatalog(object) {
             var comp = new Lampa.InteractionCategory(object);
             var currentSite = object.site || 'porno365';
@@ -69,6 +86,8 @@
                     var titleEl = el.querySelector('a.image p, .title');
                     var imgEl = el.querySelector('img'); 
                     var timeEl = el.querySelector('.duration'); 
+                    var videoPreviewEl = el.querySelector('video'); 
+                    
                     if (linkEl && titleEl) {
                         var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
                         if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
@@ -76,11 +95,15 @@
                         if (videoUrl && videoUrl.indexOf('http') !== 0) {
                             videoUrl = siteBaseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
                         }
+                        var previewUrl = videoPreviewEl ? videoPreviewEl.getAttribute('src') : '';
+                        if (previewUrl && previewUrl.indexOf('//') === 0) previewUrl = 'https:' + previewUrl;
+
                         results.push({
                             name: titleEl.innerText.trim() + (timeEl ? ' (' + timeEl.innerText.trim() + ')' : ''), 
                             url: videoUrl,
                             picture: imgSrc,
-                            img: imgSrc
+                            img: imgSrc,
+                            preview: previewUrl
                         });
                     }
                 }
@@ -91,9 +114,7 @@
                 var listBlock = doc.querySelector('#list_videos_videos_list');
                 var elements = listBlock ? listBlock.querySelectorAll('.item') : doc.querySelectorAll('.grd-vid .item, #list_videos_videos_list_items .item');
                 
-                if (elements.length === 0) {
-                    elements = doc.querySelectorAll('.item'); 
-                }
+                if (elements.length === 0) elements = doc.querySelectorAll('.item'); 
                 
                 var results = [];
                 for (var i = 0; i < elements.length; i++) {
@@ -112,26 +133,28 @@
                         if (videoUrl && videoUrl.indexOf('http') !== 0) {
                             videoUrl = siteBaseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
                         }
+
+                        var previewUrl = imgEl ? (imgEl.getAttribute('data-preview') || '') : '';
+                        if (previewUrl && previewUrl.indexOf('//') === 0) previewUrl = 'https:' + previewUrl;
+                        else if (previewUrl && previewUrl.indexOf('/') === 0) previewUrl = siteBaseUrl + previewUrl;
                         
                         results.push({
                             name: titleEl.innerText.trim() + (timeEl ? ' (' + timeEl.innerText.trim() + ')' : ''), 
                             url: videoUrl,
                             picture: imgSrc,
-                            img: imgSrc
+                            img: imgSrc,
+                            preview: previewUrl
                         });
                     }
                 }
                 return results;
             }
-
             comp.create = function () {
                 var _this = this;
                 this.activity.loader(true);
                 
                 var targetUrl = object.url;
-                if (!targetUrl) {
-                    targetUrl = currentSite === 'lenkino' ? LENKINO_DOMAIN : MY_CATALOG_DOMAIN;
-                }
+                if (!targetUrl) targetUrl = currentSite === 'lenkino' ? LENKINO_DOMAIN : MY_CATALOG_DOMAIN;
 
                 if (currentSite === 'lenkino') {
                     targetUrl = targetUrl.replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
@@ -157,6 +180,7 @@
                     } else { _this.empty(); }
                 }, this.empty.bind(this));
             };
+
             comp.nextPageReuest = function (object, resolve, reject) {
                 if (object.is_related) return reject();
                 
@@ -197,6 +221,7 @@
                         var lFilterItems = [
                             { title: 'Пошук', action: 'search' },
                             { title: 'Категорії', action: 'categories' },
+                            { title: 'Студії', action: 'studios' },
                             { title: 'Нові', url: baseLUrl || cleanLDomain },
                             { title: 'Топ переглядів', action: 'popular_menu' }
                         ];
@@ -234,17 +259,44 @@
                                         },
                                         onBack: function() { comp.filter(); }
                                     });
+                                } else if (a.action === 'studios') {
+                                    smartRequest(cleanLDomain + '/channels/', function(htmlText) {
+                                        var parser = new DOMParser();
+                                        var doc = parser.parseFromString(htmlText, 'text/html');
+                                        var studiosEls = doc.querySelectorAll('.grd-spn a');
+                                        var studiosItems = [];
+                                        for (var i = 0; i < studiosEls.length; i++) {
+                                            var title = studiosEls[i].getAttribute('title') || studiosEls[i].innerText.trim();
+                                            var href = studiosEls[i].getAttribute('href');
+                                            if (href && title) {
+                                                var fullUrl = href.startsWith('http') ? href : cleanLDomain + (href.startsWith('/') ? '' : '/') + href;
+                                                studiosItems.push({ title: title, url: fullUrl });
+                                            }
+                                        }
+                                        if (studiosItems.length > 0) {
+                                            Lampa.Select.show({
+                                                title: 'Студії',
+                                                items: studiosItems,
+                                                onSelect: function(sub) {
+                                                    Lampa.Activity.push({ url: sub.url, title: sub.title, component: 'pluginx_comp', site: 'lenkino', page: 1 });
+                                                },
+                                                onBack: function() { comp.filter(); }
+                                            });
+                                        } else {
+                                            if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Студії не знайдено');
+                                        }
+                                    }, function() {
+                                        if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Помилка завантаження студій');
+                                    });
                                 } else if (a.action === 'popular_menu') {
-                                    var isLCategory = baseLUrl !== cleanLDomain && baseLUrl.indexOf('/search/') === -1;
+                                    var isLCategory = baseLUrl !== cleanLDomain && baseLUrl.indexOf('/search/') === -1 && baseLUrl.indexOf('/channels/') === -1;
                                     var lPopularItems = [];
-                                    
                                     if (isLCategory) {
                                         lPopularItems.push({ title: 'Кращі (Топ)', url: baseLUrl + '-top' });
                                     } else {
                                         lPopularItems.push({ title: 'Кращі (Топ)', url: cleanLDomain + '/top-porno' });
                                         lPopularItems.push({ title: 'Гарячі', url: cleanLDomain + '/hot-porno' });
                                     }
-                                    
                                     Lampa.Select.show({
                                         title: 'Топ переглядів',
                                         items: lPopularItems,
@@ -361,13 +413,12 @@
 
             comp.cardRender = function (card, element, events) {
                 events.onEnter = function () {
+                    hidePreview();
                     smartRequest(element.url, function(html) {
                         var videoStreams = []; 
-                        
                         if (currentSite === 'lenkino') {
                             var matchUrl = html.match(/video_url:[\t ]+'([^']+)'/);
                             var matchAlt = html.match(/video_alt_url:[\t ]+'([^']+)'/);
-                            
                             if (matchAlt && matchAlt[1]) videoStreams.push({ title: 'Сервер 2', url: matchAlt[1] });
                             if (matchUrl && matchUrl[1]) videoStreams.push({ title: 'Сервер 1', url: matchUrl[1] });
                         } else {
@@ -396,6 +447,7 @@
                     });
                 };
                 events.onMenu = function () {
+                    hidePreview();
                     if (currentSite === 'lenkino') {
                         smartRequest(element.url, function (htmlText) {
                             var parser = new DOMParser();
@@ -406,7 +458,6 @@
                             for (var m = 0; m < modelElements.length; m++) {
                                 menuItems.push({ title: modelElements[m].innerText.trim(), action: 'direct_link', url: modelElements[m].getAttribute('href') });
                             }
-                            
                             menuItems.push({ title: 'Категорії', action: 'categories' }, { title: 'Схожі відео', action: 'similar' });
                             
                             Lampa.Select.show({
@@ -478,6 +529,23 @@
                         }, function() {});
                     }
                 };
+
+                element.on('hover:enter mouseenter', function() {
+                    hidePreview();
+                    if (card.preview) {
+                        previewTimeout = setTimeout(function() {
+                            var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:2;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
+                            var videoEl = previewContainer.find('video')[0];
+                            videoEl.src = card.preview;
+                            element.find('.card__view').append(previewContainer);
+                            activePreviewNode = previewContainer;
+                            var playPromise = videoEl.play();
+                            if (playPromise !== undefined) playPromise.catch(function(){});
+                        }, 1000);
+                    }
+                }).on('hover:leave mouseleave', function() {
+                    hidePreview();
+                });
             };
             return comp;
         }
@@ -529,6 +597,8 @@
 
             Lampa.Listener.follow('activity', function(e) {
                 if (e.type == 'start') currentActivity = e.object;
+                
+                try { if (typeof hidePreview === 'function') hidePreview(); } catch (err) {}
                 
                 clearTimeout(hideTimeout);
                 hideTimeout = setTimeout(function() {
