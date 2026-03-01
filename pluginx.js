@@ -20,16 +20,16 @@
                 '.my-youtube-style .card { width: 100% !important; margin-bottom: 15px !important; padding: 0 5px !important; }' +
             '}' +
             
-            /* Стиль для ТБ та великих екранів: 4 колонки на всю ширину */
+            /* Стиль для ТБ: 4 колонки на всю ширину */
             '@media screen and (min-width: 581px) {' +
                 '.my-youtube-style .card { width: 25% !important; margin-bottom: 20px !important; padding: 0 8px !important; }' +
             '}' +
             
-            /* Загальні налаштування карток */
+            /* Налаштування карток */
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
             
-            /* МІНІМАЛЬНИЙ ВІДСТУП НАЗВИ: зменшено до 2px */
+            /* ПОВЕРНУТО СТАНДАРТНИЙ ШРИФТ + МІНІМАЛЬНИЙ ВІДСТУП */
             '.my-youtube-style .card__title { ' +
                 'white-space: normal !important; ' +
                 'text-align: left !important; ' +
@@ -37,7 +37,7 @@
                 'height: auto !important; ' +
                 'padding-top: 2px !important; ' + 
                 'margin-top: 0 !important; ' +
-                'font-size: 1.4rem !important; ' +
+                /* font-size видалено, щоб повернути стандартний */
             '}' +
             
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
@@ -74,7 +74,6 @@
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
                         var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
 
-                        // Форматування: [Якість] Назва (Тривалість)
                         var finalTitle = '';
                         if (qualityText) finalTitle += '[' + qualityText + '] ';
                         finalTitle += rawTitle;
@@ -151,10 +150,7 @@
                     var results = parseCards(doc, siteBaseUrl, false);
 
                     if (results.length > 0) {
-                        resolve({ 
-                            results: results, 
-                            next_page: true 
-                        });
+                        resolve({ results: results, next_page: true });
                     } else {
                         reject();
                     }
@@ -233,21 +229,52 @@
         }
 
         Lampa.Component.add('pluginx_comp', CustomCatalog);
-        function addMenu() {
-            var menuList = $('.menu .menu__list').eq(0);
-            if (!menuList.length || menuList.find('[data-action="pluginx"]').length) return;
-            menuList.append('<li class="menu__item selector" data-action="pluginx"><div class="menu__ico"><img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" /></div><div class="menu__text">Каталог Х</div></li>');
-            $('.menu__item[data-action="pluginx"]').on('hover:enter', function () {
-                Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
-            });
-        }
-        addMenu();
     }
 
+    // НОВА ЛОГІКА ДОДАВАННЯ В МЕНЮ (більш стабільна)
+    function addMenu() {
+        if (window.pluginx_menu_added) return;
+        var menuList = $('.menu .menu__list').eq(0);
+        if (menuList.length) {
+            var item = $('<li class="menu__item selector" data-action="pluginx">' +
+                         '<div class="menu__ico">' +
+                         '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="object-fit: contain; filter: brightness(0) invert(1);" />' +
+                         '</div>' +
+                         '<div class="menu__text">Каталог Х</div>' +
+                         '</li>');
+            
+            item.on('hover:enter', function () {
+                Lampa.Activity.push({
+                    title: 'Каталог Х',
+                    component: 'pluginx_comp',
+                    page: 1
+                });
+            });
+
+            menuList.append(item);
+            window.pluginx_menu_added = true;
+            // Примусове оновлення контролера Лампи
+            if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
+        }
+    }
+
+    // Запуск перевірки кожні 100мс
     var startInterval = setInterval(function() {
         if (window.appready && window.Lampa && window.Lampa.Component) {
-            clearInterval(startInterval);
             startPlugin();
+            addMenu();
+            if (window.pluginx_ready && window.pluginx_menu_added) {
+                // Можна зупинити інтервал, якщо все готово
+            }
         }
     }, 100);
+
+    // Додатковий хук на подію готовності програми
+    Lampa.Listener.follow('app', function (e) {
+        if (e.type == 'ready') {
+            addMenu();
+        }
+    });
+
 })();
+                        
