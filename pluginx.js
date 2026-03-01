@@ -11,14 +11,35 @@
         window.pluginx_ready = true;
 
         var css = '<style>' +
+            /* Контейнер на всю ширину */
+            '.my-youtube-style { padding: 0 !important; }' +
+            '.my-youtube-style .category-full { padding: 0 10px !important; }' +
+            
             /* Стиль для мобільних пристроїв: одна колонка */
             '@media screen and (max-width: 580px) {' +
-                '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
+                '.my-youtube-style .card { width: 100% !important; margin-bottom: 15px !important; padding: 0 5px !important; }' +
             '}' +
-            /* Загальні стилі для карток у цьому каталозі */
+            
+            /* Стиль для ТБ та великих екранів: 4 колонки на всю ширину */
+            '@media screen and (min-width: 581px) {' +
+                '.my-youtube-style .card { width: 25% !important; margin-bottom: 20px !important; padding: 0 8px !important; }' +
+            '}' +
+            
+            /* Загальні налаштування карток */
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
-            '.my-youtube-style .card__title { white-space: normal !important; text-align: left !important; line-height: 1.4 !important; height: auto !important; padding-top: 10px !important; }' +
+            
+            /* МІНІМАЛЬНИЙ ВІДСТУП НАЗВИ: зменшено до 2px */
+            '.my-youtube-style .card__title { ' +
+                'white-space: normal !important; ' +
+                'text-align: left !important; ' +
+                'line-height: 1.3 !important; ' +
+                'height: auto !important; ' +
+                'padding-top: 2px !important; ' + 
+                'margin-top: 0 !important; ' +
+                'font-size: 1.4rem !important; ' +
+            '}' +
+            
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
             '</style>';
         $('body').append(css);
@@ -53,7 +74,7 @@
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
                         var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
 
-                        // Якість у квадратних дужках на початку, тривалість у дужках в кінці
+                        // Форматування: [Якість] Назва (Тривалість)
                         var finalTitle = '';
                         if (qualityText) finalTitle += '[' + qualityText + '] ';
                         finalTitle += rawTitle;
