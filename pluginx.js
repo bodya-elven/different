@@ -12,13 +12,10 @@
 
         var css = '<style>' +
             '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
-            '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; position: relative !important; }' +
+            '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
             '.my-youtube-style .card__title { white-space: normal !important; text-align: left !important; line-height: 1.4 !important; height: auto !important; padding-top: 10px !important; }' +
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
-            /* СТИЛІ БЕЙДЖІВ */
-            '.my-badge-time { position: absolute !important; bottom: 8px !important; right: 8px !important; background: rgba(0,0,0,0.8) !important; color: #fff !important; padding: 2px 6px !important; border-radius: 4px !important; font-size: 12px !important; z-index: 10 !important; font-weight: bold !important; pointer-events: none !important; }' +
-            '.my-badge-quality { position: absolute !important; bottom: 8px !important; left: 8px !important; background: #e50914 !important; color: #fff !important; padding: 2px 6px !important; border-radius: 4px !important; font-size: 12px !important; font-weight: bold !important; z-index: 10 !important; text-transform: uppercase !important; pointer-events: none !important; }' +
             '</style>';
         $('body').append(css);
 
@@ -59,14 +56,22 @@
                                 videoUrl = baseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
                             }
 
+                            // Формуємо нову назву з квадратними дужками 📝
+                            var rawTitle = titleEl.innerText.trim();
+                            var timeText = timeEl ? timeEl.innerText.trim() : '';
+                            var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
+
+                            var finalTitle = '';
+                            if (timeText) finalTitle += '[' + timeText + '] ';
+                            if (qualityText) finalTitle += '[' + qualityText + '] ';
+                            finalTitle += rawTitle;
+
                             results.push({
-                                name: titleEl.innerText.trim(), 
+                                name: finalTitle, 
                                 url: videoUrl,
                                 picture: imgSrc,
                                 background_image: imgSrc,
-                                img: imgSrc,
-                                custom_time: timeEl ? timeEl.innerText.trim() : '',
-                                custom_quality: qualityEl ? qualityEl.innerText.trim() : ''
+                                img: imgSrc
                             });
                         }
                     }
@@ -85,21 +90,6 @@
             };
 
             comp.cardRender = function (card, element, events) {
-                // БЕЗПЕЧНИЙ БЛОК: Малюємо бейджі без ризику зламати додаток
-                try {
-                    // Робимо об'єкт універсальним (читабельним для jQuery)
-                    var $card = $(card.html || card.el || card);
-                    
-                    if (element.custom_time) {
-                        $card.find('.card__view').append('<div class="my-badge-time">' + element.custom_time + '</div>');
-                    }
-                    if (element.custom_quality) {
-                        $card.find('.card__view').append('<div class="my-badge-quality">' + element.custom_quality + '</div>');
-                    }
-                } catch (e) {
-                    // Якщо тут буде помилка, відео все одно працюватиме!
-                }
-
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
