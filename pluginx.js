@@ -102,10 +102,7 @@
 
             comp.filter = function () {
                 try {
-                    // Отримуємо URL і відрізаємо параметри після ? та слеш в кінці
                     var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0].replace(/\/+$/, '');
-                    
-                    // Відрізаємо старі параметри сортування, щоб отримати чисту базу
                     var baseUrl = currentUrl
                         .replace(/\/popular\/week$/, '')
                         .replace(/\/popular\/month$/, '')
@@ -118,9 +115,15 @@
                     
                     var filter_items = [
                         { title: 'Пошук', action: 'search' },
-                        { title: 'Нові', url: baseUrl || cleanDomain },
-                        { title: 'Топ переглядів', action: 'popular_menu' }
+                        { title: 'Категорії', action: 'categories' },
+                        { title: 'Нові', url: baseUrl || cleanDomain }
                     ];
+
+                    if (isModelOrTag) {
+                        filter_items.push({ title: 'Топ переглядів', url: baseUrl + '/popular' });
+                    } else {
+                        filter_items.push({ title: 'Топ переглядів', action: 'popular_menu' });
+                    }
 
                     Lampa.Select.show({
                         title: 'Сортування',
@@ -134,17 +137,48 @@
                                     }
                                     Lampa.Controller.toggle('content');
                                 });
+                            } else if (a.action === 'categories') {
+                                network.silent(cleanDomain + '/categories/', function(htmlText) {
+                                    var parser = new DOMParser();
+                                    var doc = parser.parseFromString(htmlText, 'text/html');
+                                    var catLinks = doc.querySelectorAll('.categories-list-div a');
+                                    var catItems = [];
+                                    
+                                    for (var i = 0; i < catLinks.length; i++) {
+                                        var title = catLinks[i].getAttribute('title') || catLinks[i].innerText.trim();
+                                        var href = catLinks[i].getAttribute('href');
+                                        if (href && title) {
+                                            var fullUrl = href.startsWith('http') ? href : cleanDomain + (href.startsWith('/') ? '' : '/') + href;
+                                            catItems.push({ title: title, url: fullUrl });
+                                        }
+                                    }
+                                    
+                                    if (catItems.length > 0) {
+                                        Lampa.Select.show({
+                                            title: 'Категорії',
+                                            items: catItems,
+                                            onSelect: function(sub) {
+                                                Lampa.Activity.push({ url: sub.url, title: sub.title, component: 'pluginx_comp', page: 1 });
+                                            },
+                                            onBack: function() { comp.filter(); }
+                                        });
+                                    } else {
+                                        if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Категорії не знайдено');
+                                    }
+                                }, function() {
+                                    if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Помилка завантаження категорій');
+                                }, false, { dataType: 'text' });
+
                             } else if (a.action === 'popular_menu') {
                                 var popularItems = [
                                     { title: 'За весь час', url: baseUrl + '/popular' }
                                 ];
                                 
-                                if (!isModelOrTag) {
-                                    popularItems.push({ title: 'За місяць', url: baseUrl + '/popular/month' });
-                                    popularItems.push({ title: 'За рік', url: baseUrl + '/popular/year' });
-                                    if (isHome) { 
-                                        popularItems.push({ title: 'За тиждень', url: baseUrl + '/popular/week' });
-                                    }
+                                popularItems.push({ title: 'За місяць', url: baseUrl + '/popular/month' });
+                                popularItems.push({ title: 'За рік', url: baseUrl + '/popular/year' });
+                                
+                                if (isHome) { 
+                                    popularItems.push({ title: 'За тиждень', url: baseUrl + '/popular/week' });
                                 }
                                 
                                 Lampa.Select.show({
@@ -236,7 +270,6 @@
 
         Lampa.Component.add('pluginx_comp', CustomCatalog);
 
-        // ВЕРХНЯ КНОПКА ФІЛЬТРА ТА ПОШУКУ
         (function() {
             var currentActivity;
             var hideTimeout;
@@ -312,21 +345,4 @@
             var settings = menuList.find('[data-action="settings"]');
             if (settings.length) item.insertBefore(settings);
             else menuList.append(item);
-            if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
-        }
-    }
-
-    var startInterval = setInterval(function() {
-        if (window.appready && window.Lampa && window.Lampa.Component && window.Lampa.InteractionCategory && typeof $ !== 'undefined') {
-            clearInterval(startInterval); 
-            startPlugin(); 
-            var checkCount = 0;
-            var menuWatcher = setInterval(function() {
-                addMenu();
-                checkCount++;
-                if (checkCount >= 10) clearInterval(menuWatcher);
-            }, 500); 
-        }
-    }, 100);
-
-})();
+            if (window.Lampa && window.Lampa.Controller) window.Lampa.Con
