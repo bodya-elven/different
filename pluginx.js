@@ -1,7 +1,10 @@
 (function () {
     'use strict';
 
+    // ==========================================
+    // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
     var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
+    // ==========================================
 
     function startPlugin() {
         if (window.pluginx_ready) return;
@@ -46,10 +49,10 @@
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
                         var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
 
-                        var finalTitle = '';
-                        if (timeText) finalTitle += '[' + timeText + '] ';
-                        if (qualityText) finalTitle += '[' + qualityText + '] ';
-                        finalTitle += rawTitle;
+                        // Тривалість відео тепер у кінці назви
+                        var finalTitle = rawTitle;
+                        if (qualityText) finalTitle = '[' + qualityText + '] ' + finalTitle;
+                        if (timeText) finalTitle += ' (' + timeText + ')';
 
                         results.push({
                             name: finalTitle, 
@@ -74,7 +77,7 @@
                     items: filter_items,
                     onSelect: function (a) {
                         object.url = a.url;
-                        object.page = 1; // Скидаємо сторінку при зміні фільтра
+                        object.page = 1;
                         comp.empty();
                         comp.activity.loader(true);
                         comp.create();
@@ -95,8 +98,13 @@
                     var results = parseCards(doc, siteBaseUrl, object.is_related);
 
                     if (results.length > 0) {
-                        // Важливо: передаємо номер сторінки для ініціалізації пагінації
-                        _this.build({ results: results, collection: true, page: 1, next_page: true });
+                        // Логіка з xx.js: явно вказуємо початок пагінації
+                        _this.build({ 
+                            results: results, 
+                            collection: true, 
+                            page: 1, 
+                            next_page: results.length > 0 
+                        });
                         _this.render().addClass('my-youtube-style');
                     } else {
                         _this.empty();
@@ -118,9 +126,12 @@
                     var results = parseCards(doc, siteBaseUrl, false);
 
                     if (results.length > 0) {
-                        setTimeout(function() {
-                            resolve({ results: results, page: object.page });
-                        }, 200);
+                        // Передаємо результати та номер поточної сторінки
+                        resolve({ 
+                            results: results, 
+                            page: object.page,
+                            next_page: true 
+                        });
                     } else {
                         reject();
                     }
@@ -217,4 +228,3 @@
         }
     }, 100);
 })();
-                                
