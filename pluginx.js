@@ -37,9 +37,27 @@
 
         function CustomCatalog(object) {
             var comp = new Lampa.InteractionCategory(object);
-            var network = new Lampa.Reguest();
-
             var currentSite = object.site || 'porno365';
+
+            function smartRequest(url, onSuccess, onError) {
+                var network = new Lampa.Reguest();
+                var isAndroid = typeof window !== 'undefined' && window.Lampa && window.Lampa.Platform && typeof window.Lampa.Platform.is === 'function' && window.Lampa.Platform.is('android');
+                var headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+                };
+
+                if (isAndroid) {
+                    network.native(url, function (res) {
+                        onSuccess(typeof res === 'object' ? JSON.stringify(res) : res);
+                    }, function (err) {
+                        if (onError) onError(err);
+                    }, false, { dataType: 'text', headers: headers, timeout: 10000 });
+                } else {
+                    network.silent(url, onSuccess, function (err) {
+                        if (onError) onError(err);
+                    }, false, { dataType: 'text', headers: headers, timeout: 10000 });
+                }
+            }
 
             function parseCards365(doc, siteBaseUrl, isRelated) {
                 var selector = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
@@ -109,7 +127,7 @@
                     targetUrl = currentSite === 'lenkino' ? LENKINO_DOMAIN : MY_CATALOG_DOMAIN;
                 }
 
-                network.silent(targetUrl, function (htmlText) {
+                smartRequest(targetUrl, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
                     var results = [];
@@ -126,7 +144,7 @@
                         _this.build({ results: results, collection: true, total_pages: 50, page: 1 });
                         _this.render().addClass('my-youtube-style');
                     } else { _this.empty(); }
-                }, this.empty.bind(this), false, { dataType: 'text' });
+                }, this.empty.bind(this));
             };
             comp.nextPageReuest = function (object, resolve, reject) {
                 if (object.is_related) return reject();
@@ -142,7 +160,7 @@
                     pageUrl = baseUrl + (baseUrl.endsWith('/') ? '' : separator) + object.page;
                 }
                 
-                network.silent(pageUrl, function (htmlText) {
+                smartRequest(pageUrl, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
                     var results = [];
@@ -155,7 +173,7 @@
 
                     if (results.length > 0) resolve({ results: results, collection: true, total_pages: 50, page: object.page });
                     else reject();
-                }, reject, false, { dataType: 'text' });
+                }, reject);
             };
 
             comp.filter = function () {
@@ -269,7 +287,7 @@
                                         Lampa.Controller.toggle('content');
                                     });
                                 } else if (a.action === 'categories') {
-                                    network.silent(cleanDomain + '/categories', function(htmlText) {
+                                    smartRequest(cleanDomain + '/categories', function(htmlText) {
                                         var parser = new DOMParser();
                                         var doc = parser.parseFromString(htmlText, 'text/html');
                                         var catLinks = doc.querySelectorAll('.categories-list-div a');
@@ -296,7 +314,7 @@
                                         }
                                     }, function() {
                                         if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Помилка завантаження категорій');
-                                    }, false, { dataType: 'text' });
+                                    });
                                 } else if (a.action === 'popular_menu') {
                                     var popularItems = [{ title: 'За весь час', url: baseUrl + '/popular' }];
                                     if (!isModelOrTag) {
@@ -328,7 +346,7 @@
 
             comp.cardRender = function (card, element, events) {
                 events.onEnter = function () {
-                    network.silent(element.url, function(html) {
+                    smartRequest(element.url, function(html) {
                         var videoStreams = []; 
                         
                         if (currentSite === 'lenkino') {
@@ -358,7 +376,9 @@
                         } else {
                             if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Відео не знайдено');
                         }
-                    }, false, false, { dataType: 'text' });
+                    }, function() {
+                        if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Помилка завантаження відео');
+                    });
                 };
 
                 events.onMenu = function () {
@@ -374,7 +394,7 @@
                             onBack: function () { Lampa.Controller.toggle('content'); }
                         });
                     } else {
-                        network.silent(element.url, function (htmlText) {
+                        smartRequest(element.url, function (htmlText) {
                             var parser = new DOMParser();
                             var doc = parser.parseFromString(htmlText, 'text/html');
                             var menuItems = [];
@@ -410,7 +430,7 @@
                                 },
                                 onBack: function () { Lampa.Controller.toggle('content'); }
                             });
-                        }, null, false, { dataType: 'text' });
+                        }, function() {});
                     }
                 };
             };
