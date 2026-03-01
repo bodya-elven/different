@@ -153,22 +153,22 @@
                     }, false, false, { dataType: 'text' });
                 };
 
+                // ДОВГЕ НАТИСКАННЯ: Завантажуємо дані лише в момент виклику меню
                 events.onMenu = function () {
-                    // Завантажуємо сторінку ОДРАЗУ, щоб розпарсити моделі для головного меню
                     network.silent(element.url, function (htmlText) {
                         var parser = new DOMParser();
                         var doc = parser.parseFromString(htmlText, 'text/html');
 
                         var menuItems = [];
 
-                        // 1. Моделі (Додаємо першими)
+                        // 1. Моделі (Додаємо першими, лише їх імена)
                         var modelElements = doc.querySelectorAll('.video-categories.video-models a');
                         for (var m = 0; m < modelElements.length; m++) {
                             var mHref = modelElements[m].getAttribute('href');
                             var mText = modelElements[m].innerText.trim();
                             if (mHref && mText) {
                                 menuItems.push({ 
-                                    title: 'Модель: ' + mText, 
+                                    title: mText, // Без префікса "Модель:"
                                     action: 'direct_link', 
                                     url: mHref 
                                 });
@@ -184,7 +184,6 @@
                         // 4. Схожі відео
                         menuItems.push({ title: 'Схожі відео', action: 'similar' });
 
-                        // Показуємо згенероване меню
                         Lampa.Select.show({
                             title: 'Дії',
                             items: menuItems,
@@ -198,7 +197,7 @@
                                         is_related: true
                                     });
                                 } else if (a.action === 'direct_link') {
-                                    // Це пункт моделі - відкриваємо каталог миттєво
+                                    // Відкриваємо каталог моделі
                                     Lampa.Activity.push({
                                         url: a.url,
                                         title: a.title,
@@ -206,7 +205,7 @@
                                         page: 1
                                     });
                                 } else {
-                                    // Це категорії або теги (використовуємо вже завантажений doc)
+                                    // Категорії або теги
                                     var selector = (a.action === 'categories') ? '.video-categories:not(.video-models) a' : '.video-tags a';
                                     var selectTitle = (a.action === 'categories') ? 'Категорії' : 'Теги';
                                     
@@ -233,7 +232,7 @@
                                                 });
                                             },
                                             onBack: function () {
-                                                events.onMenu(); // При "Назад" знову показуємо головне меню
+                                                events.onMenu(); // Повернення до головного списку дій
                                             }
                                         });
                                     } else {
@@ -288,4 +287,3 @@
     }, 100);
 
 })();
-        
