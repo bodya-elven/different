@@ -127,6 +127,11 @@
                     targetUrl = currentSite === 'lenkino' ? LENKINO_DOMAIN : MY_CATALOG_DOMAIN;
                 }
 
+                if (currentSite === 'lenkino') {
+                    targetUrl = targetUrl.replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
+                    targetUrl = targetUrl + '/page/' + (object.page || 1);
+                }
+
                 smartRequest(targetUrl, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
@@ -209,7 +214,8 @@
                                         {title: "Домашнее порно", url: "amateur"}, {title: "Молодые", url: "teen"},
                                         {title: "Лесби", url: "lesbi-porno"}, {title: "Мастурбация", url: "masturbation"},
                                         {title: "Минет", url: "blowjob"}, {title: "Групповуха", url: "group-videos"},
-                                        {title: "Азиатки", url: "asian"}, {title: "БДСМ", url: "bdsm"}
+                                        {title: "Азиатки", url: "asian"}, {title: "БДСМ", url: "bdsm"},
+                                        {title: "Красивый секс", url: "beautiful"}, {title: "POV", url: "pov"}
                                     ];
                                     var catItems = lenkinoCats.map(function(c) {
                                         return { title: c.title, url: cleanLDomain + '/' + c.url };
@@ -224,15 +230,18 @@
                                     });
                                 } else if (a.action === 'popular_menu') {
                                     var isLCategory = baseLUrl !== cleanLDomain && baseLUrl.indexOf('/search/') === -1;
-                                    var topUrl = isLCategory ? baseLUrl + '-top' : cleanLDomain + '/top-porno';
-                                    var hotUrl = isLCategory ? baseLUrl : cleanLDomain + '/hot-porno'; 
+                                    var lPopularItems = [];
+                                    
+                                    if (isLCategory) {
+                                        lPopularItems.push({ title: 'Кращі (Топ)', url: baseLUrl + '-top' });
+                                    } else {
+                                        lPopularItems.push({ title: 'Кращі (Топ)', url: cleanLDomain + '/top-porno' });
+                                        lPopularItems.push({ title: 'Гарячі', url: cleanLDomain + '/hot-porno' });
+                                    }
                                     
                                     Lampa.Select.show({
                                         title: 'Топ переглядів',
-                                        items: [
-                                            { title: 'Кращі (Топ)', url: topUrl },
-                                            { title: 'Гарячі', url: hotUrl }
-                                        ],
+                                        items: lPopularItems,
                                         onSelect: function(sub) {
                                             Lampa.Activity.push({ url: sub.url, title: sub.title, component: 'pluginx_comp', site: 'lenkino', page: 1 });
                                         },
