@@ -530,22 +530,27 @@
                     }
                 };
 
-                element.on('hover:enter mouseenter', function() {
+                var originalOnFocus = events.onFocus;
+                events.onFocus = function (target, card_data) {
+                    if (originalOnFocus) originalOnFocus(target, card_data);
+                    
                     hidePreview();
                     if (card.preview) {
-                        previewTimeout = setTimeout(function() {
+                        previewTimeout = setTimeout(function () {
+                            var $el = $(element);
                             var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:2;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
                             var videoEl = previewContainer.find('video')[0];
                             videoEl.src = card.preview;
-                            element.find('.card__view').append(previewContainer);
+                            $el.find('.card__view').append(previewContainer);
                             activePreviewNode = previewContainer;
+                            
                             var playPromise = videoEl.play();
-                            if (playPromise !== undefined) playPromise.catch(function(){});
+                            if (playPromise !== undefined) {
+                                playPromise.catch(function(){});
+                            }
                         }, 1000);
                     }
-                }).on('hover:leave mouseleave', function() {
-                    hidePreview();
-                });
+                };
             };
             return comp;
         }
