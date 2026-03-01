@@ -100,6 +100,8 @@
                 }, reject, false, { dataType: 'text' });
             };
 
+            // >>> КІНЕЦЬ ПЕРШОЇ ЧАСТИНИ. ДРУГУ ВСТАВЛЯЙ ОДРАЗУ ПІД ЦИМ РЯДКОМ <<<
+                    // >>> ПОЧАТОК ДРУГОЇ ЧАСТИНИ <<<
             comp.filter = function () {
                 try {
                     var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0].replace(/\/+$/, '');
@@ -110,8 +112,11 @@
                         .replace(/\/popular$/, '');
 
                     var cleanDomain = MY_CATALOG_DOMAIN.replace(/\/+$/, '');
+                    
+                    // НОВА ЛОГІКА РОЗПІЗНАВАННЯ
                     var isHome = (baseUrl === cleanDomain);
-                    var isModelOrTag = baseUrl.indexOf('/model/') !== -1 || baseUrl.indexOf('/tag/') !== -1;
+                    var isModelOrTag = baseUrl.indexOf('/models/') !== -1 || baseUrl.indexOf('/tags/') !== -1;
+                    var isCategory = !isHome && !isModelOrTag; // Усе інше вважаємо категорією
                     
                     var filter_items = [
                         { title: 'Пошук', action: 'search' },
@@ -138,7 +143,8 @@
                                     Lampa.Controller.toggle('content');
                                 });
                             } else if (a.action === 'categories') {
-                                network.silent(cleanDomain + '/categories/', function(htmlText) {
+                                // Запит до сторінки без слеша в кінці, щоб уникнути редиректу
+                                network.silent(cleanDomain + '/categories', function(htmlText) {
                                     var parser = new DOMParser();
                                     var doc = parser.parseFromString(htmlText, 'text/html');
                                     var catLinks = doc.querySelectorAll('.categories-list-div a');
@@ -174,11 +180,12 @@
                                     { title: 'За весь час', url: baseUrl + '/popular' }
                                 ];
                                 
-                                popularItems.push({ title: 'За місяць', url: baseUrl + '/popular/month' });
-                                popularItems.push({ title: 'За рік', url: baseUrl + '/popular/year' });
-                                
-                                if (isHome) { 
-                                    popularItems.push({ title: 'За тиждень', url: baseUrl + '/popular/week' });
+                                if (!isModelOrTag) {
+                                    popularItems.push({ title: 'За місяць', url: baseUrl + '/popular/month' });
+                                    popularItems.push({ title: 'За рік', url: baseUrl + '/popular/year' });
+                                    if (isHome) { 
+                                        popularItems.push({ title: 'За тиждень', url: baseUrl + '/popular/week' });
+                                    }
                                 }
                                 
                                 Lampa.Select.show({
@@ -363,3 +370,4 @@
     }, 100);
 
 })();
+                        
