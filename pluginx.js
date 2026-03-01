@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
+    var PORNO365_DOMAIN = 'https://w.porno365.gold'; 
     var LENKINO_DOMAIN = 'https://wes.lenkino.adult';
 
     function startPlugin() {
@@ -52,11 +52,11 @@
             }
         }
 
-        function showPreview(element, src) {
+        function showPreview(target, src) {
             var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:2;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
             var videoEl = previewContainer.find('video')[0];
             videoEl.src = src;
-            $(element).find('.card__view').append(previewContainer);
+            target.find('.card__view').append(previewContainer);
             activePreviewNode = previewContainer;
             
             var playPromise = videoEl.play();
@@ -167,7 +167,7 @@
                 this.activity.loader(true);
                 
                 var targetUrl = object.url;
-                if (!targetUrl) targetUrl = currentSite === 'lenkino' ? LENKINO_DOMAIN : MY_CATALOG_DOMAIN;
+                if (!targetUrl) targetUrl = currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN;
 
                 if (currentSite === 'lenkino') {
                     targetUrl = targetUrl.replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
@@ -183,7 +183,7 @@
                         var siteBaseLenkino = LENKINO_DOMAIN.replace(/\/+$/, '');
                         results = parseCardsLenkino(doc, siteBaseLenkino);
                     } else {
-                        var siteBase365 = MY_CATALOG_DOMAIN.replace(/\/+$/, '');
+                        var siteBase365 = PORNO365_DOMAIN.replace(/\/+$/, '');
                         results = parseCards365(doc, siteBase365, object.is_related);
                     }
 
@@ -197,7 +197,7 @@
             comp.nextPageReuest = function (object, resolve, reject) {
                 if (object.is_related) return reject();
                 
-                var baseUrl = object.url || (currentSite === 'lenkino' ? LENKINO_DOMAIN : MY_CATALOG_DOMAIN);
+                var baseUrl = object.url || (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN);
                 var pageUrl = '';
 
                 if (currentSite === 'lenkino') {
@@ -216,7 +216,7 @@
                     if (currentSite === 'lenkino') {
                         results = parseCardsLenkino(doc, LENKINO_DOMAIN.replace(/\/+$/, ''));
                     } else {
-                        results = parseCards365(doc, MY_CATALOG_DOMAIN.replace(/\/+$/, ''), false);
+                        results = parseCards365(doc, PORNO365_DOMAIN.replace(/\/+$/, ''), false);
                     }
 
                     if (results.length > 0) resolve({ results: results, collection: true, total_pages: 50, page: object.page });
@@ -325,7 +325,7 @@
                             onBack: function () { Lampa.Controller.toggle('content'); }
                         });
                     } else {
-                        var currentUrl = (object.url || MY_CATALOG_DOMAIN).replace(/\/+$/, '');
+                        var currentUrl = (object.url || PORNO365_DOMAIN).replace(/\/+$/, '');
                         if (currentUrl.indexOf('/search/?q=') !== -1) {
                             currentUrl = currentUrl.replace('/search/?q=', '/search/');
                         }
@@ -337,7 +337,7 @@
                             .replace(/\/popular$/, '')
                             .replace(/\/+$/, '');
 
-                        var cleanDomain = MY_CATALOG_DOMAIN.replace(/\/+$/, '');
+                        var cleanDomain = PORNO365_DOMAIN.replace(/\/+$/, '');
                         var isHome = (baseUrl === cleanDomain);
                         var isModelOrTag = baseUrl.indexOf('/models/') !== -1 || baseUrl.indexOf('/tags/') !== -1;
                         
@@ -542,62 +542,19 @@
                     }
                 };
 
-                // 1. Стандартний фокус для телевізора (пульт)
+                // Тільки рідні методи Лампи, ніяких element.on()!
                 var originalOnFocus = events.onFocus;
                 events.onFocus = function (target, card_data) {
                     if (originalOnFocus) originalOnFocus(target, card_data);
+                    
                     hidePreview();
+                    
                     if (card.preview) {
                         previewTimeout = setTimeout(function () {
-                            showPreview(element, card.preview);
+                            showPreview($(target), card.preview);
                         }, 1000);
                     }
                 };
-
-                // 2. Для ПК (мишка) та Телефонів (тапи)
-                var startY = 0;
-                var isTouching = false;
-
-                element.on('mouseenter', function() {
-                    if (isTouching) return;
-                    hidePreview();
-                    if (card.preview) {
-                        previewTimeout = setTimeout(function () {
-                            showPreview(element, card.preview);
-                        }, 800);
-                    }
-                }).on('mouseleave', function() {
-                    if (!isTouching) hidePreview();
-                });
-
-                element.on('touchstart', function(e) {
-                    if (e.originalEvent && e.originalEvent.touches) {
-                        startY = e.originalEvent.touches[0].clientY;
-                    }
-                    isTouching = true;
-                    hidePreview();
-                    if (card.preview) {
-                        previewTimeout = setTimeout(function () {
-                            if (isTouching) showPreview(element, card.preview);
-                        }, 500); // 0.5 сек для швидкого прев'ю на телефоні
-                    }
-                });
-
-                element.on('touchmove', function(e) {
-                    if (e.originalEvent && e.originalEvent.touches) {
-                        var moveY = e.originalEvent.touches[0].clientY;
-                        if (Math.abs(moveY - startY) > 10) { // Якщо палець зсунувся
-                            isTouching = false;
-                            hidePreview();
-                        }
-                    }
-                });
-
-                element.on('touchend touchcancel', function() {
-                    isTouching = false;
-                    hidePreview();
-                });
-
             };
             return comp;
         }
