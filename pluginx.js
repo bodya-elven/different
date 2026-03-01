@@ -2,6 +2,7 @@
     'use strict';
 
     // ==========================================
+    // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
     var MY_CATALOG_DOMAIN = 'https://w.porno365.gold/'; 
     // ==========================================
 
@@ -11,10 +12,13 @@
 
         var css = '<style>' +
             '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
-            '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
+            '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; position: relative !important; }' +
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
             '.my-youtube-style .card__title { white-space: normal !important; text-align: left !important; line-height: 1.4 !important; height: auto !important; padding-top: 10px !important; }' +
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
+            /* СТИЛІ БЕЙДЖІВ */
+            '.my-badge-time { position: absolute !important; bottom: 8px !important; right: 8px !important; background: rgba(0,0,0,0.8) !important; color: #fff !important; padding: 2px 6px !important; border-radius: 4px !important; font-size: 12px !important; z-index: 10 !important; font-weight: bold !important; pointer-events: none !important; }' +
+            '.my-badge-quality { position: absolute !important; bottom: 8px !important; left: 8px !important; background: #e50914 !important; color: #fff !important; padding: 2px 6px !important; border-radius: 4px !important; font-size: 12px !important; font-weight: bold !important; z-index: 10 !important; text-transform: uppercase !important; pointer-events: none !important; }' +
             '</style>';
         $('body').append(css);
 
@@ -43,8 +47,9 @@
                         var titleEl = el.querySelector('a.image p, .title');
                         var imgEl = el.querySelector('img'); 
                         
+                        // Парсимо тривалість та якість з сайту
                         var timeEl = el.querySelector('.duration'); 
-                        var qualityEl = el.querySelector('.quality, .video-hd-mark'); 
+                        var qualityEl = el.querySelector('.quality, .video-hd-mark, .hd-mark'); 
 
                         if (linkEl && titleEl) {
                             var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
@@ -55,15 +60,15 @@
                                 videoUrl = baseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
                             }
 
-                            // Передаємо час і якість в рідні параметри Lampa
                             results.push({
                                 name: titleEl.innerText.trim(), 
                                 url: videoUrl,
                                 picture: imgSrc,
                                 background_image: imgSrc,
                                 img: imgSrc,
-                                time: timeEl ? timeEl.innerText.trim() : '',
-                                quality: qualityEl ? qualityEl.innerText.trim() : ''
+                                // Зберігаємо наші дані
+                                custom_time: timeEl ? timeEl.innerText.trim() : '',
+                                custom_quality: qualityEl ? qualityEl.innerText.trim() : ''
                             });
                         }
                     }
@@ -82,7 +87,14 @@
             };
 
             comp.cardRender = function (card, element, events) {
-                // Без втручання в DOM картки — лише логіка кліку
+                // ВСТАНОВЛЮЄМО БЕЙДЖІ БЕЗПОСЕРЕДНЬО В DOM КАРТКИ
+                if (element.custom_time) {
+                    card.find('.card__view').append('<div class="my-badge-time">' + element.custom_time + '</div>');
+                }
+                if (element.custom_quality) {
+                    card.find('.card__view').append('<div class="my-badge-quality">' + element.custom_quality + '</div>');
+                }
+
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
@@ -134,7 +146,7 @@
             if (menuList.find('[data-action="pluginx"]').length === 0) {
                 var myMenu = '<li class="menu__item selector" data-action="pluginx">' +
                              '<div class="menu__ico">' +
-                             '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="object-fit: contain;" />' +
+                             '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="object-fit: contain; filter: brightness(0) invert(1);" />' +
                              '</div>' +
                              '<div class="menu__text">Каталог Х</div>' +
                              '</li>';
@@ -157,4 +169,3 @@
 
     setTimeout(startPlugin, 1000);
 })();
-    
