@@ -13,7 +13,6 @@
         var css = '<style>' +
             /* Контейнер каталогу */
             '.my-youtube-style { padding: 0 !important; }' +
-            '.my-youtube-style .category-full { padding: 0 5px !important; }' +
             
             /* Сітка: 1 колонка (моб) / 4 колонки (ТБ) */
             '@media screen and (max-width: 580px) {' +
@@ -23,37 +22,23 @@
                 '.my-youtube-style .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; }' +
             '}' +
             
-            /* Картки */
+            /* Візуальний стиль карток */
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
             
-            /* ЛОГІКА НАЗВИ: 3 рядки + фіксована тривалість */
+            /* ОБМЕЖЕННЯ: 3 рядки тексту з трикрапкою */
             '.my-youtube-style .card__title { ' +
-                'position: relative !important; ' +
                 'display: -webkit-box !important; ' +
-                '-webkit-line-clamp: 3 !important; ' + /* Рівно 3 рядки */
+                '-webkit-line-clamp: 3 !important; ' + 
                 '-webkit-box-orient: vertical !important; ' +
                 'overflow: hidden !important; ' +
                 'white-space: normal !important; ' +
                 'text-align: left !important; ' +
                 'line-height: 1.2 !important; ' +
-                'height: 3.6em !important; ' + /* Фіксована висота (1.2 * 3) */
+                'max-height: 3.6em !important; ' + 
                 'padding-top: 2px !important; ' + 
                 'margin-top: 0 !important; ' +
-                'padding-right: 45px !important; ' + /* Місце для часу */
-            '}' +
-            
-            /* Час, який завжди видно в правому нижньому куті назви */
-            '.my-youtube-style .pinned-duration { ' +
-                'position: absolute !important; ' +
-                'bottom: 0 !important; ' +
-                'right: 0 !important; ' +
-                'background: rgba(0,0,0,0.8) !important; ' +
-                'padding: 0 4px !important; ' +
-                'border-radius: 4px !important; ' +
-                'font-size: 0.9rem !important; ' +
-                'color: #fff !important; ' +
-                'z-index: 2 !important; ' +
+                'text-overflow: ellipsis !important; ' +
             '}' +
             
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
@@ -75,7 +60,6 @@
                     var titleEl = el.querySelector('a.image p, .title');
                     var imgEl = el.querySelector('img'); 
                     var timeEl = el.querySelector('.duration'); 
-                    var qualityEl = el.querySelector('.quality, .video-hd-mark, .hd-mark'); 
 
                     if (linkEl && titleEl) {
                         var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
@@ -88,15 +72,13 @@
 
                         var rawTitle = titleEl.innerText.trim();
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
-                        var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
 
-                        // Формуємо об'єкт так, щоб час був окремим полем
+                        // Тільки назва + час у дужках
                         results.push({
-                            name: (qualityText ? '[' + qualityText + '] ' : '') + rawTitle, 
+                            name: rawTitle + (timeText ? ' (' + timeText + ')' : ''), 
                             url: videoUrl,
                             picture: imgSrc,
-                            img: imgSrc,
-                            duration: timeText // Передаємо час окремо
+                            img: imgSrc
                         });
                     }
                 }
@@ -135,12 +117,6 @@
             };
 
             comp.cardRender = function (card, element, events) {
-                // Додаємо час як "pinned" елемент всередину назви
-                if (element.duration) {
-                    var titleDiv = card.render().find('.card__title');
-                    titleDiv.append('<span class="pinned-duration">' + element.duration + '</span>');
-                }
-
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
@@ -221,7 +197,6 @@
                 Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
             });
 
-            // Вставляємо на друге місце (після "Головна") або перед налаштуваннями
             var settings = menuList.find('[data-action="settings"]');
             if (settings.length) item.insertBefore(settings);
             else menuList.append(item);
@@ -231,7 +206,6 @@
         }
     }
 
-    // Дуже агресивна перевірка для меню (щоб не ховалося)
     var menuCheck = setInterval(function() {
         if (window.appready) {
             addMenu();
@@ -239,13 +213,12 @@
         }
     }, 200);
 
-    // Додатковий хук на готовність
     Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') {
             setTimeout(addMenu, 100);
-            setTimeout(addMenu, 1000); // Повторний запуск для менеджера меню
+            setTimeout(addMenu, 1000);
         }
     });
 
 })();
-                         
+        
