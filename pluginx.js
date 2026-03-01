@@ -2,8 +2,8 @@
     'use strict';
 
     // ==========================================
-    // ВСТАВТЕ ВАШ ДОМЕН ТУТ (без слеша в кінці):
-    var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
+    // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
+    var MY_CATALOG_DOMAIN = 'ТУТ_ТВІЙ_ДОМЕН'; 
     // ==========================================
 
     function startPlugin() {
@@ -99,9 +99,6 @@
                     else reject();
                 }, reject, false, { dataType: 'text' });
             };
-
-            // >>> КІНЕЦЬ ПЕРШОЇ ЧАСТИНИ <<<
-                                           // >>> ПОЧАТОК ДРУГОЇ ЧАСТИНИ <<<
             comp.filter = function () {
                 try {
                     var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0].replace(/\/+$/, '');
@@ -135,7 +132,6 @@
                             if (a.action === 'search') {
                                 Lampa.Input.edit({ title: 'Пошук', value: '', free: true, nosave: true }, function(value) {
                                     if (value) {
-                                        // Правильне формування URL для пошуку
                                         var searchUrl = cleanDomain + '/search/' + encodeURIComponent(value);
                                         Lampa.Activity.push({ url: searchUrl, title: 'Пошук: ' + value, component: 'pluginx_comp', page: 1 });
                                     }
@@ -275,7 +271,6 @@
 
         Lampa.Component.add('pluginx_comp', CustomCatalog);
 
-        // ВЕРХНЯ КНОПКА ФІЛЬТРА ТА ПОШУКУ
         (function() {
             var currentActivity;
             var hideTimeout;
@@ -316,9 +311,8 @@
                 }
             });
 
-            // Надійно кріпимо кнопку відразу після пошуку
             if ($('.head .open--search').length) {
-                $('.head .open--search').after(filterBtn);
+                $('.head .open--search').before(filterBtn);
             } else {
                 $('.head__actions').prepend(filterBtn);
             }
@@ -359,7 +353,6 @@
         }
     }
 
-    // БЕЗПЕЧНИЙ ЗАПУСК БЕЗ ТАЙМЕРІВ
     function initPlugin() {
         startPlugin();
         addMenu();
@@ -376,4 +369,4 @@
     }
 
 })();
-                
+                            
