@@ -1,12 +1,15 @@
 (function () {
     'use strict';
 
-    function startPlugin() {
-        // Перевірка на дублювання, як у файлі xx.js
-        if (window.my_custom_perfect_plugin_ready) return;
-        window.my_custom_perfect_plugin_ready = true;
+    // ==========================================
+    // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
+    var MY_CATALOG_DOMAIN = 'https://w.porno365.gold/'; 
+    // ==========================================
 
-        // Безпечний CSS
+    function startPlugin() {
+        if (window.pluginx_ready) return;
+        window.pluginx_ready = true;
+
         var css = '<style>' +
             '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
@@ -22,8 +25,10 @@
 
             comp.create = function () {
                 var _this = this;
-                // ЗАМІНИ ТУТ НА СВІЙ ДОМЕН
-                var url = 'https://w.porno365.gold/'; 
+                this.activity.loader(true);
+
+                // Беремо домен з глобальної змінної на початку файлу
+                var url = MY_CATALOG_DOMAIN; 
 
                 network.silent(url, function (htmlText) {
                     var parser = new DOMParser();
@@ -116,18 +121,23 @@
             return comp;
         }
 
-        Lampa.Component.add('custom_catalog_comp', CustomCatalog);
+        Lampa.Component.add('pluginx_comp', CustomCatalog);
 
         function addMenu() {
             var menuList = $('.menu .menu__list').eq(0);
             if (!menuList.length) return;
-            if (menuList.find('[data-action="my_custom_catalog"]').length === 0) {
-                var myMenu = '<li class="menu__item selector" data-action="my_custom_catalog"><div class="menu__text">Мій Каталог</div></li>';
+            if (menuList.find('[data-action="pluginx"]').length === 0) {
+                var myMenu = '<li class="menu__item selector" data-action="pluginx">' +
+                             '<div class="menu__ico">' +
+                             '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="object-fit: contain;" />' +
+                             '</div>' +
+                             '<div class="menu__text">Каталог Х</div>' +
+                             '</li>';
                 menuList.append(myMenu);
-                $('.menu__item[data-action="my_custom_catalog"]').on('hover:enter', function () {
+                $('.menu__item[data-action="pluginx"]').on('hover:enter', function () {
                     Lampa.Activity.push({
-                        title: 'Мій Каталог',
-                        component: 'custom_catalog_comp',
+                        title: 'Каталог Х',
+                        component: 'pluginx_comp',
                         page: 1
                     });
                 });
@@ -137,10 +147,8 @@
         addMenu();
     }
 
-    // Правильний запуск після повної готовності Lampa
     if (window.appready) startPlugin();
     else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') startPlugin(); });
 
-    // Запобіжник для повільних пристроїв
     setTimeout(startPlugin, 1000);
 })();
