@@ -11,7 +11,11 @@
         window.pluginx_ready = true;
 
         var css = '<style>' +
-            '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
+            /* Стиль для мобільних пристроїв: одна колонка */
+            '@media screen and (max-width: 580px) {' +
+                '.my-youtube-style .card { width: 100% !important; margin-bottom: 20px !important; }' +
+            '}' +
+            /* Загальні стилі для карток у цьому каталозі */
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
             '.my-youtube-style .card__title { white-space: normal !important; text-align: left !important; line-height: 1.4 !important; height: auto !important; padding-top: 10px !important; }' +
@@ -49,7 +53,7 @@
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
                         var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
 
-                        // Якість на початку, тривалість у кінці
+                        // Якість у квадратних дужках на початку, тривалість у дужках в кінці
                         var finalTitle = '';
                         if (qualityText) finalTitle += '[' + qualityText + '] ';
                         finalTitle += rawTitle;
@@ -99,7 +103,6 @@
                     var results = parseCards(doc, siteBaseUrl, object.is_related);
 
                     if (results.length > 0) {
-                        // next_page: true активує слухач скролу в Лампі
                         _this.build({ 
                             results: results, 
                             collection: true, 
@@ -127,7 +130,6 @@
                     var results = parseCards(doc, siteBaseUrl, false);
 
                     if (results.length > 0) {
-                        // Передаємо нові результати і кажемо, що є ще
                         resolve({ 
                             results: results, 
                             next_page: true 
