@@ -50,11 +50,15 @@
                 this.activity.loader(true);
 
                 var url = object.url || MY_CATALOG_DOMAIN; 
+                var isRelated = object.is_related || false; // Перевіряємо наш прапорець
 
                 network.silent(url, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
-                    var elements = doc.querySelectorAll('li.video_block, li.trailer');
+                    
+                    // Якщо це "Схожі", беремо класи зі скріншоту, інакше стандартні
+                    var selector = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
+                    var elements = doc.querySelectorAll(selector);
                     var results = [];
 
                     var baseUrlMatch = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/);
@@ -152,6 +156,7 @@
 
                 events.onMenu = function () {
                     var menuItems = [
+                        { title: 'Схожі відео', action: 'similar' },
                         { title: 'Категорії', action: 'categories' },
                         { title: 'Моделі', action: 'models' },
                         { title: 'Теги', action: 'tags' }
@@ -161,60 +166,67 @@
                         title: 'Дії',
                         items: menuItems,
                         onSelect: function (a) {
-                            Lampa.Activity.loader(true);
-                            network.silent(element.url, function (htmlText) {
-                                Lampa.Activity.loader(false);
-                                var parser = new DOMParser();
-                                var doc = parser.parseFromString(htmlText, 'text/html');
+                            if (a.action === 'similar') {
+                                // Прямо відкриваємо сторінку зі схожими відео
+                                Lampa.Activity.push({
+                                    url: element.url,
+                                    title: 'Схожі',
+                                    component: 'pluginx_comp',
+                                    page: 1,
+                                    is_related: true // Прапорець для парсера
+                                });
+                            } else {
+                                // Видалили Lampa.Activity.loader(true), щоб уникнути помилок
+                                network.silent(element.url, function (htmlText) {
+                                    var parser = new DOMParser();
+                                    var doc = parser.parseFromString(htmlText, 'text/html');
 
-                                var selector = '';
-                                var selectTitle = '';
+                                    var selector = '';
+                                    var selectTitle = '';
 
-                                if (a.action === 'categories') {
-                                    selector = '.video-categories:not(.video-models) a'; 
-                                    selectTitle = 'Категорії';
-                                } else if (a.action === 'models') {
-                                    selector = '.video-categories.video-models a';
-                                    selectTitle = 'Моделі';
-                                } else if (a.action === 'tags') {
-                                    selector = '.video-tags a';
-                                    selectTitle = 'Теги';
-                                }
-
-                                var itemsList = [];
-                                var elements = doc.querySelectorAll(selector);
-
-                                for (var i = 0; i < elements.length; i++) {
-                                    var href = elements[i].getAttribute('href');
-                                    var text = elements[i].innerText.trim();
-                                    if (href && text) {
-                                        itemsList.push({ title: text, url: href });
+                                    if (a.action === 'categories') {
+                                        selector = '.video-categories:not(.video-models) a'; 
+                                        selectTitle = 'Категорії';
+                                    } else if (a.action === 'models') {
+                                        selector = '.video-categories.video-models a';
+                                        selectTitle = 'Моделі';
+                                    } else if (a.action === 'tags') {
+                                        selector = '.video-tags a';
+                                        selectTitle = 'Теги';
                                     }
-                                }
 
-                                if (itemsList.length > 0) {
-                                    Lampa.Select.show({
-                                        title: selectTitle,
-                                        items: itemsList,
-                                        onSelect: function (item) {
-                                            Lampa.Activity.push({
-                                                url: item.url,
-                                                title: item.title,
-                                                component: 'pluginx_comp',
-                                                page: 1
-                                            });
-                                        },
-                                        onBack: function () {
-                                            Lampa.Controller.toggle('content');
+                                    var itemsList = [];
+                                    var elements = doc.querySelectorAll(selector);
+
+                                    for (var i = 0; i < elements.length; i++) {
+                                        var href = elements[i].getAttribute('href');
+                                        var text = elements[i].innerText.trim();
+                                        if (href && text) {
+                                            itemsList.push({ title: text, url: href });
                                         }
-                                    });
-                                } else {
-                                    Lampa.Noty.show('Нічого не знайдено');
-                                }
-                            }, function () {
-                                Lampa.Activity.loader(false);
-                                Lampa.Noty.show('Помилка завантаження сторінки');
-                            }, false, { dataType: 'text' });
+                                    }
+
+                                    if (itemsList.length > 0) {
+                                        Lampa.Select.show({
+                                            title: selectTitle,
+                                            items: itemsList,
+                                            onSelect: function (item) {
+                                                Lampa.Activity.push({
+                                                    url: item.url,
+                                                    title: item.title,
+                                                    component: 'pluginx_comp',
+                                                    page: 1
+                                                });
+                                            },
+                                            onBack: function () {
+                                                Lampa.Controller.toggle('content');
+                                            }
+                                        });
+                                    } else {
+                                        Lampa.Noty.show('Нічого не знайдено');
+                                    }
+                                }, false, false, { dataType: 'text' });
+                            }
                         },
                         onBack: function () {
                             Lampa.Controller.toggle('content');
@@ -252,7 +264,6 @@
         addMenu();
     }
 
-    // БЕЗПЕЧНИЙ ЗАПУСК: чекаємо повного завантаження об'єктів Лампи
     var startInterval = setInterval(function() {
         if (window.appready && window.Lampa && window.Lampa.Component) {
             clearInterval(startInterval);
