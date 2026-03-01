@@ -23,7 +23,6 @@
             var comp = new Lampa.InteractionCategory(object);
             var network = new Lampa.Reguest();
 
-            // --- ДОДАНО ФІЛЬТР ---
             comp.filter = function () {
                 var filter_items = [
                     { title: 'Нові', url: MY_CATALOG_DOMAIN + '/' },
@@ -35,10 +34,8 @@
                     title: 'Фільтр / Сортування',
                     items: filter_items,
                     onSelect: function (a) {
-                        // При виборі оновлюємо url і перезавантажуємо сторінку
                         object.url = a.url;
                         comp.empty();
-                        // Знову показуємо лоадер і запускаємо завантаження
                         comp.activity.loader(true);
                         comp.create();
                     },
@@ -52,7 +49,6 @@
                 var _this = this;
                 this.activity.loader(true);
 
-                // Використовуємо url з об'єкта (якщо вибрали фільтр), або базовий
                 var url = object.url || MY_CATALOG_DOMAIN; 
 
                 network.silent(url, function (htmlText) {
@@ -115,7 +111,6 @@
             };
 
             comp.cardRender = function (card, element, events) {
-                // Звичайний клік (Запуск відео)
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
@@ -155,28 +150,71 @@
                     }, false, false, { dataType: 'text' });
                 };
 
-                // --- ДОДАНО МЕНЮ (ДОВГЕ НАТИСКАННЯ АБО КНОПКА МЕНЮ НА ПУЛЬТІ) ---
                 events.onMenu = function () {
                     var menuItems = [
-                        { title: 'Схожі відео', action: 'similar' },
-                        { title: 'Моделі', action: 'models' }
+                        { title: 'Категорії', action: 'categories' },
+                        { title: 'Моделі', action: 'models' },
+                        { title: 'Теги', action: 'tags' }
                     ];
 
                     Lampa.Select.show({
                         title: 'Дії',
                         items: menuItems,
                         onSelect: function (a) {
-                            if (a.action === 'similar') {
-                                // Тут ми відкриваємо нову сторінку каталогу для схожих відео
-                                Lampa.Activity.push({
-                                    url: element.url, // Поки передаємо url відео, далі треба буде додати парсинг схожих
-                                    title: 'Схожі: ' + element.name,
-                                    component: 'pluginx_comp',
-                                    page: 1
-                                });
-                            } else if (a.action === 'models') {
-                                Lampa.Noty.show('Пошук моделей...');
-                            }
+                            Lampa.Activity.loader(true);
+                            network.silent(element.url, function (htmlText) {
+                                Lampa.Activity.loader(false);
+                                var parser = new DOMParser();
+                                var doc = parser.parseFromString(htmlText, 'text/html');
+
+                                var selector = '';
+                                var selectTitle = '';
+
+                                if (a.action === 'categories') {
+                                    selector = '.video-categories:not(.video-models) a'; 
+                                    selectTitle = 'Категорії';
+                                } else if (a.action === 'models') {
+                                    selector = '.video-categories.video-models a';
+                                    selectTitle = 'Моделі';
+                                } else if (a.action === 'tags') {
+                                    selector = '.video-tags a';
+                                    selectTitle = 'Теги';
+                                }
+
+                                var itemsList = [];
+                                var elements = doc.querySelectorAll(selector);
+
+                                for (var i = 0; i < elements.length; i++) {
+                                    var href = elements[i].getAttribute('href');
+                                    var text = elements[i].innerText.trim();
+                                    if (href && text) {
+                                        itemsList.push({ title: text, url: href });
+                                    }
+                                }
+
+                                if (itemsList.length > 0) {
+                                    Lampa.Select.show({
+                                        title: selectTitle,
+                                        items: itemsList,
+                                        onSelect: function (item) {
+                                            Lampa.Activity.push({
+                                                url: item.url,
+                                                title: item.title,
+                                                component: 'pluginx_comp',
+                                                page: 1
+                                            });
+                                        },
+                                        onBack: function () {
+                                            Lampa.Controller.toggle('content');
+                                        }
+                                    });
+                                } else {
+                                    Lampa.Noty.show('Нічого не знайдено');
+                                }
+                            }, function () {
+                                Lampa.Activity.loader(false);
+                                Lampa.Noty.show('Помилка завантаження сторінки');
+                            }, false, { dataType: 'text' });
                         },
                         onBack: function () {
                             Lampa.Controller.toggle('content');
@@ -206,6 +244,20 @@
                         title: 'Каталог Х',
                         component: 'pluginx_comp',
                         page: 1
+                    });
+                });
+            }
+        }
+
+        addMenu();
+    }
+
+    if (window.appready) startPlugin();
+    else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') startPlugin(); });
+
+    setTimeout(startPlugin, 1000);
+})();
+         page: 1
                     });
                 });
             }
