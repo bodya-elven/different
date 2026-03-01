@@ -88,7 +88,9 @@
             }
 
             function parseCardsLenkino(doc, siteBaseUrl) {
-                var elements = doc.querySelectorAll('.grd-vid .item, #list_videos_videos_list_items .item');
+                var listBlock = doc.querySelector('#list_videos_videos_list');
+                var elements = listBlock ? listBlock.querySelectorAll('.item') : doc.querySelectorAll('.grd-vid .item, #list_videos_videos_list_items .item');
+                
                 if (elements.length === 0) {
                     elements = doc.querySelectorAll('.item'); 
                 }
@@ -393,19 +395,49 @@
                         if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Помилка завантаження відео');
                     });
                 };
-
                 events.onMenu = function () {
                     if (currentSite === 'lenkino') {
-                        Lampa.Select.show({
-                            title: 'Дії',
-                            items: [{ title: 'Схожі відео', action: 'similar' }],
-                            onSelect: function (a) {
-                                if (a.action === 'similar') {
-                                    Lampa.Activity.push({ url: element.url, title: 'Схожі', component: 'pluginx_comp', site: 'lenkino', page: 1, is_related: true });
-                                }
-                            },
-                            onBack: function () { Lampa.Controller.toggle('content'); }
-                        });
+                        smartRequest(element.url, function (htmlText) {
+                            var parser = new DOMParser();
+                            var doc = parser.parseFromString(htmlText, 'text/html');
+                            var menuItems = [];
+                            
+                            var modelElements = doc.querySelectorAll('.grd-mdl a');
+                            for (var m = 0; m < modelElements.length; m++) {
+                                menuItems.push({ title: modelElements[m].innerText.trim(), action: 'direct_link', url: modelElements[m].getAttribute('href') });
+                            }
+                            
+                            menuItems.push({ title: 'Категорії', action: 'categories' }, { title: 'Схожі відео', action: 'similar' });
+                            
+                            Lampa.Select.show({
+                                title: 'Дії',
+                                items: menuItems,
+                                onSelect: function (a) {
+                                    if (a.action === 'similar') {
+                                        Lampa.Activity.push({ url: element.url, title: 'Схожі', component: 'pluginx_comp', site: 'lenkino', page: 1, is_related: true });
+                                    } else if (a.action === 'direct_link') {
+                                        Lampa.Activity.push({ url: a.url, title: a.title, component: 'pluginx_comp', site: 'lenkino', page: 1 });
+                                    } else if (a.action === 'categories') {
+                                        var subItems = [];
+                                        var subEls = doc.querySelectorAll('.vid-cat a');
+                                        for (var i = 0; i < subEls.length; i++) {
+                                            if (subEls[i].getAttribute('href')) subItems.push({ title: subEls[i].innerText.trim(), url: subEls[i].getAttribute('href') });
+                                        }
+                                        if (subItems.length > 0) {
+                                            Lampa.Select.show({
+                                                title: 'Категорії',
+                                                items: subItems,
+                                                onSelect: function (item) { Lampa.Activity.push({ url: item.url, title: item.title, component: 'pluginx_comp', site: 'lenkino', page: 1 }); },
+                                                onBack: function () { events.onMenu(); }
+                                            });
+                                        } else {
+                                            if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Категорії не знайдено');
+                                        }
+                                    }
+                                },
+                                onBack: function () { Lampa.Controller.toggle('content'); }
+                            });
+                        }, function() {});
                     } else {
                         smartRequest(element.url, function (htmlText) {
                             var parser = new DOMParser();
@@ -449,6 +481,7 @@
             };
             return comp;
         }
+
         Lampa.Component.add('pluginx_comp', CustomCatalog);
 
         (function() {
