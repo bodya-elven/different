@@ -1,10 +1,7 @@
 (function () {
     'use strict';
 
-    // ==========================================
-    // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
     var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
-    // ==========================================
 
     function startPlugin() {
         if (window.pluginx_ready) return;
@@ -23,7 +20,6 @@
             var comp = new Lampa.InteractionCategory(object);
             var network = new Lampa.Reguest();
 
-            // Функція для парсингу карток (винесена окремо для повторного використання)
             function parseCards(doc, siteBaseUrl, isRelated) {
                 var selector = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
                 var elements = doc.querySelectorAll(selector);
@@ -74,10 +70,11 @@
                     { title: 'Найкращі', url: MY_CATALOG_DOMAIN + '/top/' }
                 ];
                 Lampa.Select.show({
-                    title: 'Фільтр / Сортування',
+                    title: 'Сортування',
                     items: filter_items,
                     onSelect: function (a) {
                         object.url = a.url;
+                        object.page = 1; // Скидаємо сторінку при зміні фільтра
                         comp.empty();
                         comp.activity.loader(true);
                         comp.create();
@@ -90,6 +87,7 @@
                 var _this = this;
                 this.activity.loader(true);
                 var url = object.url || MY_CATALOG_DOMAIN; 
+                
                 network.silent(url, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
@@ -97,7 +95,8 @@
                     var results = parseCards(doc, siteBaseUrl, object.is_related);
 
                     if (results.length > 0) {
-                        _this.build({ results: results, collection: true });
+                        // Важливо: передаємо номер сторінки для ініціалізації пагінації
+                        _this.build({ results: results, collection: true, page: 1 });
                         _this.render().addClass('my-youtube-style');
                     } else {
                         _this.empty();
@@ -107,11 +106,10 @@
 
             comp.nextPageReuest = function (object, resolve, reject) {
                 if (object.is_related) return reject();
-                var baseUrl = object.url || MY_CATALOG_DOMAIN;
-                // Нова логіка пагінації: домен/номер
-                var pageUrl = baseUrl + (baseUrl.endsWith('/') ? '' : '/') + object.page;
                 
-                Lampa.Noty.show('Завантаження сторінки: ' + object.page); // Діагностика
+                var baseUrl = object.url || MY_CATALOG_DOMAIN;
+                var cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+                var pageUrl = cleanBase + object.page;
 
                 network.silent(pageUrl, function (htmlText) {
                     var parser = new DOMParser();
@@ -119,8 +117,13 @@
                     var siteBaseUrl = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
                     var results = parseCards(doc, siteBaseUrl, false);
 
-                    if (results.length > 0) resolve({ results: results });
-                    else reject();
+                    if (results.length > 0) {
+                        setTimeout(function() {
+                            resolve({ results: results, page: object.page });
+                        }, 200);
+                    } else {
+                        reject();
+                    }
                 }, reject, false, { dataType: 'text' });
             };
 
