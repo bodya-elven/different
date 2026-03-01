@@ -2,7 +2,7 @@
     'use strict';
 
     // ==========================================
-    // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
+    // ВСТАВТЕ ВАШ ДОМЕН ТУТ (без слеша в кінці):
     var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
     // ==========================================
 
@@ -100,8 +100,8 @@
                 }, reject, false, { dataType: 'text' });
             };
 
-            // >>> КІНЕЦЬ ПЕРШОЇ ЧАСТИНИ. ДРУГУ ВСТАВЛЯЙ ОДРАЗУ ПІД ЦИМ РЯДКОМ <<<
-                    // >>> ПОЧАТОК ДРУГОЇ ЧАСТИНИ <<<
+            // >>> КІНЕЦЬ ПЕРШОЇ ЧАСТИНИ <<<
+                                           // >>> ПОЧАТОК ДРУГОЇ ЧАСТИНИ <<<
             comp.filter = function () {
                 try {
                     var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0].replace(/\/+$/, '');
@@ -113,10 +113,8 @@
 
                     var cleanDomain = MY_CATALOG_DOMAIN.replace(/\/+$/, '');
                     
-                    // НОВА ЛОГІКА РОЗПІЗНАВАННЯ
                     var isHome = (baseUrl === cleanDomain);
                     var isModelOrTag = baseUrl.indexOf('/models/') !== -1 || baseUrl.indexOf('/tags/') !== -1;
-                    var isCategory = !isHome && !isModelOrTag; // Усе інше вважаємо категорією
                     
                     var filter_items = [
                         { title: 'Пошук', action: 'search' },
@@ -137,13 +135,13 @@
                             if (a.action === 'search') {
                                 Lampa.Input.edit({ title: 'Пошук', value: '', free: true, nosave: true }, function(value) {
                                     if (value) {
-                                        var searchUrl = cleanDomain + '/search/?q=' + encodeURIComponent(value);
+                                        // Правильне формування URL для пошуку
+                                        var searchUrl = cleanDomain + '/search/' + encodeURIComponent(value);
                                         Lampa.Activity.push({ url: searchUrl, title: 'Пошук: ' + value, component: 'pluginx_comp', page: 1 });
                                     }
                                     Lampa.Controller.toggle('content');
                                 });
                             } else if (a.action === 'categories') {
-                                // Запит до сторінки без слеша в кінці, щоб уникнути редиректу
                                 network.silent(cleanDomain + '/categories', function(htmlText) {
                                     var parser = new DOMParser();
                                     var doc = parser.parseFromString(htmlText, 'text/html');
@@ -277,6 +275,7 @@
 
         Lampa.Component.add('pluginx_comp', CustomCatalog);
 
+        // ВЕРХНЯ КНОПКА ФІЛЬТРА ТА ПОШУКУ
         (function() {
             var currentActivity;
             var hideTimeout;
@@ -317,7 +316,12 @@
                 }
             });
 
-            $('.head .open--search').after(filterBtn);
+            // Надійно кріпимо кнопку відразу після пошуку
+            if ($('.head .open--search').length) {
+                $('.head .open--search').after(filterBtn);
+            } else {
+                $('.head__actions').prepend(filterBtn);
+            }
 
             Lampa.Listener.follow('activity', function(e) {
                 if (e.type == 'start') currentActivity = e.object;
@@ -352,22 +356,24 @@
             var settings = menuList.find('[data-action="settings"]');
             if (settings.length) item.insertBefore(settings);
             else menuList.append(item);
-            if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
         }
     }
 
-    var startInterval = setInterval(function() {
-        if (window.appready && window.Lampa && window.Lampa.Component && window.Lampa.InteractionCategory && typeof $ !== 'undefined') {
-            clearInterval(startInterval); 
-            startPlugin(); 
-            var checkCount = 0;
-            var menuWatcher = setInterval(function() {
-                addMenu();
-                checkCount++;
-                if (checkCount >= 10) clearInterval(menuWatcher);
-            }, 500); 
-        }
-    }, 100);
+    // БЕЗПЕЧНИЙ ЗАПУСК БЕЗ ТАЙМЕРІВ
+    function initPlugin() {
+        startPlugin();
+        addMenu();
+    }
+
+    if (window.appready) {
+        initPlugin();
+    } else {
+        Lampa.Listener.follow('app', function (e) {
+            if (e.type == 'ready') {
+                initPlugin();
+            }
+        });
+    }
 
 })();
-                        
+                
