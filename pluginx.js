@@ -345,4 +345,21 @@
             var settings = menuList.find('[data-action="settings"]');
             if (settings.length) item.insertBefore(settings);
             else menuList.append(item);
-            if (window.Lampa && window.Lampa.Controller) window.Lampa.Con
+            if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
+        }
+    }
+
+    var startInterval = setInterval(function() {
+        if (window.appready && window.Lampa && window.Lampa.Component && window.Lampa.InteractionCategory && typeof $ !== 'undefined') {
+            clearInterval(startInterval); 
+            startPlugin(); 
+            var checkCount = 0;
+            var menuWatcher = setInterval(function() {
+                addMenu();
+                checkCount++;
+                if (checkCount >= 10) clearInterval(menuWatcher);
+            }, 500); 
+        }
+    }, 100);
+
+})();
