@@ -102,24 +102,23 @@
 
             comp.filter = function () {
                 try {
-                    var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0];
-                    var baseUrl = currentUrl
-                        .replace(/\/popular\/week\/?$/, '')
-                        .replace(/\/popular\/month\/?$/, '')
-                        .replace(/\/popular\/year\/?$/, '')
-                        .replace(/\/popular\/?$/, '')
-                        .replace(/\/toprated\/?$/, '')
-                        .replace(/\/top\/?$/, '');
+                    // Отримуємо URL і відрізаємо параметри після ? та слеш в кінці
+                    var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0].replace(/\/+$/, '');
                     
-                    if (!baseUrl.endsWith('/')) baseUrl += '/';
+                    // Відрізаємо старі параметри сортування, щоб отримати чисту базу
+                    var baseUrl = currentUrl
+                        .replace(/\/popular\/week$/, '')
+                        .replace(/\/popular\/month$/, '')
+                        .replace(/\/popular\/year$/, '')
+                        .replace(/\/popular$/, '');
 
-                    var isTagOrModel = baseUrl.indexOf('/tag') !== -1 || baseUrl.indexOf('/model') !== -1;
-                    var isCategory = baseUrl.indexOf('/categor') !== -1 || baseUrl.indexOf('/cat/') !== -1;
-
+                    var cleanDomain = MY_CATALOG_DOMAIN.replace(/\/+$/, '');
+                    var isHome = (baseUrl === cleanDomain);
+                    var isModelOrTag = baseUrl.indexOf('/model/') !== -1 || baseUrl.indexOf('/tag/') !== -1;
+                    
                     var filter_items = [
-                        { title: '🔍 Пошук', action: 'search' },
-                        { title: 'Нові', url: baseUrl },
-                        { title: 'Топ рейтингу', url: baseUrl + 'toprated/' },
+                        { title: 'Пошук', action: 'search' },
+                        { title: 'Нові', url: baseUrl || cleanDomain },
                         { title: 'Топ переглядів', action: 'popular_menu' }
                     ];
 
@@ -130,34 +129,33 @@
                             if (a.action === 'search') {
                                 Lampa.Input.edit({ title: 'Пошук', value: '', free: true, nosave: true }, function(value) {
                                     if (value) {
-                                        var searchUrl = MY_CATALOG_DOMAIN + '/search/?q=' + encodeURIComponent(value);
-                                        // БЕЗПЕЧНЕ ВІДКРИТТЯ НОВОЇ СТОРІНКИ (як у xx.js)
+                                        var searchUrl = cleanDomain + '/search/?q=' + encodeURIComponent(value);
                                         Lampa.Activity.push({ url: searchUrl, title: 'Пошук: ' + value, component: 'pluginx_comp', page: 1 });
                                     }
                                     Lampa.Controller.toggle('content');
                                 });
                             } else if (a.action === 'popular_menu') {
                                 var popularItems = [
-                                    { title: 'За весь час', url: baseUrl + 'popular/' }
+                                    { title: 'За весь час', url: baseUrl + '/popular' }
                                 ];
-                                if (!isTagOrModel) {
-                                    popularItems.push({ title: 'За місяць', url: baseUrl + 'popular/month/' });
-                                    popularItems.push({ title: 'За рік', url: baseUrl + 'popular/year/' });
-                                    if (!isCategory) { 
-                                        popularItems.push({ title: 'За тиждень', url: baseUrl + 'popular/week/' });
+                                
+                                if (!isModelOrTag) {
+                                    popularItems.push({ title: 'За місяць', url: baseUrl + '/popular/month' });
+                                    popularItems.push({ title: 'За рік', url: baseUrl + '/popular/year' });
+                                    if (isHome) { 
+                                        popularItems.push({ title: 'За тиждень', url: baseUrl + '/popular/week' });
                                     }
                                 }
+                                
                                 Lampa.Select.show({
                                     title: 'Топ переглядів',
                                     items: popularItems,
                                     onSelect: function(sub) {
-                                        // БЕЗПЕЧНЕ ВІДКРИТТЯ НОВОЇ СТОРІНКИ
                                         Lampa.Activity.push({ url: sub.url, title: sub.title, component: 'pluginx_comp', page: 1 });
                                     },
                                     onBack: function() { comp.filter(); }
                                 });
                             } else {
-                                // БЕЗПЕЧНЕ ВІДКРИТТЯ НОВОЇ СТОРІНКИ
                                 Lampa.Activity.push({ url: a.url, title: a.title, component: 'pluginx_comp', page: 1 });
                             }
                         },
@@ -168,7 +166,6 @@
                 }
             };
 
-            // ФІШКА: Відкривати фільтр кнопкою "Вправо"
             comp.onRight = comp.filter.bind(comp);
 
             comp.cardRender = function (card, element, events) {
@@ -243,7 +240,7 @@
         (function() {
             var currentActivity;
             var hideTimeout;
-            var isClicking = false; // Захист від подвійного кліку
+            var isClicking = false; 
             
             var filterBtn = $('<div class="head__action head__settings selector">\n' +
                 '            <svg height="36" viewBox="0 0 38 36" fill="none" xmlns="http://www.w3.org/2000/svg">\n' +
@@ -257,7 +254,6 @@
                 '            </svg>\n' +
                 '        </div>');
 
-            // Обробка подій: hover:enter (пульт), click (мишка/дотик)
             filterBtn.hide().on('hover:enter click', function() {
                 if (isClicking) return;
                 isClicking = true;
@@ -266,7 +262,6 @@
                 try {
                     if (currentActivity && currentActivity.activity) {
                         var c;
-                        // ПЕРЕВІРКА ВЕРСІЇ ЛАМПИ ЯК В XX.JS
                         if (window.Lampa && window.Lampa.Manifest && window.Lampa.Manifest.app_digital >= 300) {
                             c = currentActivity.activity.component;
                         } else {
@@ -275,12 +270,10 @@
 
                         if (c && typeof c.filter === 'function') {
                             c.filter();
-                        } else {
-                            if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Помилка: Фільтр не знайдено');
                         }
                     }
                 } catch (e) {
-                    if (window.Lampa && window.Lampa.Noty) window.Lampa.Noty.show('Системна помилка: ' + e.message);
+                    console.log('Помилка виклику фільтра:', e);
                 }
             });
 
