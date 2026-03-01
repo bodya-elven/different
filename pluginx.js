@@ -252,22 +252,12 @@
         addMenu();
     }
 
-    if (window.appready) startPlugin();
-    else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') startPlugin(); });
-
-    setTimeout(startPlugin, 1000);
-})();
-         page: 1
-                    });
-                });
-            }
+    // БЕЗПЕЧНИЙ ЗАПУСК: чекаємо повного завантаження об'єктів Лампи
+    var startInterval = setInterval(function() {
+        if (window.appready && window.Lampa && window.Lampa.Component) {
+            clearInterval(startInterval);
+            startPlugin();
         }
+    }, 100);
 
-        addMenu();
-    }
-
-    if (window.appready) startPlugin();
-    else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') startPlugin(); });
-
-    setTimeout(startPlugin, 1000);
 })();
