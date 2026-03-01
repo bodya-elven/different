@@ -1,10 +1,7 @@
 (function () {
     'use strict';
 
-    // ==========================================
-    // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
     var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
-    // ==========================================
 
     function startPlugin() {
         if (window.pluginx_ready) return;
@@ -101,7 +98,7 @@
             };
             comp.filter = function () {
                 try {
-                    var currentUrl = (object.url || MY_CATALOG_DOMAIN).split('?')[0].replace(/\/+$/, '');
+                    var currentUrl = (object.url || MY_CATALOG_DOMAIN).replace(/\/+$/, '');
                     var baseUrl = currentUrl
                         .replace(/\/popular\/week$/, '')
                         .replace(/\/popular\/month$/, '')
@@ -132,7 +129,7 @@
                             if (a.action === 'search') {
                                 Lampa.Input.edit({ title: 'Пошук', value: '', free: true, nosave: true }, function(value) {
                                     if (value) {
-                                        var searchUrl = cleanDomain + '/search/' + encodeURIComponent(value);
+                                        var searchUrl = cleanDomain + '/search/?q=' + encodeURIComponent(value);
                                         Lampa.Activity.push({ url: searchUrl, title: 'Пошук: ' + value, component: 'pluginx_comp', page: 1 });
                                     }
                                     Lampa.Controller.toggle('content');
@@ -369,4 +366,4 @@
     }
 
 })();
-                            
+            
