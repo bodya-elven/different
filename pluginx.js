@@ -11,33 +11,49 @@
         window.pluginx_ready = true;
 
         var css = '<style>' +
-            /* Контейнер на всю ширину */
+            /* Контейнер каталогу */
             '.my-youtube-style { padding: 0 !important; }' +
-            '.my-youtube-style .category-full { padding: 0 10px !important; }' +
+            '.my-youtube-style .category-full { padding: 0 5px !important; }' +
             
-            /* Стиль для мобільних пристроїв: одна колонка */
+            /* Сітка: 1 колонка (моб) / 4 колонки (ТБ) */
             '@media screen and (max-width: 580px) {' +
-                '.my-youtube-style .card { width: 100% !important; margin-bottom: 15px !important; padding: 0 5px !important; }' +
+                '.my-youtube-style .card { width: 100% !important; margin-bottom: 10px !important; padding: 0 5px !important; }' +
             '}' +
-            
-            /* Стиль для ТБ: 4 колонки на всю ширину */
             '@media screen and (min-width: 581px) {' +
-                '.my-youtube-style .card { width: 25% !important; margin-bottom: 20px !important; padding: 0 8px !important; }' +
+                '.my-youtube-style .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; }' +
             '}' +
             
-            /* Налаштування карток */
+            /* Картки */
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
             
-            /* ПОВЕРНУТО СТАНДАРТНИЙ ШРИФТ + МІНІМАЛЬНИЙ ВІДСТУП */
+            /* ЛОГІКА НАЗВИ: 3 рядки + фіксована тривалість */
             '.my-youtube-style .card__title { ' +
+                'position: relative !important; ' +
+                'display: -webkit-box !important; ' +
+                '-webkit-line-clamp: 3 !important; ' + /* Рівно 3 рядки */
+                '-webkit-box-orient: vertical !important; ' +
+                'overflow: hidden !important; ' +
                 'white-space: normal !important; ' +
                 'text-align: left !important; ' +
-                'line-height: 1.3 !important; ' +
-                'height: auto !important; ' +
+                'line-height: 1.2 !important; ' +
+                'height: 3.6em !important; ' + /* Фіксована висота (1.2 * 3) */
                 'padding-top: 2px !important; ' + 
                 'margin-top: 0 !important; ' +
-                /* font-size видалено, щоб повернути стандартний */
+                'padding-right: 45px !important; ' + /* Місце для часу */
+            '}' +
+            
+            /* Час, який завжди видно в правому нижньому куті назви */
+            '.my-youtube-style .pinned-duration { ' +
+                'position: absolute !important; ' +
+                'bottom: 0 !important; ' +
+                'right: 0 !important; ' +
+                'background: rgba(0,0,0,0.8) !important; ' +
+                'padding: 0 4px !important; ' +
+                'border-radius: 4px !important; ' +
+                'font-size: 0.9rem !important; ' +
+                'color: #fff !important; ' +
+                'z-index: 2 !important; ' +
             '}' +
             
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
@@ -74,90 +90,57 @@
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
                         var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
 
-                        var finalTitle = '';
-                        if (qualityText) finalTitle += '[' + qualityText + '] ';
-                        finalTitle += rawTitle;
-                        if (timeText) finalTitle += ' (' + timeText + ')';
-
+                        // Формуємо об'єкт так, щоб час був окремим полем
                         results.push({
-                            name: finalTitle, 
+                            name: (qualityText ? '[' + qualityText + '] ' : '') + rawTitle, 
                             url: videoUrl,
                             picture: imgSrc,
-                            background_image: imgSrc,
-                            img: imgSrc
+                            img: imgSrc,
+                            duration: timeText // Передаємо час окремо
                         });
                     }
                 }
                 return results;
             }
 
-            comp.filter = function () {
-                var filter_items = [
-                    { title: 'Нові', url: MY_CATALOG_DOMAIN + '/' },
-                    { title: 'Популярні', url: MY_CATALOG_DOMAIN + '/popular/' }, 
-                    { title: 'Найкращі', url: MY_CATALOG_DOMAIN + '/top/' }
-                ];
-                Lampa.Select.show({
-                    title: 'Сортування',
-                    items: filter_items,
-                    onSelect: function (a) {
-                        object.url = a.url;
-                        object.page = 1;
-                        comp.empty();
-                        comp.activity.loader(true);
-                        comp.create();
-                    },
-                    onBack: function () { Lampa.Controller.toggle('content'); }
-                });
-            };
-
             comp.create = function () {
                 var _this = this;
                 this.activity.loader(true);
-                var url = object.url || MY_CATALOG_DOMAIN; 
-                
-                network.silent(url, function (htmlText) {
+                network.silent(object.url || MY_CATALOG_DOMAIN, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
                     var siteBaseUrl = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
                     var results = parseCards(doc, siteBaseUrl, object.is_related);
 
                     if (results.length > 0) {
-                        _this.build({ 
-                            results: results, 
-                            collection: true, 
-                            page: 1, 
-                            next_page: true 
-                        });
+                        _this.build({ results: results, collection: true, page: 1, next_page: true });
                         _this.render().addClass('my-youtube-style');
-                    } else {
-                        _this.empty();
-                    }
+                    } else { _this.empty(); }
                 }, this.empty.bind(this), false, { dataType: 'text' });
             };
 
             comp.nextPageReuest = function (object, resolve, reject) {
                 if (object.is_related) return reject();
-                
                 var baseUrl = object.url || MY_CATALOG_DOMAIN;
-                var cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
-                var pageUrl = cleanBase + object.page;
+                var pageUrl = (baseUrl.endsWith('/') ? baseUrl : baseUrl + '/') + object.page;
 
                 network.silent(pageUrl, function (htmlText) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(htmlText, 'text/html');
                     var siteBaseUrl = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/)[1];
                     var results = parseCards(doc, siteBaseUrl, false);
-
-                    if (results.length > 0) {
-                        resolve({ results: results, next_page: true });
-                    } else {
-                        reject();
-                    }
+                    if (results.length > 0) resolve({ results: results, next_page: true });
+                    else reject();
                 }, reject, false, { dataType: 'text' });
             };
 
             comp.cardRender = function (card, element, events) {
+                // Додаємо час як "pinned" елемент всередину назви
+                if (element.duration) {
+                    var titleDiv = card.render().find('.card__title');
+                    titleDiv.append('<span class="pinned-duration">' + element.duration + '</span>');
+                }
+
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
@@ -166,13 +149,7 @@
                         var qualityLinks = doc.querySelectorAll('.quality_chooser a');
                         for (var j = 0; j < qualityLinks.length; j++) {
                             var link = qualityLinks[j];
-                            var vUrl = link.getAttribute('href');
-                            var qName = link.innerText.trim() || link.getAttribute('data-quality');
-                            if (vUrl) videoStreams.push({ title: qName || 'Відео', url: vUrl });
-                        }
-                        if (videoStreams.length === 0) {
-                            var playBtn = doc.querySelector('a.btn-play.play-video');
-                            if (playBtn && playBtn.getAttribute('href')) videoStreams.push({ title: 'Оригінал', url: playBtn.getAttribute('href') });
+                            if (link.getAttribute('href')) videoStreams.push({ title: link.innerText.trim() || 'Відео', url: link.getAttribute('href') });
                         }
                         if (videoStreams.length > 0) {
                             var best = videoStreams[videoStreams.length - 1];
@@ -189,9 +166,7 @@
                         var menuItems = [];
                         var modelElements = doc.querySelectorAll('.video-categories.video-models a');
                         for (var m = 0; m < modelElements.length; m++) {
-                            var mHref = modelElements[m].getAttribute('href');
-                            var mText = modelElements[m].innerText.trim();
-                            if (mHref && mText) menuItems.push({ title: mText, action: 'direct_link', url: mHref });
+                            menuItems.push({ title: modelElements[m].innerText.trim(), action: 'direct_link', url: modelElements[m].getAttribute('href') });
                         }
                         menuItems.push({ title: 'Категорії', action: 'categories' }, { title: 'Теги', action: 'tags' }, { title: 'Схожі відео', action: 'similar' });
 
@@ -231,50 +206,46 @@
         Lampa.Component.add('pluginx_comp', CustomCatalog);
     }
 
-    // НОВА ЛОГІКА ДОДАВАННЯ В МЕНЮ (більш стабільна)
     function addMenu() {
         if (window.pluginx_menu_added) return;
         var menuList = $('.menu .menu__list').eq(0);
         if (menuList.length) {
-            var item = $('<li class="menu__item selector" data-action="pluginx">' +
+            var item = $('<li class="menu__item selector" data-action="pluginx" id="menu_pluginx">' +
                          '<div class="menu__ico">' +
-                         '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="object-fit: contain; filter: brightness(0) invert(1);" />' +
+                         '<img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" />' +
                          '</div>' +
                          '<div class="menu__text">Каталог Х</div>' +
                          '</li>');
             
             item.on('hover:enter', function () {
-                Lampa.Activity.push({
-                    title: 'Каталог Х',
-                    component: 'pluginx_comp',
-                    page: 1
-                });
+                Lampa.Activity.push({ title: 'Каталог Х', component: 'pluginx_comp', page: 1 });
             });
 
-            menuList.append(item);
+            // Вставляємо на друге місце (після "Головна") або перед налаштуваннями
+            var settings = menuList.find('[data-action="settings"]');
+            if (settings.length) item.insertBefore(settings);
+            else menuList.append(item);
+
             window.pluginx_menu_added = true;
-            // Примусове оновлення контролера Лампи
             if (window.Lampa && window.Lampa.Controller) window.Lampa.Controller.update();
         }
     }
 
-    // Запуск перевірки кожні 100мс
-    var startInterval = setInterval(function() {
-        if (window.appready && window.Lampa && window.Lampa.Component) {
-            startPlugin();
+    // Дуже агресивна перевірка для меню (щоб не ховалося)
+    var menuCheck = setInterval(function() {
+        if (window.appready) {
             addMenu();
-            if (window.pluginx_ready && window.pluginx_menu_added) {
-                // Можна зупинити інтервал, якщо все готово
-            }
+            startPlugin();
         }
-    }, 100);
+    }, 200);
 
-    // Додатковий хук на подію готовності програми
+    // Додатковий хук на готовність
     Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') {
-            addMenu();
+            setTimeout(addMenu, 100);
+            setTimeout(addMenu, 1000); // Повторний запуск для менеджера меню
         }
     });
 
 })();
-                        
+                         
