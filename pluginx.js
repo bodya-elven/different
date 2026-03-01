@@ -99,11 +99,18 @@
             comp.filter = function () {
                 try {
                     var currentUrl = (object.url || MY_CATALOG_DOMAIN).replace(/\/+$/, '');
+                    
+                    if (currentUrl.indexOf('/search/?q=') !== -1) {
+                        currentUrl = currentUrl.replace('/search/?q=', '/search/');
+                    }
+
                     var baseUrl = currentUrl
+                        .split('?')[0]
                         .replace(/\/popular\/week$/, '')
                         .replace(/\/popular\/month$/, '')
                         .replace(/\/popular\/year$/, '')
-                        .replace(/\/popular$/, '');
+                        .replace(/\/popular$/, '')
+                        .replace(/\/+$/, '');
 
                     var cleanDomain = MY_CATALOG_DOMAIN.replace(/\/+$/, '');
                     
