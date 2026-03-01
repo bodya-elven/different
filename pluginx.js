@@ -47,7 +47,6 @@
                         var titleEl = el.querySelector('a.image p, .title');
                         var imgEl = el.querySelector('img'); 
                         
-                        // Парсимо тривалість та якість з сайту
                         var timeEl = el.querySelector('.duration'); 
                         var qualityEl = el.querySelector('.quality, .video-hd-mark, .hd-mark'); 
 
@@ -66,7 +65,6 @@
                                 picture: imgSrc,
                                 background_image: imgSrc,
                                 img: imgSrc,
-                                // Зберігаємо наші дані
                                 custom_time: timeEl ? timeEl.innerText.trim() : '',
                                 custom_quality: qualityEl ? qualityEl.innerText.trim() : ''
                             });
@@ -87,12 +85,19 @@
             };
 
             comp.cardRender = function (card, element, events) {
-                // ВСТАНОВЛЮЄМО БЕЙДЖІ БЕЗПОСЕРЕДНЬО В DOM КАРТКИ
-                if (element.custom_time) {
-                    card.find('.card__view').append('<div class="my-badge-time">' + element.custom_time + '</div>');
-                }
-                if (element.custom_quality) {
-                    card.find('.card__view').append('<div class="my-badge-quality">' + element.custom_quality + '</div>');
+                // БЕЗПЕЧНИЙ БЛОК: Малюємо бейджі без ризику зламати додаток
+                try {
+                    // Робимо об'єкт універсальним (читабельним для jQuery)
+                    var $card = $(card.html || card.el || card);
+                    
+                    if (element.custom_time) {
+                        $card.find('.card__view').append('<div class="my-badge-time">' + element.custom_time + '</div>');
+                    }
+                    if (element.custom_quality) {
+                        $card.find('.card__view').append('<div class="my-badge-quality">' + element.custom_quality + '</div>');
+                    }
+                } catch (e) {
+                    // Якщо тут буде помилка, відео все одно працюватиме!
                 }
 
                 events.onEnter = function () {
