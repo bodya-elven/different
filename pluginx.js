@@ -23,21 +23,23 @@
             var comp = new Lampa.InteractionCategory(object);
             var network = new Lampa.Reguest();
 
-            // 1. ДОДАЄМО БАЗОВИЙ ФІЛЬТР
+            // --- ДОДАНО ФІЛЬТР ---
             comp.filter = function () {
-                var filterItems = [
-                    { title: 'Нові', add_url: '' },
-                    { title: 'Популярні', add_url: 'popular/' }, // Заміни на реальні шляхи свого сайту
-                    { title: 'Найкращі', add_url: 'top/' }
+                var filter_items = [
+                    { title: 'Нові', url: MY_CATALOG_DOMAIN + '/' },
+                    { title: 'Популярні', url: MY_CATALOG_DOMAIN + '/popular/' }, 
+                    { title: 'Найкращі', url: MY_CATALOG_DOMAIN + '/top/' }
                 ];
 
                 Lampa.Select.show({
-                    title: 'Сортування',
-                    items: filterItems,
+                    title: 'Фільтр / Сортування',
+                    items: filter_items,
                     onSelect: function (a) {
-                        // Оновлюємо посилання та перезавантажуємо сторінку
-                        object.url = MY_CATALOG_DOMAIN + '/' + a.add_url;
+                        // При виборі оновлюємо url і перезавантажуємо сторінку
+                        object.url = a.url;
                         comp.empty();
+                        // Знову показуємо лоадер і запускаємо завантаження
+                        comp.activity.loader(true);
                         comp.create();
                     },
                     onBack: function () {
@@ -50,7 +52,7 @@
                 var _this = this;
                 this.activity.loader(true);
 
-                // Беремо URL з об'єкта (якщо використали фільтр), або базовий
+                // Використовуємо url з об'єкта (якщо вибрали фільтр), або базовий
                 var url = object.url || MY_CATALOG_DOMAIN; 
 
                 network.silent(url, function (htmlText) {
@@ -80,7 +82,6 @@
                                 videoUrl = baseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
                             }
 
-                            // Формуємо назву з тривалістю та якістю
                             var rawTitle = titleEl.innerText.trim();
                             var timeText = timeEl ? timeEl.innerText.trim() : '';
                             var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
@@ -114,7 +115,7 @@
             };
 
             comp.cardRender = function (card, element, events) {
-                // Звичайний клік — Запуск відео
+                // Звичайний клік (Запуск відео)
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
@@ -154,23 +155,27 @@
                     }, false, false, { dataType: 'text' });
                 };
 
-                // 2. ДОВГЕ НАТИСКАННЯ — Меню картки
-                events.onHoverHold = function () {
+                // --- ДОДАНО МЕНЮ (ДОВГЕ НАТИСКАННЯ АБО КНОПКА МЕНЮ НА ПУЛЬТІ) ---
+                events.onMenu = function () {
                     var menuItems = [
                         { title: 'Схожі відео', action: 'similar' },
                         { title: 'Моделі', action: 'models' }
                     ];
 
                     Lampa.Select.show({
-                        title: 'Оберіть дію',
+                        title: 'Дії',
                         items: menuItems,
                         onSelect: function (a) {
                             if (a.action === 'similar') {
-                                Lampa.Noty.show('Шукаємо схожі відео...');
-                                // Місце для логіки парсингу схожих відео
+                                // Тут ми відкриваємо нову сторінку каталогу для схожих відео
+                                Lampa.Activity.push({
+                                    url: element.url, // Поки передаємо url відео, далі треба буде додати парсинг схожих
+                                    title: 'Схожі: ' + element.name,
+                                    component: 'pluginx_comp',
+                                    page: 1
+                                });
                             } else if (a.action === 'models') {
-                                Lampa.Noty.show('Шукаємо моделей...');
-                                // Місце для логіки парсингу моделей
+                                Lampa.Noty.show('Пошук моделей...');
                             }
                         },
                         onBack: function () {
