@@ -3,7 +3,7 @@
 
     // ==========================================
     // ВСТАВТЕ ВАШ ДОМЕН ТУТ:
-    var MY_CATALOG_DOMAIN = 'ТУТ_ТВІЙ_ДОМЕН'; 
+    var MY_CATALOG_DOMAIN = 'https://w.porno365.gold'; 
     // ==========================================
 
     function startPlugin() {
