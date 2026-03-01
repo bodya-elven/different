@@ -23,11 +23,35 @@
             var comp = new Lampa.InteractionCategory(object);
             var network = new Lampa.Reguest();
 
+            // 1. ДОДАЄМО БАЗОВИЙ ФІЛЬТР
+            comp.filter = function () {
+                var filterItems = [
+                    { title: 'Нові', add_url: '' },
+                    { title: 'Популярні', add_url: 'popular/' }, // Заміни на реальні шляхи свого сайту
+                    { title: 'Найкращі', add_url: 'top/' }
+                ];
+
+                Lampa.Select.show({
+                    title: 'Сортування',
+                    items: filterItems,
+                    onSelect: function (a) {
+                        // Оновлюємо посилання та перезавантажуємо сторінку
+                        object.url = MY_CATALOG_DOMAIN + '/' + a.add_url;
+                        comp.empty();
+                        comp.create();
+                    },
+                    onBack: function () {
+                        Lampa.Controller.toggle('content');
+                    }
+                });
+            };
+
             comp.create = function () {
                 var _this = this;
                 this.activity.loader(true);
 
-                var url = MY_CATALOG_DOMAIN; 
+                // Беремо URL з об'єкта (якщо використали фільтр), або базовий
+                var url = object.url || MY_CATALOG_DOMAIN; 
 
                 network.silent(url, function (htmlText) {
                     var parser = new DOMParser();
@@ -35,7 +59,7 @@
                     var elements = doc.querySelectorAll('li.video_block, li.trailer');
                     var results = [];
 
-                    var baseUrlMatch = url.match(/^(https?:\/\/[^\/]+)/);
+                    var baseUrlMatch = MY_CATALOG_DOMAIN.match(/^(https?:\/\/[^\/]+)/);
                     var baseUrl = baseUrlMatch ? baseUrlMatch[1] : '';
 
                     for (var i = 0; i < elements.length; i++) {
@@ -56,7 +80,7 @@
                                 videoUrl = baseUrl + (videoUrl.indexOf('/') === 0 ? '' : '/') + videoUrl;
                             }
 
-                            // Формуємо нову назву з квадратними дужками 📝
+                            // Формуємо назву з тривалістю та якістю
                             var rawTitle = titleEl.innerText.trim();
                             var timeText = timeEl ? timeEl.innerText.trim() : '';
                             var qualityText = qualityEl ? qualityEl.innerText.trim() : '';
@@ -90,6 +114,7 @@
             };
 
             comp.cardRender = function (card, element, events) {
+                // Звичайний клік — Запуск відео
                 events.onEnter = function () {
                     network.silent(element.url, function(videoPageHtml) {
                         var parser = new DOMParser();
@@ -127,6 +152,31 @@
                             }]);
                         }
                     }, false, false, { dataType: 'text' });
+                };
+
+                // 2. ДОВГЕ НАТИСКАННЯ — Меню картки
+                events.onHoverHold = function () {
+                    var menuItems = [
+                        { title: 'Схожі відео', action: 'similar' },
+                        { title: 'Моделі', action: 'models' }
+                    ];
+
+                    Lampa.Select.show({
+                        title: 'Оберіть дію',
+                        items: menuItems,
+                        onSelect: function (a) {
+                            if (a.action === 'similar') {
+                                Lampa.Noty.show('Шукаємо схожі відео...');
+                                // Місце для логіки парсингу схожих відео
+                            } else if (a.action === 'models') {
+                                Lampa.Noty.show('Шукаємо моделей...');
+                                // Місце для логіки парсингу моделей
+                            }
+                        },
+                        onBack: function () {
+                            Lampa.Controller.toggle('content');
+                        }
+                    });
                 };
             };
 
