@@ -19,7 +19,7 @@
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
             '.my-youtube-style .card__title { ' +
-                'display: -webkit-box !important; ' +
+                'display: -webkit-box !important; ' + 
                 '-webkit-line-clamp: 3 !important; ' + 
                 '-webkit-box-orient: vertical !important; ' +
                 'overflow: hidden !important; ' +
