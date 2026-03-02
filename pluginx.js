@@ -32,7 +32,7 @@
                 'text-overflow: ellipsis !important; ' +
             '}' +
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
-            'div[data-is-separator="true"] { font-size: 0.7em !important; opacity: 0.5; pointer-events: none; text-align: center; padding: 10px 0 !important; text-transform: uppercase; letter-spacing: 2px; }' +
+            '.pluginx-sep { font-size: 0.7em !important; opacity: 0.5; pointer-events: none; text-align: center; padding: 12px 0 5px 0 !important; text-transform: uppercase; letter-spacing: 2px; color: #fff; }' +
             '</style>';
         $('body').append(css);
 
@@ -160,7 +160,6 @@
                     items.push({ title: 'Сортування', is_sep: true });
                     var b3 = curUrl.split('?')[0].replace(/\/popular\/week$/, '').replace(/\/popular\/month$/, '').replace(/\/popular\/year$/, '').replace(/\/popular$/, '').replace(/\/+$/, '');
                     var isH = (b3 === cleanD), isC = (b3.indexOf('/categories/') !== -1), isT = (b3.indexOf('/tags/') !== -1), isM = (b3.indexOf('/models/') !== -1);
-                    
                     items.push({ title: 'Нові', url: b3 });
                     if (isT || isM) {
                         items.push({ title: 'Топ переглядів', url: b3 + '/popular' });
@@ -179,7 +178,7 @@
                     onRender: function(el) {
                         $(el).find('.selector').each(function(i, item_el) {
                             if (items[i] && items[i].is_sep) {
-                                $(item_el).attr('data-is-separator', 'true').removeClass('selector');
+                                $(item_el).removeClass('selector').addClass('pluginx-sep').text(items[i].title);
                             }
                         });
                     },
