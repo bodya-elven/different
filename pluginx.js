@@ -12,33 +12,46 @@
             '.my-youtube-style { padding: 0 !important; }' +
             '@media screen and (max-width: 580px) {' +
                 '.my-youtube-style .card { width: 100% !important; margin-bottom: 10px !important; padding: 0 5px !important; }' +
-                '.my-youtube-style.is-studios .card { width: 50% !important; }' + /* Студії: 2 колонки моб */
+                '.my-youtube-style.is-studios .card { width: 50% !important; }' + 
             '}' +
             '@media screen and (min-width: 581px) {' +
                 '.my-youtube-style .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; }' +
-                '.my-youtube-style.is-studios .card { width: 16.666% !important; }' + /* Студії: 6 колонок ТБ */
+                '.my-youtube-style.is-studios .card { width: 16.666% !important; }' + 
             '}' +
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
-            '.my-youtube-style.is-studios .card__view { padding-bottom: 75% !important; background: #fff !important; }' + /* Студії: 4:3 */
-            '.my-youtube-style .card__img { object-fit: cover !important; }' +
-            '.my-youtube-style.is-studios .card__img { object-fit: contain !important; padding: 10px; }' +
+            
+            /* Нові стилі для Студій: 5:4 (80%), cover та заокруглення */
+            '.my-youtube-style.is-studios .card__view { padding-bottom: 80% !important; background: #fff !important; }' + 
+            '.my-youtube-style .card__img { object-fit: cover !important; border-radius: 12px !important; }' +
+            '.my-youtube-style.is-studios .card__img { object-fit: cover !important; }' +
+            
             '.my-youtube-style .card__title { ' +
                 'display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; ' +
                 'overflow: hidden !important; white-space: normal !important; text-align: left !important; ' +
                 'line-height: 1.2 !important; max-height: 3.6em !important; padding-top: 2px !important; margin-top: 0 !important; text-overflow: ellipsis !important; ' +
             '}' +
-            '.my-youtube-style.is-studios .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: bold !important; margin-top: 5px !important; }' +
+            /* Звичайний шрифт для підписів студій */
+            '.my-youtube-style.is-studios .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }' +
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
-            '.pluginx-filter-btn { order: -1 !important; margin-right: auto !important; }' +
+            
+            /* Лічильник та заглушка без логотипа */
             '.studio-count { font-size: 0.85em; color: #aaa; margin-top: 2px; display: block; text-align: center; }' +
+            '.studio-no-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #000; text-align: center; padding: 10px; box-sizing: border-box; font-size: 1.1em; }' +
             '</style>';
         $('body').append(css);
 
         var previewTimeout;
         var activePreviewNode;
+        var activePreviewTarget = null;
+        
+        // Розумний кеш прев'ю (до 5 відео)
+        var previewCache = {};
+        var previewQueue = [];
+        var MAX_PREVIEW_CACHE = 5;
 
         function hidePreview() {
             clearTimeout(previewTimeout);
+            activePreviewTarget = null;
             if (activePreviewNode) {
                 var vid = activePreviewNode.find('video')[0];
                 if (vid) { try { vid.pause(); } catch(e) {} vid.removeAttribute('src'); vid.load(); }
@@ -46,11 +59,41 @@
             }
         }
 
-        function showPreview(target, src) {
+        function playBlob(target, src) {
             var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:2;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
             var videoEl = previewContainer.find('video')[0]; videoEl.src = src;
             target.find('.card__view').append(previewContainer); activePreviewNode = previewContainer;
             var p = videoEl.play(); if (p !== undefined) p.catch(function(){});
+        }
+
+        // Завантаження Blob із заголовками
+        function showPreview(target, url) {
+            activePreviewTarget = target;
+            if (previewCache[url]) {
+                playBlob(target, previewCache[url]);
+                return;
+            }
+            
+            var headers = new Headers({ 'Referer': 'https://wes.lenkino.adult/', 'Origin': 'https://wes.lenkino.adult' });
+            fetch(url, { headers: headers })
+                .then(function(res) { return res.blob(); })
+                .then(function(blob) {
+                    var blobUrl = URL.createObjectURL(blob);
+                    previewCache[url] = blobUrl;
+                    previewQueue.push(url);
+                    
+                    // Видаляємо найстаріше відео з оперативки, якщо перевищено ліміт
+                    if (previewQueue.length > MAX_PREVIEW_CACHE) {
+                        var oldest = previewQueue.shift();
+                        URL.revokeObjectURL(previewCache[oldest]);
+                        delete previewCache[oldest];
+                    }
+                    
+                    // Відтворюємо, якщо користувач ще тримає фокус
+                    if (activePreviewTarget === target) {
+                        playBlob(target, blobUrl);
+                    }
+                }).catch(function(e) { console.log("Preview load error", e); });
         }
 
         function CustomCatalog(object) {
@@ -125,7 +168,8 @@
                                 picture: img, 
                                 img: img, 
                                 is_studio: isStudios, 
-                                preview: pUrl 
+                                preview: pUrl,
+                                no_img: isStudios && !img // Прапорець для студій без лого
                             });
                         }
                     }
@@ -147,7 +191,6 @@
                         var rendered = _this.render();
                         rendered.addClass('my-youtube-style');
                         
-                        // Застосовуємо нову сітку (2/6 колонок) тільки для каталогу студій
                         if (isStudios) {
                             rendered.addClass('is-studios');
                         }
@@ -178,7 +221,7 @@
                 ];
 
                 var sortItems = [];
-                var currentSortTitle = 'Нові'; // Значення за замовчуванням
+                var currentSortTitle = 'Нові'; 
 
                 if (currentSite === 'lenkino') {
                     items.push({ title: 'Студії', action: 'studios' });
@@ -225,7 +268,7 @@
                     else currentSortTitle = 'Нові';
                 }
 
-                // Додаємо пункт "Сортування" з підзаголовком поточного вибору
+                // Пункт "Сортування" відкриває власне підменю
                 items.push({ 
                     title: 'Сортування', 
                     subtitle: currentSortTitle, 
@@ -243,7 +286,6 @@
                                 Lampa.Controller.toggle('content');
                             });
                         } else if (a.action === 'sort') {
-                            // Відкриваємо підменю сортування
                             Lampa.Select.show({
                                 title: 'Сортування',
                                 items: a.sort_items,
@@ -251,7 +293,7 @@
                                     Lampa.Activity.push({ url: s.url, title: s.title, component: 'pluginx_comp', site: currentSite, page: 1 });
                                 },
                                 onBack: function() {
-                                    comp.filter(); // Повертаємось до головного меню навігації
+                                    comp.filter(); 
                                 }
                             });
                         } else if (a.action === 'categories' || a.action === 'studios') {
@@ -278,15 +320,20 @@
             comp.onRight = comp.filter.bind(comp);
 
             comp.cardRender = function (card, element, events) {
-                // БЕЗПЕЧНЕ додавання лічильника (через jQuery)
-                if (element.is_studio && element.video_count) {
-                    var info = $('<div class="studio-count">' + element.video_count + '</div>');
-                    $(card).find('.card__title').after(info); 
+                if (element.is_studio) {
+                    if (element.video_count) {
+                        var info = $('<div class="studio-count">' + element.video_count + '</div>');
+                        $(card).find('.card__title').after(info); 
+                    }
+                    if (element.no_img) {
+                        // Якщо логотипа немає, ховаємо стандартну картинку і виводимо текст заглушки
+                        $(card).find('.card__img').hide();
+                        $(card).find('.card__view').append('<div class="studio-no-img">' + element.name + '</div>');
+                    }
                 }
 
                 events.onEnter = function () {
                     hidePreview();
-                    // Відкриваємо каталог відео для обраної студії
                     if (element.is_studio) {
                         Lampa.Activity.push({ url: element.url, title: element.name, component: 'pluginx_comp', site: currentSite, page: 1 });
                         return;
@@ -306,7 +353,6 @@
                         if (str.length > 0) {
                             var b = str[str.length - 1];
                             var playData = { title: element.name, url: b.url, quality: str };
-                            // Заголовки для вирішення проблеми з фрізами
                             if (currentSite === 'lenkino') {
                                 playData.headers = {
                                     'Referer': 'https://wes.lenkino.adult/',
@@ -349,9 +395,14 @@
                     });
                 };
 
+                // Запуск завантаження прев'ю з кешуванням
                 events.onFocus = function (t) {
                     hidePreview();
-                    if (card.preview && !element.is_studio) previewTimeout = setTimeout(function () { showPreview($(t), card.preview); }, 1000);
+                    if (element.preview && !element.is_studio) {
+                        previewTimeout = setTimeout(function () { 
+                            showPreview($(t), element.preview); 
+                        }, 1000);
+                    }
                 };
             };
             return comp;
