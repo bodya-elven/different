@@ -12,33 +12,36 @@
             '.my-youtube-style { padding: 0 !important; }' +
             '@media screen and (max-width: 580px) {' +
                 '.my-youtube-style .card { width: 100% !important; margin-bottom: 10px !important; padding: 0 5px !important; }' +
-                '.my-youtube-style.is-studios .card { width: 50% !important; }' + 
+                '.my-youtube-style.is-grid-cat .card { width: 50% !important; }' + /* Сітка 2 колонки на моб */
             '}' +
             '@media screen and (min-width: 581px) {' +
                 '.my-youtube-style .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; }' +
-                '.my-youtube-style.is-studios .card { width: 16.666% !important; }' + 
+                '.my-youtube-style.is-grid-cat .card { width: 16.666% !important; }' + /* Сітка 6 колонок на ТБ */
             '}' +
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; overflow: hidden !important; }' +
             
-            /* Нові стилі для Студій: 5:4 (80%), білий фон, заокруглення */
-            '.my-youtube-style.is-studios .card__view { padding-bottom: 80% !important; background: #ffffff !important; }' + 
-            '.my-youtube-style.is-studios .card__view::after, .my-youtube-style.is-studios .card__view::before { display: none !important; }' + /* Ховаємо стандартні затемнення Лампи */
+            /* Нові стилі для сітки (Студії та Категорії): 5:4 (80%), ідеально білий фон */
+            '.my-youtube-style.is-grid-cat .card__view { padding-bottom: 80% !important; background: #ffffff !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }' + 
+            '.my-youtube-style.is-grid-cat .card__view::after, .my-youtube-style.is-grid-cat .card__view::before { display: none !important; }' + /* Вбиваємо стандартні темні шари Лампи */
             
             '.my-youtube-style .card__img { object-fit: cover !important; border-radius: 12px !important; }' +
-            '.my-youtube-style.is-studios .card__img { object-fit: cover !important; }' +
+            '.my-youtube-style.is-grid-cat .card__img { object-fit: cover !important; z-index: 2; position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1 !important; }' +
             
             '.my-youtube-style .card__title { ' +
                 'display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; ' +
                 'overflow: hidden !important; white-space: normal !important; text-align: left !important; ' +
                 'line-height: 1.2 !important; max-height: 3.6em !important; padding-top: 2px !important; margin-top: 0 !important; text-overflow: ellipsis !important; ' +
             '}' +
-            /* Звичайний шрифт для назви студії знизу */
-            '.my-youtube-style.is-studios .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }' +
+            /* Звичайний шрифт для назви сітки (Студії/Категорії) */
+            '.my-youtube-style.is-grid-cat .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }' +
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
             
-            /* Лічильник та заглушка без логотипа */
+            /* Бронебійна заглушка для карток без картинки */
+            '.grid-cat-empty { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #000; text-align: center; padding: 10px; box-sizing: border-box; font-size: 1.1em; background: #ffffff !important; z-index: 3; word-break: break-word; }' +
+            
+            '.pluginx-sep { font-size: 0.85em !important; opacity: 0.5; pointer-events: none !important; text-align: left !important; padding: 10px 20px 5px 20px !important; text-transform: uppercase; letter-spacing: 1px; color: #fff; border: none !important; background: transparent !important; box-shadow: none !important; }' +
+            '.pluginx-filter-btn { order: -1 !important; margin-right: auto !important; }' +
             '.studio-count { font-size: 0.85em; color: #aaa; margin-top: 2px; display: block; text-align: center; }' +
-            '.studio-no-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #000; text-align: center; padding: 10px; box-sizing: border-box; font-size: 1.1em; background: #ffffff !important; z-index: 1; border-radius: 12px !important; }' +
             '</style>';
         $('body').append(css);
 
@@ -54,9 +57,9 @@
             }
         }
 
-        // Простий та надійний метод показу прев'ю (як у xx.js)
+        // Простий та надійний метод показу прев'ю
         function showPreview(target, src) {
-            var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:2;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
+            var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:4;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
             var videoEl = previewContainer.find('video')[0];
             videoEl.src = src;
             target.find('.card__view').append(previewContainer);
@@ -136,11 +139,40 @@
                                 url: vUrl, 
                                 picture: img, 
                                 img: img, 
-                                is_studio: isStudios, 
+                                is_grid: isStudios, 
                                 preview: pUrl,
                                 no_img: isStudios && !img 
                             });
                         }
+                    }
+                }
+                return results;
+            }
+
+            function parseCategories(doc, siteBaseUrl, siteType) {
+                var results = [];
+                var sel = (siteType === 'lenkino') ? '.grd-cat a' : '.categories-list-div a';
+                var links = doc.querySelectorAll(sel);
+                for (var i = 0; i < links.length; i++) {
+                    var el = links[i];
+                    var title = el.getAttribute('title') || el.innerText.trim();
+                    var href = el.getAttribute('href');
+                    var imgEl = el.querySelector('img');
+                    var img = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
+                    
+                    if (img && img.indexOf('//') === 0) img = 'https:' + img;
+                    else if (img && img.indexOf('/') === 0) img = siteBaseUrl + img;
+
+                    if (href && title) {
+                        var vUrl = href.startsWith('http') ? href : siteBaseUrl + (href.startsWith('/') ? '' : '/') + href;
+                        results.push({
+                            name: title,
+                            url: vUrl,
+                            picture: img,
+                            img: img,
+                            is_grid: true, // Вмикаємо плитковий дизайн
+                            no_img: !img
+                        });
                     }
                 }
                 return results;
@@ -152,16 +184,29 @@
                 
                 smartRequest(target, function (html) {
                     var parser = new DOMParser(), doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Перевіряємо, що саме ми маємо парсити (Студії, Категорії чи звичайні відео)
                     var isStudios = target.indexOf('/channels') !== -1;
-                    var res = (currentSite === 'lenkino') ? parseCardsLenkino(doc, LENKINO_DOMAIN.replace(/\/+$/, '')) : parseCards365(doc, PORNO365_DOMAIN.replace(/\/+$/, ''), object.is_related);
+                    var isCategories = target.indexOf('/categories') !== -1;
+                    var isGrid = isStudios || isCategories;
+                    var res = [];
+
+                    if (isCategories) {
+                        res = parseCategories(doc, (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN).replace(/\/+$/, ''), currentSite);
+                    } else if (currentSite === 'lenkino') {
+                        res = parseCardsLenkino(doc, LENKINO_DOMAIN.replace(/\/+$/, ''));
+                    } else {
+                        res = parseCards365(doc, PORNO365_DOMAIN.replace(/\/+$/, ''), object.is_related);
+                    }
                     
                     if (res.length > 0) { 
                         _this.build({ results: res, collection: true, total_pages: 50, page: 1 }); 
                         var rendered = _this.render();
                         rendered.addClass('my-youtube-style');
                         
-                        if (isStudios) {
-                            rendered.addClass('is-studios');
+                        // Якщо це Студії або Категорії — вмикаємо нашу плитку
+                        if (isGrid) {
+                            rendered.addClass('is-grid-cat');
                         }
                     } else { 
                         _this.empty(); 
@@ -173,9 +218,20 @@
                 if (object.is_related) return reject();
                 var base = (object.url || (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN)).replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
                 var url = (currentSite === 'lenkino') ? base + '/page/' + object.page : base + (base.indexOf('?') !== -1 ? '&' : '/') + object.page;
+                
                 smartRequest(url, function (html) {
                     var parser = new DOMParser(), doc = parser.parseFromString(html, 'text/html');
-                    var res = (currentSite === 'lenkino') ? parseCardsLenkino(doc, LENKINO_DOMAIN.replace(/\/+$/, '')) : parseCards365(doc, PORNO365_DOMAIN.replace(/\/+$/, ''), false);
+                    var isCategories = url.indexOf('/categories') !== -1;
+                    var res = [];
+
+                    if (isCategories) {
+                        res = parseCategories(doc, (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN).replace(/\/+$/, ''), currentSite);
+                    } else if (currentSite === 'lenkino') {
+                        res = parseCardsLenkino(doc, LENKINO_DOMAIN.replace(/\/+$/, ''));
+                    } else {
+                        res = parseCards365(doc, PORNO365_DOMAIN.replace(/\/+$/, ''), false);
+                    }
+
                     if (res.length > 0) resolve({ results: res, collection: true, total_pages: 50, page: object.page }); else reject();
                 }, reject);
             };
@@ -186,14 +242,14 @@
                 
                 var items = [
                     { title: 'Пошук', action: 'search' }, 
-                    { title: 'Категорії', action: 'categories' }
+                    { title: 'Категорії', action: 'categories' } // Тепер це просто посилання на сторінку
                 ];
 
                 var sortItems = [];
                 var currentSortTitle = 'Нові'; 
 
                 if (currentSite === 'lenkino') {
-                    items.push({ title: 'Студії', action: 'studios' });
+                    items.push({ title: 'Студії', action: 'studios' }); // Тепер це просто посилання на сторінку
                     
                     if (curUrl.indexOf('/channels') !== -1) {
                         var bS = cleanD + '/channels';
@@ -260,25 +316,13 @@
                                 onSelect: function(s) {
                                     Lampa.Activity.push({ url: s.url, title: s.title, component: 'pluginx_comp', site: currentSite, page: 1 });
                                 },
-                                onBack: function() {
-                                    comp.filter(); 
-                                }
+                                onBack: function() { comp.filter(); }
                             });
-                        } else if (a.action === 'categories' || a.action === 'studios') {
-                            if (a.action === 'studios') {
-                                Lampa.Activity.push({ url: cleanD + '/channels', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1 });
-                                return;
-                            }
-                            smartRequest(cleanD + '/categories', function(html) {
-                                var parser = new DOMParser(), doc = parser.parseFromString(html, 'text/html');
-                                var sel = (currentSite === 'lenkino') ? '.grd-cat a' : '.categories-list-div a';
-                                var links = doc.querySelectorAll(sel), sub = [];
-                                for (var i = 0; i < links.length; i++) {
-                                    var href = links[i].getAttribute('href'), title = links[i].getAttribute('title') || links[i].innerText.trim();
-                                    if (href) sub.push({ title: title, url: href.startsWith('http') ? href : cleanD + (href.startsWith('/') ? '' : '/') + href });
-                                }
-                                Lampa.Select.show({ title: a.title, items: sub, onSelect: function(s) { Lampa.Activity.push({ url: s.url, title: s.title, component: 'pluginx_comp', site: currentSite, page: 1 }); }, onBack: function() { comp.filter(); } });
-                            });
+                        // ОДРАЗУ ВІДКРИВАЄМО НОВІ СТОРІНКИ ЗАМІСТЬ СПИСКІВ
+                        } else if (a.action === 'categories') {
+                            Lampa.Activity.push({ url: cleanD + '/categories', title: 'Категорії', component: 'pluginx_comp', site: currentSite, page: 1 });
+                        } else if (a.action === 'studios') {
+                            Lampa.Activity.push({ url: cleanD + '/channels', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1 });
                         }
                     },
                     onBack: function () { Lampa.Controller.toggle('content'); }
@@ -288,21 +332,23 @@
             comp.onRight = comp.filter.bind(comp);
 
             comp.cardRender = function (card, element, events) {
-                if (element.is_studio) {
+                // Застосовуємо логіку для сітки (Студії та Категорії)
+                if (element.is_grid) {
                     if (element.video_count) {
                         var info = $('<div class="studio-count">' + element.video_count + '</div>');
                         $(card).find('.card__title').after(info); 
                     }
                     if (element.no_img) {
-                        // Ховаємо стандартну картинку і додаємо білу плашку з назвою
-                        $(card).find('.card__img').hide();
-                        $(card).find('.card__view').append('<div class="studio-no-img">' + element.name + '</div>');
+                        // Бронебійне рішення для відсутності картинки: ховаємо image і ставимо свій div
+                        $(card).find('.card__img').css('display', 'none');
+                        $(card).find('.card__view').append('<div class="grid-cat-empty">' + element.name + '</div>');
                     }
                 }
 
                 events.onEnter = function () {
                     hidePreview();
-                    if (element.is_studio) {
+                    // Якщо клікнули на картку із сітки — відкриваємо її каталог
+                    if (element.is_grid) {
                         Lampa.Activity.push({ url: element.url, title: element.name, component: 'pluginx_comp', site: currentSite, page: 1 });
                         return;
                     }
@@ -363,10 +409,10 @@
                     });
                 };
 
-                // ВАЖЛИВО: Виправлено помилку активації прев'ю (використовуємо element.preview)
+                // ВИПРАВЛЕНО: Використовуємо element.preview
                 events.onFocus = function (t) {
                     hidePreview();
-                    if (element.preview && !element.is_studio) {
+                    if (element.preview && !element.is_grid) {
                         previewTimeout = setTimeout(function () { 
                             showPreview($(t), element.preview); 
                         }, 1000);
