@@ -12,32 +12,27 @@
             '.my-youtube-style { padding: 0 !important; }' +
             '@media screen and (max-width: 580px) {' +
                 '.my-youtube-style .card { width: 100% !important; margin-bottom: 10px !important; padding: 0 5px !important; }' +
-                '.my-youtube-style.is-studios .card { width: 50% !important; }' + /* Студії: 2 колонки моб */
+                '.my-youtube-style.is-studios .card { width: 50% !important; }' + 
             '}' +
             '@media screen and (min-width: 581px) {' +
                 '.my-youtube-style .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; }' +
-                '.my-youtube-style.is-studios .card { width: 16.666% !important; }' + /* Студії: 6 колонок ТБ */
+                '.my-youtube-style.is-studios .card { width: 16.666% !important; }' + 
             '}' +
             '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
-            '.my-youtube-style.is-studios .card__view { padding-bottom: 75% !important; background: #fff !important; }' + /* Студії: 4:3 */
+            '.my-youtube-style.is-studios .card__view { padding-bottom: 75% !important; background: #fff !important; }' + 
             '.my-youtube-style .card__img { object-fit: cover !important; }' +
             '.my-youtube-style.is-studios .card__img { object-fit: contain !important; padding: 10px; }' +
             '.my-youtube-style .card__title { ' +
-                'display: -webkit-box !important; ' + 
-                '-webkit-line-clamp: 3 !important; ' + 
-                '-webkit-box-orient: vertical !important; ' +
-                'overflow: hidden !important; ' +
-                'white-space: normal !important; ' +
-                'text-align: left !important; ' +
-                'line-height: 1.2 !important; ' +
-                'max-height: 3.6em !important; ' + 
-                'padding-top: 2px !important; ' + 
-                'margin-top: 0 !important; ' +
-                'text-overflow: ellipsis !important; ' +
+                'display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; ' +
+                'overflow: hidden !important; white-space: normal !important; text-align: left !important; ' +
+                'line-height: 1.2 !important; max-height: 3.6em !important; padding-top: 2px !important; margin-top: 0 !important; text-overflow: ellipsis !important; ' +
             '}' +
             '.my-youtube-style.is-studios .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: bold !important; margin-top: 5px !important; }' +
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
-            '.pluginx-sep { font-size: 0.75em !important; opacity: 0.5; pointer-events: none; text-align: center; padding: 12px 0 6px 0 !important; text-transform: uppercase; letter-spacing: 2px; color: #fff; border: none !important; }' +
+            
+            /* ОНОВЛЕНИЙ РОЗДІЛЬНИК */
+            '.pluginx-sep { font-size: 0.85em !important; opacity: 0.5; pointer-events: none !important; text-align: left !important; padding: 10px 20px 5px 20px !important; text-transform: uppercase; letter-spacing: 1px; color: #fff; border: none !important; background: transparent !important; box-shadow: none !important; }' +
+            
             '.pluginx-filter-btn { order: -1 !important; margin-right: auto !important; }' +
             '.studio-count { font-size: 0.85em; color: #aaa; margin-top: 2px; display: block; text-align: center; }' +
             '</style>';
@@ -50,22 +45,15 @@
             clearTimeout(previewTimeout);
             if (activePreviewNode) {
                 var vid = activePreviewNode.find('video')[0];
-                if (vid) {
-                    try { vid.pause(); } catch(e) {}
-                    vid.removeAttribute('src');
-                    vid.load();
-                }
-                activePreviewNode.remove();
-                activePreviewNode = null;
+                if (vid) { try { vid.pause(); } catch(e) {} vid.removeAttribute('src'); vid.load(); }
+                activePreviewNode.remove(); activePreviewNode = null;
             }
         }
 
         function showPreview(target, src) {
             var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:2;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
-            var videoEl = previewContainer.find('video')[0];
-            videoEl.src = src;
-            target.find('.card__view').append(previewContainer);
-            activePreviewNode = previewContainer;
+            var videoEl = previewContainer.find('video')[0]; videoEl.src = src;
+            target.find('.card__view').append(previewContainer); activePreviewNode = previewContainer;
             var p = videoEl.play(); if (p !== undefined) p.catch(function(){});
         }
 
@@ -77,11 +65,8 @@
                 var network = new Lampa.Reguest();
                 var headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" };
                 var isAndroid = typeof window !== 'undefined' && window.Lampa && window.Lampa.Platform && window.Lampa.Platform.is('android');
-                if (isAndroid) {
-                    network.native(url, function (res) { onSuccess(typeof res === 'object' ? JSON.stringify(res) : res); }, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
-                } else {
-                    network.silent(url, onSuccess, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
-                }
+                if (isAndroid) network.native(url, function (res) { onSuccess(typeof res === 'object' ? JSON.stringify(res) : res); }, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
+                else network.silent(url, onSuccess, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
             }
 
             function parseCards365(doc, siteBaseUrl, isRelated) {
@@ -229,20 +214,20 @@
                     onRender: function(el) {
                         $(el).find('.selector').each(function(i, item_el) {
                             if (items[i] && items[i].is_sep) {
-                                // Робимо елемент неактивним роздільником
-                                $(item_el).removeClass('selector').addClass('pluginx-sep').text(items[i].title);
+                                // Забираємо клас selector, щоб елемент став неклікабельним підзаголовком
+                                $(item_el).removeClass('selector').addClass('pluginx-sep');
                             }
                         });
                     },
                     onSelect: function (a) {
-                        if (a.is_sep) return; // Ігноруємо кліки по роздільнику
+                        if (a.is_sep) return; // Додатковий захист від кліків по роздільнику
                         if (a.action === 'search') {
                             Lampa.Input.edit({ title: 'Пошук', value: '', free: true, nosave: true }, function(v) {
                                 if (v) Lampa.Activity.push({ url: cleanD + (currentSite === 'lenkino' ? '/search/' : '/search/?q=') + encodeURIComponent(v), title: 'Пошук: ' + v, component: 'pluginx_comp', site: currentSite, page: 1 });
                                 Lampa.Controller.toggle('content');
                             });
                         } else if (a.action === 'categories' || a.action === 'studios') {
-                            // Одразу переходимо в каталог студій без проміжних меню
+                            // Одразу переходимо в каталог студій
                             if (a.action === 'studios') {
                                 Lampa.Activity.push({ url: cleanD + '/channels', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1 });
                                 return;
@@ -266,7 +251,7 @@
             comp.onRight = comp.filter.bind(comp);
 
             comp.cardRender = function (card, element, events) {
-                // БЕЗПЕЧНЕ додавання лічильника (використовуємо jQuery $(card).find замість native DOM)
+                // БЕЗПЕЧНЕ додавання лічильника відео (через jQuery)
                 if (element.is_studio && element.video_count) {
                     var info = $('<div class="studio-count">' + element.video_count + '</div>');
                     $(card).find('.card__title').after(info); 
@@ -274,7 +259,7 @@
 
                 events.onEnter = function () {
                     hidePreview();
-                    // Якщо клікнули на студію - відкриваємо її каталог
+                    // Відкриваємо каталог відео для обраної студії
                     if (element.is_studio) {
                         Lampa.Activity.push({ url: element.url, title: element.name, component: 'pluginx_comp', site: currentSite, page: 1 });
                         return;
@@ -294,7 +279,7 @@
                         if (str.length > 0) {
                             var b = str[str.length - 1];
                             var playData = { title: element.name, url: b.url, quality: str };
-                            // Залишаємо виправлення від фрізів!
+                            // Заголовки для вирішення проблеми з фрізами
                             if (currentSite === 'lenkino') {
                                 playData.headers = {
                                     'Referer': 'https://wes.lenkino.adult/',
@@ -367,7 +352,7 @@
                 }, 1000);
 
                 if (e.type == 'start' && e.component == 'pluginx_comp') {
-                    if (!filter_btn.closest('body').length) {
+                    if (!$('.head__actions').find('.pluginx-filter-btn').length) {
                         $('.head__actions').prepend(filter_btn);
                     } else {
                         $('.head__actions').prepend(filter_btn);
