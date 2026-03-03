@@ -19,6 +19,7 @@
                 '.my-youtube-style.is-grid-cat .card, .my-youtube-style.is-models-grid .card { width: 16.666% !important; }' + 
             '}' +
             
+            /* Жорстке позиціювання контейнера (як у imdb.js) */
             '.my-youtube-style .card__view { position: relative !important; padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style.is-grid-cat .card__view { padding-bottom: 80% !important; background: #ffffff !important; }' + 
             '.my-youtube-style.is-models-grid .card__view { padding-bottom: 150% !important; background: #ffffff !important; }' + 
@@ -32,27 +33,11 @@
             '}' +
             '.my-youtube-style.is-grid-cat .card__title, .my-youtube-style.is-models-grid .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }' +
             
-            /* ======================================================== */
-            /* ГЕНІАЛЬНИЙ ХАК ДЛЯ БЕЙДЖА: Перехоплюємо системний .card__age */
-            /* ======================================================== */
-            '.my-youtube-style .card__age { ' +
-                'display: block !important; ' +
-                'position: absolute !important; ' +
-                'bottom: 8px !important; ' +
-                'right: 8px !important; ' +
-                'top: auto !important; ' +
-                'left: auto !important; ' +
-                'background: rgba(0, 0, 0, 0.8) !important; ' +
-                'color: #fff !important; ' +
-                'font-size: 0.85em !important; ' +
-                'padding: 3px 6px !important; ' +
-                'border-radius: 6px !important; ' +
-                'z-index: 100 !important; ' +
-                'font-weight: bold !important; ' +
-                'pointer-events: none !important; ' +
-            '}' +
-            /* Ховаємо інші непотрібні системні бейджі */
-            '.my-youtube-style .card__textbox { display: none !important; }' +
+            /* Ховаємо рідні бейджі Лампи */
+            '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
+            
+            /* СТИЛІ НАШОГО БЕЙДЖА (зроблено за аналогією до imdb.js) */
+            '.my-video-duration { position: absolute; bottom: 8px; right: 8px; background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 0.85em; padding: 3px 6px; border-radius: 6px; z-index: 10 !important; font-weight: bold; pointer-events: none; }' +
 
             '.pluginx-sep { font-size: 0.85em !important; opacity: 0.5; pointer-events: none !important; text-align: left !important; padding: 10px 20px 5px 20px !important; text-transform: uppercase; letter-spacing: 1px; color: #fff; border: none !important; background: transparent !important; box-shadow: none !important; }' +
             '.pluginx-filter-btn { order: -1 !important; margin-right: auto !important; }' +
@@ -111,9 +96,9 @@
                         var pUrl = vP ? (vP.getAttribute('src') || vP.getAttribute('data-src') || '') : '';
                         if (pUrl && pUrl.indexOf('//') === 0) pUrl = 'https:' + pUrl;
                         
-                        // Зберігаємо тривалість у системну змінну `age`, щоб Лампа сама її відрендерила
+                        // Зберігаємо нашу тривалість у кастомну змінну
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
-                        results.push({ name: titleEl.innerText.trim(), age: timeText, url: vUrl, picture: img, img: img, preview: pUrl });
+                        results.push({ name: titleEl.innerText.trim(), duration: timeText, url: vUrl, picture: img, img: img, preview: pUrl });
                     }
                 }
                 return results;
@@ -168,9 +153,8 @@
                         var countText = isStudios && timeEl ? timeEl.innerText.trim().replace(/видео/gi, 'відео') : '';
                         var durationText = !isStudios && timeEl ? timeEl.innerText.trim() : '';
                         
-                        // Віддаємо тривалість у системну змінну `age`
                         if (title) {
-                            results.push({ name: title, video_count: countText, age: durationText, url: vUrl, picture: img, img: img, is_grid: isStudios, preview: pUrl });
+                            results.push({ name: title, video_count: countText, duration: durationText, url: vUrl, picture: img, img: img, is_grid: isStudios, preview: pUrl });
                         }
                     }
                 }
@@ -265,7 +249,7 @@
 
                         if (linkEl365 && imgEl365 && nameEl) {
                             var title365 = nameEl.innerText.trim();
-                            var countText365 = countEl ? countEl.innerText.trim() + ' відео' : '';
+                            var countText365 = countEl ? countEl.innerText.trim() + ' видео' : '';
                             var href365 = linkEl365.getAttribute('href');
                             var img365 = imgEl365.getAttribute('data-src') || imgEl365.getAttribute('src') || '';
                             
@@ -474,8 +458,17 @@
 
             comp.onRight = comp.filter.bind(comp);
             comp.cardRender = function (card, element, events) {
-                // Оскільки Лампа тепер сама малює бейдж тривалості через element.age,
-                // нам залишається тільки домалювати кількість відео для сіток студій/моделей
+                // БЕЗПЕЧНИЙ БЕЙДЖ ТРИВАЛОСТІ: Вставляємо безпосередньо в DOM картки
+                if (element.duration && !element.is_grid) {
+                    var durationBadge = $('<div class="my-video-duration">' + element.duration + '</div>');
+                    var targetView = $(card).find('.card__view');
+                    if (targetView.length) {
+                        targetView.append(durationBadge);
+                    } else {
+                        $(card).append(durationBadge);
+                    }
+                }
+
                 if (element.is_grid) {
                     if (element.video_count) {
                         var info = $('<div class="studio-count">' + element.video_count + '</div>');
@@ -593,6 +586,8 @@
     }
 
     function addMenu() {
+        // --- ЗАЛІЗОБЕТОННЕ ВИПРАВЛЕННЯ ДЛЯ ТБ ---
+        // Видаляємо наш плагін з масиву прихованих пунктів меню
         if (window.Lampa && window.Lampa.Storage) {
             var hiddenMenu = window.Lampa.Storage.get('menu_hide');
             if (hiddenMenu && Array.isArray(hiddenMenu)) {
@@ -603,6 +598,7 @@
                 }
             }
         }
+        // ----------------------------------------
 
         var menu_list = $('.menu .menu__list').eq(0);
         if (menu_list.length && !menu_list.find('[data-action="pluginx"]').length) {
