@@ -18,18 +18,14 @@
                 '.my-youtube-style .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; }' +
                 '.my-youtube-style.is-grid-cat .card, .my-youtube-style.is-models-grid .card { width: 16.666% !important; }' + 
             '}' +
-            '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; overflow: hidden !important; }' +
             
-            /* Пропорції сіток */
-            '.my-youtube-style.is-grid-cat .card__view { padding-bottom: 80% !important; }' + 
-            '.my-youtube-style.is-models-grid .card__view { padding-bottom: 150% !important; }' + 
+            /* ВИПРАВЛЕНО: Прибрано overflow:hidden, щоб не ламати рідний фокус Лампи на ТБ */
+            '.my-youtube-style .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             
-            /* Фокус для ТБ */
-            '.my-youtube-style .card.focus .card__view { box-shadow: 0 0 0 4px #ffffff !important; z-index: 10; }' +
-            '.my-youtube-style .card.focus .card__title { color: #ffffff !important; }' +
+            '.my-youtube-style.is-grid-cat .card__view { padding-bottom: 80% !important; background: #ffffff !important; }' + 
+            '.my-youtube-style.is-models-grid .card__view { padding-bottom: 150% !important; background: #ffffff !important; }' + 
             
-            '.my-youtube-style .card__img { object-fit: cover !important; border-radius: 12px !important; }' +
-            '.my-youtube-style.is-grid-cat .card__img, .my-youtube-style.is-models-grid .card__img { object-fit: cover !important; z-index: 2; position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1 !important; }' +
+            '.my-youtube-style .card__img { object-fit: cover !important; border-radius: 12px !important; z-index: 2; position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1 !important; }' +
             
             '.my-youtube-style .card__title { ' +
                 'display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; ' +
@@ -37,15 +33,19 @@
                 'line-height: 1.2 !important; max-height: 3.6em !important; padding-top: 2px !important; margin-top: 0 !important; text-overflow: ellipsis !important; ' +
             '}' +
             '.my-youtube-style.is-grid-cat .card__title, .my-youtube-style.is-models-grid .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }' +
+            
+            /* Ховаємо рідні бейджі Лампи */
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
             
-            /* ======== БЕЙДЖ ТРИВАЛОСТІ ВІДЕО ======== */
-            '.my-video-duration { position: absolute; bottom: 6px; right: 6px; background: rgba(0, 0, 0, 0.75); color: #fff; font-size: 0.8em; padding: 2px 6px; border-radius: 4px; z-index: 5; font-weight: bold; pointer-events: none; }' +
-            /* ======================================== */
+            /* ДОДАНО: Безпечний і 100% видимий бейдж тривалості */
+            '.my-video-duration { position: absolute; bottom: 8px; right: 8px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 0.85em; padding: 3px 6px; border-radius: 6px; z-index: 100 !important; font-weight: bold; pointer-events: none; }' +
 
             '.pluginx-sep { font-size: 0.85em !important; opacity: 0.5; pointer-events: none !important; text-align: left !important; padding: 10px 20px 5px 20px !important; text-transform: uppercase; letter-spacing: 1px; color: #fff; border: none !important; background: transparent !important; box-shadow: none !important; }' +
             '.pluginx-filter-btn { order: -1 !important; margin-right: auto !important; }' +
             '.studio-count { font-size: 0.85em; color: #aaa; margin-top: 2px; display: block; text-align: center; }' +
+            
+            /* ВИПРАВЛЕНО: Жорстке закріплення пункту меню, щоб Лампа не могла його сховати */
+            '.menu__item[data-action="pluginx"] { display: flex !important; }' +
             '</style>';
         $('body').append(css);
 
@@ -98,9 +98,7 @@
                         var pUrl = vP ? (vP.getAttribute('src') || vP.getAttribute('data-src') || '') : '';
                         if (pUrl && pUrl.indexOf('//') === 0) pUrl = 'https:' + pUrl;
                         
-                        // Зберігаємо тривалість окремо, щоб намалювати бейдж, а не ліпити в назву
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
-                        
                         results.push({ name: titleEl.innerText.trim(), duration: timeText, url: vUrl, picture: img, img: img, preview: pUrl });
                     }
                 }
@@ -163,6 +161,7 @@
                 }
                 return results;
             }
+
             function parseCategories(doc, siteBaseUrl, siteType) {
                 var results = [];
                 var sel = (siteType === 'lenkino') ? '.grd-cat a' : '.categories-list-div a';
@@ -266,7 +265,6 @@
                 }
                 return results;
             }
-
             comp.create = function () {
                 var _this = this; this.activity.loader(true);
                 var target = object.url || (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN);
@@ -461,7 +459,7 @@
 
             comp.onRight = comp.filter.bind(comp);
             comp.cardRender = function (card, element, events) {
-                // ДОДАНО: Безпечний вивід бейджа тривалості відео
+                // БЕЗПЕЧНИЙ БЕЙДЖ ТРИВАЛОСТІ: Накладаємо свій елемент поверх картинки
                 if (element.duration && !element.is_grid) {
                     var durationBadge = $('<div class="my-video-duration">' + element.duration + '</div>');
                     $(card).find('.card__view').append(durationBadge);
@@ -472,7 +470,6 @@
                         var info = $('<div class="studio-count">' + element.video_count + '</div>');
                         $(card).find('.card__title').after(info); 
                     }
-                    // Логіку білої заглушки (no_img) повністю вирізано за твоїм проханням
                 }
 
                 events.onEnter = function () {
@@ -585,6 +582,8 @@
     }
 
     function addMenu() {
+        // --- ЗАЛІЗОБЕТОННЕ ВИПРАВЛЕННЯ ДЛЯ ТБ ---
+        // Якщо Лампа запам'ятала, що меню приховане, ми примусово видаляємо його з чорного списку
         if (window.Lampa && window.Lampa.Storage) {
             var hiddenMenu = window.Lampa.Storage.get('menu_hide');
             if (hiddenMenu && Array.isArray(hiddenMenu)) {
@@ -595,6 +594,7 @@
                 }
             }
         }
+        // ----------------------------------------
 
         var menu_list = $('.menu .menu__list').eq(0);
         if (menu_list.length && !menu_list.find('[data-action="pluginx"]').length) {
