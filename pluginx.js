@@ -23,7 +23,6 @@
             '.one-column-style.is-models-grid .card__view { padding-bottom: 150% !important; background: #ffffff !important; }' + 
             '.one-column-style .card__img { object-fit: cover !important; border-radius: 12px !important; z-index: 2; position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1 !important; }' +
             
-            /* Налаштування відображення назви у 3 рядки */
             '.one-column-style .card__title { ' +
                 'display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; ' +
                 'overflow: hidden !important; white-space: normal !important; text-align: left !important; ' +
@@ -59,10 +58,9 @@
             var p = videoEl.play(); if (p !== undefined) p.catch(function(){});
         }
 
-        // Функція для додавання значків без примусового обрізання тексту
         function formatTitle(name, info, symbol) {
             if (!info) return name;
-            var cleanInfo = info.replace(/[^0-9:]/g, ''); // для часу або кількості
+            var cleanInfo = info.replace(/[^0-9:]/g, ''); 
             return name + ' ' + symbol + ' ' + cleanInfo;
         }
 
@@ -135,7 +133,7 @@
                         if (pUrl && pUrl.indexOf('//') === 0) pUrl = 'https:' + pUrl;
                         else if (pUrl && pUrl.indexOf('/') === 0) pUrl = siteBaseUrl + pUrl;
 
-                        var infoText = isStudios && timeEl ? timeEl.innerText.trim() : (timeEl ? timeEl.innerText.trim() : '');
+                        var infoText = (timeEl ? timeEl.innerText.trim() : '');
                         
                         if (name) {
                             var symbol = isStudios ? '☰' : '▶';
@@ -195,19 +193,88 @@
                 }
                 return results;
             }
-            comp.cardRender = function (card, element, events) {
-                // Відображення кількості відео для сіток (студії/моделі)
-                if (element.is_grid && element.video_count) {
-                    $(card).find('.card__title').after('<div class="studio-count">' + element.video_count + '</div>');
-                }
+            comp.create = function () {
+                var _this = this; this.activity.loader(true);
+                var target = object.url || (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN);
+                if (currentSite === 'lenkino') target = target.replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '') + '/page/' + (object.page || 1);
+                
+                smartRequest(target, function (html) {
+                    var parser = new DOMParser(), doc = parser.parseFromString(html, 'text/html');
+                    var cleanD = (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN).replace(/\/+$/, '');
+                    var targetPath = target.replace(cleanD, '').split('?')[0].replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
+                    var isStudios = currentSite === 'lenkino' && (targetPath === '/channels' || targetPath === '/channels-new' || targetPath === '/channels-views');
+                    var isCategories = targetPath === '/categories', isModels = (currentSite === 'lenkino' ? targetPath === '/pornstars' : (targetPath === '/models' || targetPath.indexOf('/models/sort-by-') === 0));
+                    var res = [];
+                    if (isCategories) res = parseCategories(doc, cleanD, currentSite);
+                    else if (isModels) res = parseModels(doc, cleanD, currentSite);
+                    else if (currentSite === 'lenkino') res = parseCardsLenkino(doc, cleanD, isStudios);
+                    else res = parseCards365(doc, cleanD, object.is_related);
+                    
+                    if (res.length > 0) { 
+                        _this.build({ results: res, collection: true, total_pages: 50, page: 1 }); 
+                        var rendered = _this.render();
+                        rendered.addClass('one-column-style');
+                        if (isStudios || isCategories) rendered.addClass('is-grid-cat');
+                        if (isModels) rendered.addClass('is-models-grid');
+                    } else _this.empty(); 
+                }, this.empty.bind(this));
+            };
 
+            comp.nextPageReuest = function (object, resolve, reject) {
+                if (object.is_related) return reject();
+                var cleanD = (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN).replace(/\/+$/, '');
+                var targetPath = (object.url || '').replace(cleanD, '').split('?')[0].replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
+                if (targetPath === '/categories') return reject();
+                var base = (object.url || (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN)).replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
+                var url = (currentSite === 'lenkino') ? base + '/page/' + object.page : base + (base.indexOf('?') !== -1 ? '&' : '/') + object.page;
+                smartRequest(url, function (html) {
+                    var parser = new DOMParser(), doc = parser.parseFromString(html, 'text/html'), isModels = (currentSite === 'lenkino' ? targetPath === '/pornstars' : (targetPath === '/models' || targetPath.indexOf('/models/sort-by-') === 0)), isStudios = currentSite === 'lenkino' && (targetPath === '/channels' || targetPath === '/channels-new' || targetPath === '/channels-views'), res = [];
+                    if (isModels) res = parseModels(doc, cleanD, currentSite);
+                    else if (currentSite === 'lenkino') res = parseCardsLenkino(doc, cleanD, isStudios);
+                    else res = parseCards365(doc, cleanD, false);
+                    if (res.length > 0) resolve({ results: res, collection: true, total_pages: 50, page: object.page }); else reject();
+                }, reject);
+            };
+
+            comp.filter = function () {
+                var cleanD = (currentSite === 'lenkino' ? LENKINO_DOMAIN : PORNO365_DOMAIN).replace(/\/+$/, ''), curUrl = (object.url || cleanD).replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, ''), targetPath = curUrl.replace(cleanD, '').split('?')[0], isCategories = targetPath === '/categories';
+                var items = [{ title: 'Пошук', action: 'search' }, { title: 'Категорії', action: 'categories' }, { title: 'Моделі', action: 'models' }], sortItems = [], currentSortTitle = 'Нові'; 
+                if (currentSite === 'lenkino') {
+                    items.push({ title: 'Студії', action: 'studios' });
+                    if (curUrl.indexOf('/channels') !== -1) {
+                        var bS = cleanD + '/channels'; sortItems.push({ title: 'Кращі', url: bS }, { title: 'Нові', url: bS + '-new' }, { title: 'Популярні', url: bS + '-views' });
+                        if (curUrl === bS + '-new') currentSortTitle = 'Нові'; else if (curUrl === bS + '-views') currentSortTitle = 'Популярні'; else currentSortTitle = 'Кращі';
+                    } else {
+                        var bV = curUrl.replace(/\/top-porno$/, '').replace(/\/hot-porno$/, '').replace(/-top$/, '');
+                        if (bV === cleanD) { sortItems.push({ title: 'Нові', url: cleanD }, { title: 'Кращі', url: cleanD + '/top-porno' }, { title: 'Гарячі', url: cleanD + '/hot-porno' }); if (curUrl.indexOf('/top-porno') !== -1) currentSortTitle = 'Кращі'; else if (curUrl.indexOf('/hot-porno') !== -1) currentSortTitle = 'Гарячі'; else currentSortTitle = 'Нові'; }
+                        else { sortItems.push({ title: 'Нові', url: bV }, { title: 'Кращі', url: bV + '-top' }, { title: 'Гарячі', url: bV }); if (curUrl.indexOf('-top') !== -1) currentSortTitle = 'Кращі'; else currentSortTitle = 'Нові'; }
+                    }
+                } else {
+                    var mUrl = cleanD + '/models';
+                    if (targetPath === '/models' || targetPath.indexOf('/models/sort-by-') === 0) {
+                        sortItems.push({ title: 'По кількості', url: mUrl }, { title: 'Популярність', url: mUrl + '/sort-by-subscribers' }, { title: 'За алфавітом', url: mUrl + '/sort-by-alphabetical' }, { title: 'Нові', url: mUrl + '/sort-by-date' });
+                        if (curUrl.indexOf('sort-by-subscribers') !== -1) currentSortTitle = 'Популярність'; else if (curUrl.indexOf('sort-by-alphabetical') !== -1) currentSortTitle = 'За алфавітом'; else if (curUrl.indexOf('sort-by-date') !== -1) currentSortTitle = 'Нові'; else currentSortTitle = 'По кількості';
+                    } else {
+                        var b3 = curUrl.split('?')[0].replace(/\/popular\/week$/, '').replace(/\/popular\/month$/, '').replace(/\/popular\/year$/, '').replace(/\/popular$/, '').replace(/\/+$/, '');
+                        sortItems.push({ title: 'Нові', url: b3 }, { title: 'Топ переглядів', url: b3 + '/popular' });
+                        if (curUrl.indexOf('/popular') !== -1) currentSortTitle = 'Топ переглядів'; else currentSortTitle = 'Нові';
+                    }
+                }
+                if (!isCategories) items.push({ title: 'Сортування', subtitle: currentSortTitle, action: 'sort', sort_items: sortItems });
+
+                Lampa.Select.show({ title: 'Навігація', items: items, onSelect: function (a) {
+                    if (a.action === 'search') Lampa.Input.edit({ title: 'Пошук', value: '', free: true, nosave: true }, function(v) { if (v) Lampa.Activity.push({ url: cleanD + (currentSite === 'lenkino' ? '/search/' : '/search/?q=') + encodeURIComponent(v), title: 'Пошук: ' + v, component: 'pluginx_comp', site: currentSite, page: 1 }); Lampa.Controller.toggle('content'); });
+                    else if (a.action === 'sort') Lampa.Select.show({ title: 'Сортування', items: a.sort_items, onSelect: function(s) { Lampa.Activity.push({ url: s.url, title: s.title, component: 'pluginx_comp', site: currentSite, page: 1 }); }, onBack: function() { comp.filter(); } });
+                    else if (a.action === 'categories') Lampa.Activity.push({ url: cleanD + '/categories', title: 'Категорії', component: 'pluginx_comp', site: currentSite, page: 1 });
+                    else if (a.action === 'studios') Lampa.Activity.push({ url: cleanD + '/channels', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1 });
+                    else if (a.action === 'models') Lampa.Activity.push({ url: cleanD + (currentSite === 'lenkino' ? '/pornstars' : '/models'), title: 'Моделі', component: 'pluginx_comp', site: currentSite, page: 1 });
+                }, onBack: function () { Lampa.Controller.toggle('content'); } });
+            };
+
+            comp.cardRender = function (card, element, events) {
                 events.onEnter = function () {
                     hidePreview();
-                    if (element.is_grid) {
-                        Lampa.Activity.push({ url: element.url, title: element.name, component: 'pluginx_comp', site: currentSite, page: 1 });
-                        return;
-                    }
-                    
+                    if (element.is_grid) { Lampa.Activity.push({ url: element.url, title: element.name, component: 'pluginx_comp', site: currentSite, page: 1 }); return; }
                     smartRequest(element.url, function(html) {
                         var str = []; 
                         if (currentSite === 'lenkino') {
@@ -217,42 +284,25 @@
                         } else {
                             var doc = new DOMParser().parseFromString(html, 'text/html'), q = doc.querySelectorAll('.quality_chooser a');
                             for (var j = 0; j < q.length; j++) if (q[j].getAttribute('href')) str.push({ title: q[j].innerText.trim(), url: q[j].getAttribute('href') });
-                            if (str.length === 0) { var p = doc.querySelector('a.btn-play.play-video'); if (p && p.getAttribute('href')) str.push({ title: 'Оригінал', url: p.getAttribute('href') }); }
                         }
                         if (str.length > 0) {
-                            var b = str[str.length - 1];
-                            var playData = { title: element.name, url: b.url, quality: str };
-                            if (currentSite === 'lenkino') {
-                                playData.headers = {
-                                    'Referer': 'https://wes.lenkino.adult/',
-                                    'Origin': 'https://wes.lenkino.adult',
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-                                };
-                            }
-                            Lampa.Player.play(playData);
-                            Lampa.Player.playlist([playData]);
+                            var playData = { title: element.name, url: str[str.length - 1].url, quality: str };
+                            if (currentSite === 'lenkino') playData.headers = { 'Referer': 'https://wes.lenkino.adult/', 'Origin': 'https://wes.lenkino.adult' };
+                            Lampa.Player.play(playData); Lampa.Player.playlist([playData]);
                         }
                     });
                 };
-
-                // ВІДНОВЛЕНО: Меню "Дії" при утриманні кнопки OK або натисканні Menu
                 events.onMenu = function () {
                     hidePreview();
                     smartRequest(element.url, function (html) {
                         var doc = new DOMParser().parseFromString(html, 'text/html'), menu = [];
                         var mEls = doc.querySelectorAll(currentSite === 'lenkino' ? '.grd-mdl a' : '.video-categories.video-models a');
                         for (var m = 0; m < mEls.length; m++) menu.push({ title: mEls[m].innerText.trim(), action: 'direct', url: mEls[m].getAttribute('href') });
-                        
                         if (currentSite === 'lenkino') {
                             var sEls = doc.querySelectorAll('.vid-aut a, .itm-aut a, .grd-spn a');
-                            for (var s = 0; s < sEls.length; s++) {
-                                var sT = sEls[s].innerText.trim().replace(/\s+/g, ' ');
-                                if (!menu.some(function(i) { return i.title === sT; }) && sT) menu.push({ title: sT, action: 'direct', url: sEls[s].getAttribute('href') });
-                            }
+                            for (var s = 0; s < sEls.length; s++) { var sT = sEls[s].innerText.trim().replace(/\s+/g, ' '); if (!menu.some(function(i) { return i.title === sT; }) && sT) menu.push({ title: sT, action: 'direct', url: sEls[s].getAttribute('href') }); }
                             menu.push({ title: 'Категорії', action: 'cats' }, { title: 'Схожі відео', action: 'sim', url: element.url });
-                        } else {
-                            menu.push({ title: 'Категорії', action: 'cats' }, { title: 'Теги', action: 'tags' }, { title: 'Схожі відео', action: 'sim', url: element.url });
-                        }
+                        } else menu.push({ title: 'Категорії', action: 'cats' }, { title: 'Теги', action: 'tags' }, { title: 'Схожі відео', action: 'sim', url: element.url });
 
                         Lampa.Select.show({ title: 'Дії', items: menu, onSelect: function (a) {
                             if (a.action === 'sim' || a.action === 'direct') Lampa.Activity.push({ url: a.url, title: a.title || 'Схожі', component: 'pluginx_comp', site: currentSite, page: 1, is_related: (a.action === 'sim') });
@@ -265,15 +315,11 @@
                         }, onBack: function () { Lampa.Controller.toggle('content'); } });
                     });
                 };
-
                 events.onFocus = function (t) {
-                    hidePreview();
-                    if (element.preview && !element.is_grid) {
-                        previewTimeout = setTimeout(function () { showPreview($(t), element.preview); }, 1000);
-                    }
+                    hidePreview(); if (element.preview && !element.is_grid) previewTimeout = setTimeout(function () { showPreview($(t), element.preview); }, 1000);
                 };
             };
-            return comp;
+            comp.onRight = comp.filter.bind(comp); return comp;
         }
 
         Lampa.Component.add('pluginx_comp', CustomCatalog);
