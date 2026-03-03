@@ -168,7 +168,7 @@
                     
                     // ВИРІЗАЄМО пусті/непотрібні категорії
                     var titleL = title.toLowerCase();
-                    if (titleL === 'extra' || titleL.indexOf('aigenerator') !== -1 || (href && href.indexOf('aigenerator') !== -1)) {
+                    if (titleL === 'экстра' || titleL.indexOf('aigenerator') !== -1 || (href && href.indexOf('aigenerator') !== -1)) {
                         continue;
                     }
 
