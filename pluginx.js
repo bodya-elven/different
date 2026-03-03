@@ -19,7 +19,7 @@
                 '.my-youtube-style.is-grid-cat .card, .my-youtube-style.is-models-grid .card { width: 16.666% !important; }' + 
             '}' +
             
-            /* Жорстке позиціювання контейнера (як у imdb.js) */
+            /* Жорстке позиціювання контейнера для бейджів */
             '.my-youtube-style .card__view { position: relative !important; padding-bottom: 56.25% !important; border-radius: 12px !important; }' +
             '.my-youtube-style.is-grid-cat .card__view { padding-bottom: 80% !important; background: #ffffff !important; }' + 
             '.my-youtube-style.is-models-grid .card__view { padding-bottom: 150% !important; background: #ffffff !important; }' + 
@@ -36,7 +36,7 @@
             /* Ховаємо рідні бейджі Лампи */
             '.my-youtube-style .card__age, .my-youtube-style .card__textbox { display: none !important; }' +
             
-            /* СТИЛІ НАШОГО БЕЙДЖА (зроблено за аналогією до imdb.js) */
+            /* СТИЛІ НАШОГО БЕЙДЖА */
             '.my-video-duration { position: absolute; bottom: 8px; right: 8px; background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 0.85em; padding: 3px 6px; border-radius: 6px; z-index: 10 !important; font-weight: bold; pointer-events: none; }' +
 
             '.pluginx-sep { font-size: 0.85em !important; opacity: 0.5; pointer-events: none !important; text-align: left !important; padding: 10px 20px 5px 20px !important; text-transform: uppercase; letter-spacing: 1px; color: #fff; border: none !important; background: transparent !important; box-shadow: none !important; }' +
@@ -96,7 +96,6 @@
                         var pUrl = vP ? (vP.getAttribute('src') || vP.getAttribute('data-src') || '') : '';
                         if (pUrl && pUrl.indexOf('//') === 0) pUrl = 'https:' + pUrl;
                         
-                        // Зберігаємо нашу тривалість у кастомну змінну
                         var timeText = timeEl ? timeEl.innerText.trim() : '';
                         results.push({ name: titleEl.innerText.trim(), duration: timeText, url: vUrl, picture: img, img: img, preview: pUrl });
                     }
@@ -388,12 +387,12 @@
                     
                     if (targetPath === '/models' || targetPath.indexOf('/models/sort-by-') === 0) {
                         sortItems.push({ title: 'По кількості', url: mUrl });
-                        sortItems.push({ title: 'По популярності', url: mUrl + '/sort-by-subscribers' });
-                        sortItems.push({ title: 'По імені', url: mUrl + '/sort-by-alphabetical' });
+                        sortItems.push({ title: 'Популярність', url: mUrl + '/sort-by-subscribers' });
+                        sortItems.push({ title: 'За алфавітом', url: mUrl + '/sort-by-alphabetical' });
                         sortItems.push({ title: 'Нові', url: mUrl + '/sort-by-date' });
 
-                        if (curUrl.indexOf('sort-by-subscribers') !== -1) currentSortTitle = 'По популярності';
-                        else if (curUrl.indexOf('sort-by-alphabetical') !== -1) currentSortTitle = 'По імені';
+                        if (curUrl.indexOf('sort-by-subscribers') !== -1) currentSortTitle = 'Популярність';
+                        else if (curUrl.indexOf('sort-by-alphabetical') !== -1) currentSortTitle = 'За алфавітом';
                         else if (curUrl.indexOf('sort-by-date') !== -1) currentSortTitle = 'Нові';
                         else currentSortTitle = 'По кількості';
                     } else {
@@ -406,16 +405,16 @@
                             sortItems.push({ title: 'Топ переглядів', url: b3 + '/popular' });
                         } else {
                             sortItems.push({ title: 'Топ переглядів', url: b3 + '/popular' });
-                            if (isH) sortItems.push({ title: 'Топ переглядів (тиждень)', url: b3 + '/popular/week' });
+                            if (isH) sortItems.push({ title: 'Топ (тиждень)', url: b3 + '/popular/week' });
                             if (isH || isC) {
-                                sortItems.push({ title: 'Топ переглядів (місяць)', url: b3 + '/popular/month' });
-                                sortItems.push({ title: 'Топ переглядів (рік)', url: b3 + '/popular/year' });
+                                sortItems.push({ title: 'Топ (місяць)', url: b3 + '/popular/month' });
+                                sortItems.push({ title: 'Топ (рік)', url: b3 + '/popular/year' });
                             }
                         }
                         
-                        if (curUrl.indexOf('/popular/week') !== -1) currentSortTitle = 'Топ переглядів (тиждень)';
-                        else if (curUrl.indexOf('/popular/month') !== -1) currentSortTitle = 'Топ переглядів (місяць)';
-                        else if (curUrl.indexOf('/popular/year') !== -1) currentSortTitle = 'Топ переглядів (рік)';
+                        if (curUrl.indexOf('/popular/week') !== -1) currentSortTitle = 'Топ (тиждень)';
+                        else if (curUrl.indexOf('/popular/month') !== -1) currentSortTitle = 'Топ (місяць)';
+                        else if (curUrl.indexOf('/popular/year') !== -1) currentSortTitle = 'Топ (рік)';
                         else if (curUrl.indexOf('/popular') !== -1) currentSortTitle = 'Топ переглядів';
                         else currentSortTitle = 'Нові';
                     }
@@ -458,14 +457,20 @@
 
             comp.onRight = comp.filter.bind(comp);
             comp.cardRender = function (card, element, events) {
-                // БЕЗПЕЧНИЙ БЕЙДЖ ТРИВАЛОСТІ: Вставляємо безпосередньо в DOM картки
+                // Отримуємо чистий DOM-елемент картки (на випадок, якщо Лампа передала jQuery-об'єкт)
+                var cardEl = card instanceof jQuery ? card[0] : card;
+
+                // БЕЗПЕЧНИЙ БЕЙДЖ ТРИВАЛОСТІ: Вставляємо через чистий JavaScript (без jQuery)
                 if (element.duration && !element.is_grid) {
-                    var durationBadge = $('<div class="my-video-duration">' + element.duration + '</div>');
-                    var targetView = $(card).find('.card__view');
-                    if (targetView.length) {
-                        targetView.append(durationBadge);
+                    var durationBadge = document.createElement('div');
+                    durationBadge.className = 'my-video-duration';
+                    durationBadge.innerText = element.duration;
+                    
+                    var targetView = cardEl.querySelector('.card__view');
+                    if (targetView) {
+                        targetView.appendChild(durationBadge);
                     } else {
-                        $(card).append(durationBadge);
+                        cardEl.appendChild(durationBadge);
                     }
                 }
 
@@ -587,7 +592,6 @@
 
     function addMenu() {
         // --- ЗАЛІЗОБЕТОННЕ ВИПРАВЛЕННЯ ДЛЯ ТБ ---
-        // Видаляємо наш плагін з масиву прихованих пунктів меню
         if (window.Lampa && window.Lampa.Storage) {
             var hiddenMenu = window.Lampa.Storage.get('menu_hide');
             if (hiddenMenu && Array.isArray(hiddenMenu)) {
