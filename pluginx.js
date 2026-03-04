@@ -20,7 +20,8 @@
                 '.main-grid.is-categories-grid .card, .main-grid.is-models-grid .card, .main-grid.is-noimg-grid .card { width: 16.666% !important; }' + 
             '}' +
             
-            '.main-grid .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; overflow: hidden !important; position: relative !important; }' +
+            /* Прибрано overflow: hidden !important; щоб повернути рамку фокусу на ТБ */
+            '.main-grid .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; position: relative !important; }' +
             '.main-grid.is-categories-grid .card__view { padding-bottom: 80% !important; background: #ffffff !important; }' + 
             '.main-grid.is-models-grid .card__view { padding-bottom: 150% !important; background: #ffffff !important; }' + 
             '.main-grid .card__img { object-fit: cover !important; border-radius: 12px !important; z-index: 2; position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1 !important; }' +
@@ -32,15 +33,18 @@
             '}' +
             '.main-grid.is-categories-grid .card__title, .main-grid.is-models-grid .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }' +
             
-            /* Новий дизайн для Студій без картинок */
+            /* Новий дизайн для Студій (горизонтальні, світло-сірі, багаторядкові) */
             '.main-grid.is-noimg-grid .card { position: relative !important; }' +
-            '.main-grid.is-noimg-grid .card__view { padding-bottom: 75% !important; background: #ffffff !important; border: 1px solid #ddd; }' +
+            '.main-grid.is-noimg-grid .card__view { padding-bottom: 40% !important; background: #e0e0e0 !important; border-radius: 8px !important; border: 1px solid #ccc; transition: transform 0.2s; }' +
+            '.main-grid.is-noimg-grid .card.focus .card__view { transform: scale(1.05); background: #d0d0d0 !important; border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.8); }' +
             '.main-grid.is-noimg-grid .card__img { display: none !important; }' +
             '.main-grid.is-noimg-grid .card__title { ' +
                 'position: absolute !important; top: 0; left: 0; width: 100%; height: 100%; ' +
                 'display: flex !important; align-items: center !important; justify-content: center !important; ' +
-                'color: #000000 !important; font-weight: bold !important; font-size: 1.1em !important; ' +
-                'text-align: center !important; white-space: normal !important; padding: 10px !important; margin: 0 !important; ' +
+                'color: #111111 !important; font-weight: bold !important; ' +
+                'font-size: clamp(0.9em, 2vw, 1.4em) !important; ' + /* Динамічний шрифт */
+                'text-align: center !important; white-space: normal !important; word-wrap: break-word !important; ' +
+                'padding: 8px !important; margin: 0 !important; ' +
                 'z-index: 10; box-sizing: border-box !important; background: transparent !important; text-shadow: none !important; ' +
             '}' +
 
@@ -49,8 +53,7 @@
             '</style>';
         $('body').append(css);
 
-        var previewTimeout;
-        var activePreviewNode;
+        var previewTimeout, activePreviewNode;
 
         function hidePreview() {
             clearTimeout(previewTimeout);
@@ -63,8 +66,7 @@
 
         function showPreview(target, src) {
             var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:4;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
-            var videoEl = previewContainer.find('video')[0];
-            videoEl.src = src;
+            var videoEl = previewContainer.find('video')[0]; videoEl.src = src;
             target.find('.card__view').append(previewContainer);
             activePreviewNode = previewContainer;
             var p = videoEl.play(); if (p !== undefined) p.catch(function(){});
@@ -77,18 +79,13 @@
         }
 
         function CustomCatalog(object) {
-            var comp = new Lampa.InteractionCategory(object);
-            var currentSite = object.site || 'porno365';
+            var comp = new Lampa.InteractionCategory(object), currentSite = object.site || 'porno365';
 
             function smartRequest(url, onSuccess, onError) {
-                var network = new Lampa.Reguest();
-                var headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" };
+                var network = new Lampa.Reguest(), headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" };
                 var isAndroid = typeof window !== 'undefined' && window.Lampa && window.Lampa.Platform && window.Lampa.Platform.is('android');
-                if (isAndroid) {
-                    network.native(url, function (res) { onSuccess(typeof res === 'object' ? JSON.stringify(res) : res); }, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
-                } else {
-                    network.silent(url, onSuccess, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
-                }
+                if (isAndroid) network.native(url, function (res) { onSuccess(typeof res === 'object' ? JSON.stringify(res) : res); }, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
+                else network.silent(url, onSuccess, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
             }
             // --- ПАРСЕРИ PORNO365 та LENKINO ---
             function parseCards365(doc, siteBaseUrl, isRelated) {
@@ -165,18 +162,23 @@
                 var results = [], elements = doc.querySelectorAll('.list-models .item');
                 for (var i = 0; i < elements.length; i++) {
                     var el = elements[i];
-                    if (el.querySelector('.no-thumb')) continue; // Ігноруємо без фото
+                    if (el.querySelector('.no-thumb')) continue; 
                     
                     var linkEl = el.tagName === 'A' ? el : (el.querySelector('a') || el);
-                    var rawName = linkEl.getAttribute('title') || linkEl.innerText.trim().split('\n')[0];
-                    var h5 = el.querySelector('h5'); if (h5) rawName = h5.innerText.trim();
+                    var rawName = linkEl.getAttribute('title') || '';
+                    if (!rawName) {
+                        var clone = el.cloneNode(true);
+                        var vids = clone.querySelector('.videos'); if (vids) vids.parentNode.removeChild(vids);
+                        var noThumb = clone.querySelector('.no-thumb'); if (noThumb) noThumb.parentNode.removeChild(noThumb);
+                        rawName = clone.innerText.trim().replace(/\n/g, ' ');
+                    }
                     
                     var countEl = el.querySelector('.videos'), count = countEl ? countEl.innerText.trim() : '';
                     var imgEl = el.querySelector('img'), img = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
                     if (img && img.indexOf('//') === 0) img = 'https:' + img; else if (img && img.indexOf('/') === 0) img = siteBaseUrl + img;
 
                     var vUrl = linkEl.getAttribute('href'); if (vUrl && vUrl.indexOf('http') !== 0) vUrl = siteBaseUrl + vUrl;
-                    results.push({ name: formatTitle(rawName, count, '☰'), url: vUrl, picture: img, img: img, is_grid: true, is_models_grid: true });
+                    if (rawName) results.push({ name: formatTitle(rawName, count, '☰'), url: vUrl, picture: img, img: img, is_grid: true, is_models_grid: true });
                 }
                 return results;
             }
@@ -184,13 +186,17 @@
             function parseStudiosLongvideos(doc, siteBaseUrl) {
                 var results = [], container = doc.querySelector('.list-sponsors');
                 if (!container) return results;
-                var headlines = container.querySelectorAll('.headline'); // Беремо тільки заголовки
+                var headlines = container.querySelectorAll('.headline'); 
                 for (var i = 0; i < headlines.length; i++) {
                     var el = headlines[i], titleEl = el.querySelector('h1, h2, h3, h4'), linkEl = el.querySelector('a.more, a');
                     if (titleEl && linkEl) {
-                        var name = titleEl.innerText.trim(), vUrl = linkEl.getAttribute('href');
+                        var rawName = titleEl.innerText.trim();
+                        var span = titleEl.querySelector('span');
+                        if (span) rawName = rawName.replace(span.innerText, '').trim(); 
+                        
+                        var vUrl = linkEl.getAttribute('href');
                         if (vUrl && vUrl.indexOf('http') !== 0) vUrl = siteBaseUrl + vUrl;
-                        results.push({ name: name, url: vUrl, picture: '', img: '', is_studios_noimg: true, is_grid: true });
+                        if (rawName) results.push({ name: rawName, url: vUrl, picture: '', img: '', is_studios_noimg: true, is_grid: true });
                     }
                 }
                 return results;
@@ -268,7 +274,7 @@
                     else if (currentSite === 'lenkino') res = parseCardsLenkino(doc, cleanD, isStudios);
                     else if (currentSite === 'longvideos') {
                         if (targetPath === '/models' || targetPath.indexOf('/models/') === 0) res = parseModelsLongvideos(doc, cleanD);
-                        else if (targetPath === '/sites') res = parseStudiosLongvideos(doc, cleanD);
+                        else if (targetPath === '/sites' || targetPath.indexOf('/sites/') === 0) res = parseStudiosLongvideos(doc, cleanD);
                         else if (object.is_related) {
                             var relCont = doc.querySelector('.related-videos, .related_videos');
                             if (relCont) res = parseCardsLongvideos(relCont, cleanD);
@@ -281,7 +287,7 @@
                         var rendered = _this.render();
                         rendered.addClass('main-grid');
                         
-                        /* Розумне призначення сіток на основі прапорців першої картки */
+                        /* Розумне призначення сіток */
                         if (res[0].is_studios_noimg) rendered.addClass('is-noimg-grid');
                         else if (res[0].is_models_grid) rendered.addClass('is-models-grid');
                         else if (res[0].is_grid && !res[0].is_models_grid && !res[0].is_studios_noimg) rendered.addClass('is-categories-grid');
@@ -294,7 +300,7 @@
                 if (object.is_related) return reject();
                 var cleanD = currentSite === 'lenkino' ? LENKINO_DOMAIN : (currentSite === 'longvideos' ? LONGVIDEOS_DOMAIN : PORNO365_DOMAIN);
                 var targetPath = (object.url || '').replace(cleanD, '').split('?')[0].replace(/\/page\/[0-9]+$/, '').replace(/\/[0-9]+\/$/, '').replace(/\/+$/, '');
-                if (targetPath === '/categories' || targetPath === '/sites') return reject(); 
+                if (targetPath === '/categories') return reject(); // /sites прибрали звідси, тепер Студії гортаються!
 
                 var url = object.url || cleanD;
                 if (currentSite === 'lenkino') {
@@ -320,6 +326,7 @@
                     else if (currentSite === 'lenkino') res = parseCardsLenkino(doc, cleanD, isStudios);
                     else if (currentSite === 'longvideos') {
                         if (targetPath === '/models' || targetPath.indexOf('/models/') === 0) res = parseModelsLongvideos(doc, cleanD);
+                        else if (targetPath === '/sites' || targetPath.indexOf('/sites/') === 0) res = parseStudiosLongvideos(doc, cleanD);
                         else res = parseCardsLongvideos(doc, cleanD);
                     }
                     else res = parseCards365(doc, cleanD, false);
@@ -352,7 +359,17 @@
                         if (curUrl.indexOf('/total-videos') !== -1) currentSortTitle = 'Кількість відео';
                         else if (curUrl.indexOf('/top-rated') !== -1) currentSortTitle = 'Рейтингові';
                         else currentSortTitle = 'Популярні';
-                    } else if (targetPath.indexOf('/sites') !== 0) {
+                    } else if (targetPath.indexOf('/sites') === 0) {
+                        /* Сортування для Студій */
+                        sortItems.push(
+                            { title: 'Оновлення', url: cleanD + '/sites/' },
+                            { title: 'Рейтингові', url: cleanD + '/sites/top-rated/' },
+                            { title: 'Кількість відео', url: cleanD + '/sites/total-videos/' }
+                        );
+                        if (curUrl.indexOf('/top-rated') !== -1) currentSortTitle = 'Рейтингові';
+                        else if (curUrl.indexOf('/total-videos') !== -1) currentSortTitle = 'Кількість відео';
+                        else currentSortTitle = 'Оновлення';
+                    } else {
                         sortItems.push(
                             { title: 'Нові', url: cleanD + '/latest-updates/' },
                             { title: 'Рейтингові', url: cleanD + '/top-rated/all/' },
@@ -390,7 +407,7 @@
                     }
                 }
                 
-                if (!isCategories && sortItems.length > 0 && targetPath.indexOf('/sites') !== 0) items.push({ title: 'Сортування', subtitle: currentSortTitle, action: 'sort', sort_items: sortItems });
+                if (!isCategories && sortItems.length > 0) items.push({ title: 'Сортування', subtitle: currentSortTitle, action: 'sort', sort_items: sortItems });
 
                 Lampa.Select.show({ title: 'Навігація', items: items, onSelect: function (a) {
                     if (a.action === 'search') {
