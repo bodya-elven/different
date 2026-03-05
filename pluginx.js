@@ -553,15 +553,18 @@
                             var sources = doc.querySelectorAll('video source');
                             if (sources.length > 1) menu.push({ title: 'Відтворити в ' + (sources[1].getAttribute('label') || 'Альтернативна якість'), action: 'play_direct', url: sources[1].getAttribute('src') });
                             
-                            // ОПТИМІЗОВАНО: Точний пошук моделей за класом .models__item зі сторінки відео
-                            var lvModels = doc.querySelectorAll('.models__item');
-                            var addedModels = [];
-                            for (var m = 0; m < lvModels.length; m++) {
-                                var mTitle = lvModels[m].innerText.trim();
-                                var mUrl = lvModels[m].getAttribute('href');
-                                if (mTitle && mUrl && addedModels.indexOf(mTitle) === -1) {
-                                    menu.push({ title: mTitle, action: 'direct', url: mUrl });
-                                    addedModels.push(mTitle);
+                            // ВИПРАВЛЕНО: Шукаємо моделей ТІЛЬКИ в першому блоці .models, ігноруючи схожі відео
+                            var modelsContainer = doc.querySelector('.models');
+                            if (modelsContainer) {
+                                var lvModels = modelsContainer.querySelectorAll('.models__item');
+                                var addedModels = [];
+                                for (var m = 0; m < lvModels.length; m++) {
+                                    var mTitle = lvModels[m].innerText.trim();
+                                    var mUrl = lvModels[m].getAttribute('href');
+                                    if (mTitle && mUrl && addedModels.indexOf(mTitle) === -1) {
+                                        menu.push({ title: mTitle, action: 'direct', url: mUrl });
+                                        addedModels.push(mTitle);
+                                    }
                                 }
                             }
                             
@@ -600,15 +603,20 @@
                     });
                 };
 
-                // ТВІЙ РОБОЧИЙ ФОКУС: Не ламає скрол і запускає прев'ю!
-                $(card).on('hover:focus', function () {
+                // ПОВЕРНЕНО ПРАЦЮЮЧЕ ПРЕВ'Ю!
+                // Зберігаємо рідний скрол Лампи, а потім безпечно запускаємо відео.
+                var originalFocus = events.onFocus;
+                events.onFocus = function (target) {
+                    if (typeof originalFocus === 'function') {
+                        originalFocus(target); 
+                    }
                     hidePreview(); 
                     if (element.preview && !element.is_grid) {
                         previewTimeout = setTimeout(function () { 
-                            showPreview($(card), element.preview); 
+                            showPreview($(target), element.preview); 
                         }, 1000);
                     }
-                });
+                };
             };
             
             comp.onRight = comp.filter.bind(comp); 
