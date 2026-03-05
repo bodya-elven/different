@@ -10,18 +10,10 @@
         window.pluginx_ready = true;
 
         var css = '<style>' +
-            /* ЧИСТИЙ CSS БЕЗ ВТРУЧАНЬ У КОНТЕЙНЕРИ ЛАМПИ */
-            /* Ми лише задаємо ширину карток, а Лампа сама будує сітку і рахує скрол! */
-            '.pluginx-page .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; box-sizing: border-box !important; }' +
+            /* ПОВНІСТЮ ВИДАЛЕНО width, float та display для .card! 
+               Тепер Лампа сама ідеально вираховує розміри і не блокує скрол */
             
-            '@media screen and (max-width: 580px) {' +
-                '.pluginx-page .card { width: 100% !important; margin-bottom: 10px !important; padding: 0 5px !important; }' +
-                '.pluginx-page.is-categories-grid .card, .pluginx-page.is-models-grid .card, .pluginx-page.is-noimg-grid .card { width: 50% !important; }' + 
-            '}' +
-            '@media screen and (min-width: 581px) {' +
-                '.pluginx-page.is-categories-grid .card, .pluginx-page.is-models-grid .card, .pluginx-page.is-noimg-grid .card { width: 16.666% !important; }' + 
-            '}' +
-            
+            /* Залишаємо тільки пропорції (квадрати/прямокутники) та дизайн всередині картки */
             '.pluginx-page .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; position: relative !important; }' +
             '.pluginx-page.is-categories-grid .card__view { padding-bottom: 80% !important; background: #ffffff !important; }' + 
             '.pluginx-page.is-models-grid .card__view { padding-bottom: 150% !important; background: #ffffff !important; }' + 
@@ -106,6 +98,7 @@
                 if (isAndroid) network.native(url, function (res) { onSuccess(typeof res === 'object' ? JSON.stringify(res) : res); }, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
                 else network.silent(url, onSuccess, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
             }
+
             // --- ПАРСЕРИ PORNO365 та LENKINO ---
             function parseCards365(doc, siteBaseUrl, isRelated) {
                 var sel = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
@@ -503,7 +496,6 @@
                 events.onEnter = function () {
                     hidePreview();
                     
-                    // Перехід з Обраного (витягуємо справжній siteBaseUrl)
                     var targetSite = currentSite;
                     if (currentSite === 'bookmarks') {
                         if (element.url.indexOf(LENKINO_DOMAIN) !== -1) targetSite = 'lenkino';
@@ -543,7 +535,6 @@
                 events.onMenu = function () {
                     hidePreview();
                     
-                    // Логіка Додавання в Обране
                     var bmarks = window.Lampa.Storage.get('pluginx_bookmarks', []);
                     var isBookmarked = bmarks.some(function(b) { return b.url === element.url; });
                     
@@ -570,7 +561,6 @@
                     smartRequest(element.url, function (htmlText) {
                         var doc = new DOMParser().parseFromString(htmlText, 'text/html'), menu = [];
                         
-                        // Додаємо пункт Обраного першим в меню Дій
                         menu.push({ title: isBookmarked ? '★ Видалити з обраного' : '☆ Додати до обраного', action: 'bookmark' });
                         
                         if (targetSite === 'longvideos') {
@@ -620,6 +610,17 @@
 
                 events.onFocus = function (t) {
                     hidePreview(); 
+                    
+                    // ПРИМУСОВИЙ СКРОЛ ЕКРАНУ ЗА ФОКУСОМ (Ідеально для ТБ)
+                    try {
+                        if (t && t.scrollIntoView) {
+                            // "center" гарантує, що при переході на новий рядок він виїде рівно в центр екрану
+                            t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    } catch (e) {
+                        try { t.scrollIntoView(false); } catch(e2) {} // Fallback для дуже старих ТБ
+                    }
+
                     if (element.preview && !element.is_grid) {
                         previewTimeout = setTimeout(function () { 
                             showPreview($(t), element.preview); 
