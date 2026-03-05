@@ -543,23 +543,18 @@
                     });
                 };
 
-                // Зберігаємо рідний "розумний" скрол Лампи
-                var originalFocus = events.onFocus; 
-                
-                events.onFocus = function (t) {
-                    // 1. Віддаємо Лампі наказ зробити її нативний плавний скрол
-                    if (typeof originalFocus === 'function') {
-                        originalFocus(t); 
-                    }
-                    
-                    // 2. Запускаємо логіку прев'ю відео
+                // ВАЖЛИВО: Ми більше не чіпаємо events.onFocus! 
+                // Рідний скрол Лампи працює ідеально сам по собі.
+                // Замість цього вішаємо паралельного слухача суто для нашого прев'ю відео:
+                card.on('hover:focus', function () {
                     hidePreview(); 
                     if (element.preview && !element.is_grid) {
                         previewTimeout = setTimeout(function () { 
-                            showPreview($(t), element.preview); 
+                            // Передаємо card, щоб відео з'явилося саме в поточній картці
+                            showPreview(card, element.preview); 
                         }, 1000);
                     }
-                };
+                });
             };
             
             comp.onRight = comp.filter.bind(comp); 
