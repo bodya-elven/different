@@ -10,7 +10,7 @@
         window.pluginx_ready = true;
 
         var css = '<style>' +
-            /* ПОВЕРНЕННЯ ДО ТВОГО ОРИГІНАЛУ: Тільки ширина, жодних втручань у сітку Лампи */
+            /* ТОЧНА КОПІЯ ТВОГО CSS */
             '.main-grid { padding: 0 !important; }' +
             
             '@media screen and (max-width: 580px) {' +
@@ -34,7 +34,7 @@
             '}' +
             '.main-grid.is-categories-grid .card__title, .main-grid.is-models-grid .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }' +
             
-            /* СТУДІЇ: Низькі і сірі */
+            /* СТУДІЇ: Твій дизайн низьких карток без зламу сітки */
             '.main-grid.is-noimg-grid .card { position: relative !important; }' +
             '.main-grid.is-noimg-grid .card__view { padding-bottom: 25% !important; background: #c4c4c4 !important; border-radius: 8px !important; border: 1px solid #aaa; transition: transform 0.2s; }' +
             '.main-grid.is-noimg-grid .card.focus .card__view { transform: scale(1.05); background: #b0b0b0 !important; border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.8); }' +
@@ -66,7 +66,6 @@
             }
         }
 
-        // Прев'ю з розумним перебором серверів
         function showPreview(target, src) {
             var previewContainer = $('<div class="sisi-video-preview" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:12px;overflow:hidden;z-index:4;background:#000;"><video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video></div>');
             var videoEl = previewContainer.find('video')[0];
@@ -182,7 +181,7 @@
                     var previewEl = el.querySelector('.img.thumb__img'), pUrl = previewEl ? previewEl.getAttribute('data-preview') : '';
                     if (pUrl && pUrl.indexOf('//') === 0) pUrl = 'https:' + pUrl;
 
-                    // ОСЬ ТУТ ВИПРАВЛЕНО ТУ ПОМИЛКУ З СКРИНШОТУ (прибрано зайвий querySelector)
+                    // ВИПРАВЛЕНО: чистий пошук duration без вкладеності
                     var timeEl = el.querySelector('.duration');
                     var timeText = timeEl ? timeEl.innerText.replace(/Full Video/gi, '').trim() : '';
                     
@@ -290,12 +289,28 @@
             comp.create = function () {
                 var _this = this; 
                 this.activity.loader(true);
+
+                // --- ОБРОБКА РОЗДІЛУ "ОБРАНЕ" ---
+                if (currentSite === 'bookmarks') {
+                    var bmarks = window.Lampa.Storage.get('pluginx_bookmarks', []);
+                    if (bmarks.length > 0) {
+                        _this.build({ results: bmarks, collection: true, total_pages: 1, page: 1 });
+                        var rendered = _this.render();
+                        rendered.addClass('main-grid'); // Використовуємо твій ідеальний CSS-клас
+                        
+                        if (bmarks[0].is_studios_noimg) rendered.addClass('is-noimg-grid');
+                        else if (bmarks[0].is_models_grid) rendered.addClass('is-models-grid');
+                        else if (bmarks[0].is_grid) rendered.addClass('is-categories-grid');
+                    } else {
+                        _this.empty();
+                    }
+                    return;
+                }
                 
                 var target = object.url || PORNO365_DOMAIN;
                 if (currentSite === 'lenkino') target = object.url || LENKINO_DOMAIN;
                 if (currentSite === 'longvideos') target = object.url || (LONGVIDEOS_DOMAIN + '/latest-updates/');
 
-                // Розумна пагінація
                 if (currentSite === 'lenkino') {
                     target = target.replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '') + '/page/' + (object.page || 1);
                 } else if (currentSite === 'longvideos' && object.page > 1) {
@@ -337,8 +352,6 @@
                     if (res.length > 0) { 
                         _this.build({ results: res, collection: true, total_pages: 50, page: object.page || 1 }); 
                         var rendered = _this.render();
-                        
-                        // ТОЧНО ЯК В ТВОЄМУ КОДІ
                         rendered.addClass('main-grid');
                         
                         if (res[0].is_studios_noimg) rendered.addClass('is-noimg-grid');
@@ -350,6 +363,7 @@
             };
 
             comp.nextPageReuest = function (object, resolve, reject) {
+                if (currentSite === 'bookmarks') return reject();
                 if (object.is_related) return reject();
                 var cleanD = currentSite === 'lenkino' ? LENKINO_DOMAIN : (currentSite === 'longvideos' ? LONGVIDEOS_DOMAIN : PORNO365_DOMAIN);
                 var targetPath = (object.url || '').replace(cleanD, '').split('?')[0].replace(/\/page\/[0-9]+$/, '').replace(/\/[0-9]+\/$/, '').replace(/\/+$/, '');
@@ -402,10 +416,14 @@
                 var targetPath = curUrl.replace(cleanD, '').split('?')[0];
                 var cleanPath = targetPath.replace(/\/+$/, '');
                 var isCategories = targetPath === '/categories';
-                var items = [{ title: 'Пошук', action: 'search' }];
+                
+                var items = [
+                    { title: 'Пошук', action: 'search' },
+                    { title: '⭐ Обране', action: 'bookmarks' }
+                ];
                 
                 if (currentSite === 'longvideos') items.push({ title: 'Моделі', action: 'models' }, { title: 'Студії', action: 'studios' });
-                else items.push({ title: 'Категорії', action: 'categories' }, { title: 'Моделі', action: 'models' });
+                else if (currentSite !== 'bookmarks') items.push({ title: 'Категорії', action: 'categories' }, { title: 'Моделі', action: 'models' });
                 
                 var sortItems = [], currentSortTitle = 'Нові'; 
                 
@@ -430,7 +448,7 @@
                         if (bV === cleanD) { sortItems.push({ title: 'Нові', url: cleanD }, { title: 'Кращі', url: cleanD + '/top-porno' }, { title: 'Гарячі', url: cleanD + '/hot-porno' }); if (curUrl.indexOf('/top-porno') !== -1) currentSortTitle = 'Кращі'; else if (curUrl.indexOf('/hot-porno') !== -1) currentSortTitle = 'Гарячі'; else currentSortTitle = 'Нові'; }
                         else { sortItems.push({ title: 'Нові', url: bV }, { title: 'Кращі', url: bV + '-top' }, { title: 'Гарячі', url: bV }); if (curUrl.indexOf('-top') !== -1) currentSortTitle = 'Кращі'; else currentSortTitle = 'Нові'; }
                     }
-                } else {
+                } else if (currentSite === 'porno365') {
                     var mUrl = cleanD + '/models';
                     if (targetPath === '/models' || targetPath.indexOf('/models/sort-by-') === 0) {
                         sortItems.push({ title: 'По кількості', url: mUrl }, { title: 'Популярність', url: mUrl + '/sort-by-subscribers' }, { title: 'За алфавітом', url: mUrl + '/sort-by-alphabetical' }, { title: 'Нові', url: mUrl + '/sort-by-date' });
@@ -442,7 +460,7 @@
                     }
                 }
                 
-                if (!isCategories && sortItems.length > 0) items.push({ title: 'Сортування', subtitle: currentSortTitle, action: 'sort', sort_items: sortItems });
+                if (!isCategories && sortItems.length > 0 && currentSite !== 'bookmarks') items.push({ title: 'Сортування', subtitle: currentSortTitle, action: 'sort', sort_items: sortItems });
 
                 Lampa.Select.show({ title: 'Навігація', items: items, onSelect: function (a) {
                     if (a.action === 'search') {
@@ -456,6 +474,7 @@
                             Lampa.Controller.toggle('content'); 
                         });
                     }
+                    else if (a.action === 'bookmarks') Lampa.Activity.push({ title: 'Обране', component: 'pluginx_comp', site: 'bookmarks', page: 1 });
                     else if (a.action === 'sort') Lampa.Select.show({ title: 'Сортування', items: a.sort_items, onSelect: function(s) { Lampa.Activity.push({ url: s.url, title: s.title, component: 'pluginx_comp', site: currentSite, page: 1 }); }, onBack: function() { comp.filter(); } });
                     else if (a.action === 'categories') Lampa.Activity.push({ url: cleanD + '/categories', title: 'Категорії', component: 'pluginx_comp', site: currentSite, page: 1 });
                     else if (a.action === 'studios_lenkino') Lampa.Activity.push({ url: cleanD + '/channels', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1 });
@@ -467,18 +486,24 @@
                 events.onEnter = function () {
                     hidePreview();
                     
+                    var targetSite = currentSite;
+                    if (currentSite === 'bookmarks') {
+                        if (element.url.indexOf(LENKINO_DOMAIN) !== -1) targetSite = 'lenkino';
+                        else if (element.url.indexOf(LONGVIDEOS_DOMAIN) !== -1) targetSite = 'longvideos';
+                        else targetSite = 'porno365';
+                    }
+
                     if (element.is_grid) { 
-                        Lampa.Activity.push({ url: element.url, title: element.name, component: 'pluginx_comp', site: currentSite, page: 1 }); 
+                        Lampa.Activity.push({ url: element.url, title: element.name, component: 'pluginx_comp', site: targetSite, page: 1 }); 
                         return; 
                     }
                     
                     smartRequest(element.url, function(htmlText) {
                         var str = [], doc = new DOMParser().parseFromString(htmlText, 'text/html');
-                        
-                        if (currentSite === 'longvideos') {
+                        if (targetSite === 'longvideos') {
                             var sources = doc.querySelectorAll('video source');
                             if (sources.length > 0) str.push({ title: sources[0].getAttribute('label') || 'Оригінал', url: sources[0].getAttribute('src') });
-                        } else if (currentSite === 'lenkino') {
+                        } else if (targetSite === 'lenkino') {
                             var u = htmlText.match(/video_url:[\t ]+'([^']+)'/), a = htmlText.match(/video_alt_url:[\t ]+'([^']+)'/);
                             if (u && u[1]) str.push({ title: 'Стандарт', url: u[1] });
                             if (a && a[1]) str.push({ title: 'Основний (HD)', url: a[1] });
@@ -486,11 +511,10 @@
                             var q = doc.querySelectorAll('.quality_chooser a');
                             for (var j = 0; j < q.length; j++) if (q[j].getAttribute('href')) str.push({ title: q[j].innerText.trim(), url: q[j].getAttribute('href') });
                         }
-                        
                         if (str.length > 0) {
-                            var bestStream = (currentSite === 'longvideos') ? str[0] : str[str.length - 1];
+                            var bestStream = (targetSite === 'longvideos') ? str[0] : str[str.length - 1];
                             var playData = { title: element.name, url: bestStream.url, quality: str };
-                            if (currentSite === 'lenkino') playData.headers = { 'Referer': 'https://wes.lenkino.adult/', 'Origin': 'https://wes.lenkino.adult' };
+                            if (targetSite === 'lenkino') playData.headers = { 'Referer': 'https://wes.lenkino.adult/', 'Origin': 'https://wes.lenkino.adult' };
                             Lampa.Player.play(playData); Lampa.Player.playlist([playData]);
                         }
                     });
@@ -498,25 +522,44 @@
 
                 events.onMenu = function () {
                     hidePreview();
+                    var bmarks = window.Lampa.Storage.get('pluginx_bookmarks', []);
+                    var isBookmarked = bmarks.some(function(b) { return b.url === element.url; });
+                    var toggleBookmark = function() {
+                        var currentBmarks = window.Lampa.Storage.get('pluginx_bookmarks', []);
+                        var idx = currentBmarks.findIndex(function(b) { return b.url === element.url; });
+                        if (idx !== -1) {
+                            currentBmarks.splice(idx, 1);
+                            Lampa.Noty.show('Видалено з обраного');
+                        } else {
+                            currentBmarks.unshift(element);
+                            Lampa.Noty.show('Додано до обраного');
+                        }
+                        window.Lampa.Storage.set('pluginx_bookmarks', currentBmarks);
+                    };
+
+                    var targetSite = currentSite;
+                    if (currentSite === 'bookmarks') {
+                        if (element.url.indexOf(LENKINO_DOMAIN) !== -1) targetSite = 'lenkino';
+                        else if (element.url.indexOf(LONGVIDEOS_DOMAIN) !== -1) targetSite = 'longvideos';
+                        else targetSite = 'porno365';
+                    }
+
                     smartRequest(element.url, function (htmlText) {
                         var doc = new DOMParser().parseFromString(htmlText, 'text/html'), menu = [];
+                        menu.push({ title: isBookmarked ? '★ Видалити з обраного' : '☆ Додати до обраного', action: 'bookmark' });
                         
-                        if (currentSite === 'longvideos') {
+                        if (targetSite === 'longvideos') {
                             var sources = doc.querySelectorAll('video source');
                             if (sources.length > 1) menu.push({ title: 'Відтворити в ' + (sources[1].getAttribute('label') || 'Альтернативна якість'), action: 'play_direct', url: sources[1].getAttribute('src') });
-                            
                             if (element.card_models) element.card_models.forEach(function(m) { menu.push({ title: m.title, action: 'direct', url: m.url }); });
-                            
                             var sponsors = doc.querySelectorAll('.btn_sponsor, .btn_sponsor_group');
                             for (var sp = 0; sp < sponsors.length; sp++) {
                                 var spName = sponsors[sp].innerText.trim();
                                 if (sponsors[sp].classList.contains('btn_sponsor_group')) spName += ' (Network)';
                                 menu.push({ title: spName, action: 'direct', url: sponsors[sp].getAttribute('href') });
                             }
-                            
                             menu.push({ title: 'Категорії', action: 'lv_cats', html: htmlText }, { title: 'Схожі відео', action: 'sim', url: element.url });
-                            
-                        } else if (currentSite === 'lenkino') {
+                        } else if (targetSite === 'lenkino') {
                             var mEls = doc.querySelectorAll('.grd-mdl a'); for (var m = 0; m < mEls.length; m++) menu.push({ title: mEls[m].innerText.trim(), action: 'direct', url: mEls[m].getAttribute('href') });
                             var sEls = doc.querySelectorAll('.vid-aut a, .itm-aut a, .grd-spn a');
                             for (var s = 0; s < sEls.length; s++) { var sT = sEls[s].innerText.trim().replace(/\s+/g, ' '); if (!menu.some(function(i) { return i.title === sT; }) && sT) menu.push({ title: sT, action: 'direct', url: sEls[s].getAttribute('href') }); }
@@ -527,39 +570,36 @@
                         }
 
                         Lampa.Select.show({ title: 'Дії', items: menu, onSelect: function (a) {
-                            if (a.action === 'play_direct') { Lampa.Player.play({ title: element.name, url: a.url }); Lampa.Player.playlist([{ title: element.name, url: a.url }]); } 
-                            else if (a.action === 'sim' || a.action === 'direct') { Lampa.Activity.push({ url: a.url, title: a.title || 'Схожі', component: 'pluginx_comp', site: currentSite, page: 1, is_related: (a.action === 'sim') }); } 
+                            if (a.action === 'bookmark') toggleBookmark();
+                            else if (a.action === 'play_direct') { Lampa.Player.play({ title: element.name, url: a.url }); Lampa.Player.playlist([{ title: element.name, url: a.url }]); } 
+                            else if (a.action === 'sim' || a.action === 'direct') { Lampa.Activity.push({ url: a.url, title: a.title || 'Схожі', component: 'pluginx_comp', site: targetSite, page: 1, is_related: (a.action === 'sim') }); } 
                             else if (a.action === 'lv_cats') {
                                 var tempDoc = new DOMParser().parseFromString(a.html, 'text/html'), tags = tempDoc.querySelectorAll('.btn_tag, .btn_tag.hidden'), tagItems = [];
                                 for (var t = 0; t < tags.length; t++) tagItems.push({ title: tags[t].innerText.trim(), url: tags[t].getAttribute('href') });
-                                if (tagItems.length > 0) Lampa.Select.show({ title: 'Категорії', items: tagItems, onSelect: function (it) { Lampa.Activity.push({ url: it.url, title: it.title, component: 'pluginx_comp', site: currentSite, page: 1 }); }, onBack: function () { events.onMenu(); } });
+                                if (tagItems.length > 0) Lampa.Select.show({ title: 'Категорії', items: tagItems, onSelect: function (it) { Lampa.Activity.push({ url: it.url, title: it.title, component: 'pluginx_comp', site: targetSite, page: 1 }); }, onBack: function () { events.onMenu(); } });
                             } else {
-                                var sel = (a.action === 'cats') ? (currentSite === 'lenkino' ? '.vid-cat a' : '.video-categories:not(.video-models) a') : '.video-tags a';
+                                var sel = (a.action === 'cats') ? (targetSite === 'lenkino' ? '.vid-cat a' : '.video-categories:not(.video-models) a') : '.video-tags a';
                                 var subEls = doc.querySelectorAll(sel), sub = [];
                                 for (var i = 0; i < subEls.length; i++) sub.push({ title: subEls[i].innerText.trim(), url: subEls[i].getAttribute('href') });
-                                if (sub.length > 0) Lampa.Select.show({ title: a.title, items: sub, onSelect: function (it) { Lampa.Activity.push({ url: it.url, title: it.title, component: 'pluginx_comp', site: currentSite, page: 1 }); }, onBack: function () { events.onMenu(); } });
+                                if (sub.length > 0) Lampa.Select.show({ title: a.title, items: sub, onSelect: function (it) { Lampa.Activity.push({ url: it.url, title: it.title, component: 'pluginx_comp', site: targetSite, page: 1 }); }, onBack: function () { events.onMenu(); } });
                             }
                         }, onBack: function () { Lampa.Controller.toggle('content'); } });
                     });
                 };
 
-                // Зберігаємо рідний "розумний" скрол Лампи
-                var originalFocus = events.onFocus; 
+                // ОСЬ ВІН - КЛЮЧ ДО ІДЕАЛЬНОГО СКРОЛУ! 
+                // Ми ВЗАГАЛІ не пишемо тут events.onFocus = ... 
+                // Це дозволяє Лампі самій повісити свій ідеальний, плавний скрол!
+                // А своє прев'ю ми безпечно вішаємо паралельно, обгорнувши card у jQuery:
                 
-                events.onFocus = function (t) {
-                    // 1. Віддаємо Лампі наказ зробити її нативний плавний скрол
-                    if (typeof originalFocus === 'function') {
-                        originalFocus(t); 
-                    }
-                    
-                    // 2. Запускаємо логіку прев'ю відео
+                $(card).on('hover:focus', function () {
                     hidePreview(); 
                     if (element.preview && !element.is_grid) {
                         previewTimeout = setTimeout(function () { 
-                            showPreview($(t), element.preview); 
+                            showPreview($(card), element.preview); 
                         }, 1000);
                     }
-                };
+                });
             };
             
             comp.onRight = comp.filter.bind(comp); 
