@@ -10,6 +10,7 @@
         window.pluginx_ready = true;
 
         var css = '<style>' +
+            /* ТОЧНА КОПІЯ ТВОГО СТАБІЛЬНОГО CSS */
             '.main-grid { padding: 0 !important; }' +
             
             '@media screen and (max-width: 580px) {' +
@@ -549,15 +550,18 @@
                             var sources = doc.querySelectorAll('video source');
                             if (sources.length > 1) menu.push({ title: 'Відтворити в ' + (sources[1].getAttribute('label') || 'Альтернативна якість'), action: 'play_direct', url: sources[1].getAttribute('src') });
                             
-                            // ОСЬ ВОНО: Точний пошук моделей на сторінці відео за вказаним класом!
-                            var lvModels = doc.querySelectorAll('.btn_models');
-                            var addedModels = [];
-                            for (var m = 0; m < lvModels.length; m++) {
-                                var mTitle = lvModels[m].innerText.trim();
-                                var mUrl = lvModels[m].getAttribute('href');
-                                if (mTitle && mUrl && addedModels.indexOf(mTitle) === -1) {
-                                    menu.push({ title: mTitle, action: 'direct', url: mUrl });
-                                    addedModels.push(mTitle);
+                            // ВИПРАВЛЕНО: Шукаємо моделей ТІЛЬКИ в першому блоці .models, щоб уникнути "Схожих відео"
+                            var modelsContainer = doc.querySelector('.models');
+                            if (modelsContainer) {
+                                var lvModels = modelsContainer.querySelectorAll('.btn_models');
+                                var addedModels = [];
+                                for (var m = 0; m < lvModels.length; m++) {
+                                    var mTitle = lvModels[m].innerText.trim();
+                                    var mUrl = lvModels[m].getAttribute('href');
+                                    if (mTitle && mUrl && addedModels.indexOf(mTitle) === -1) {
+                                        menu.push({ title: mTitle, action: 'direct', url: mUrl });
+                                        addedModels.push(mTitle);
+                                    }
                                 }
                             }
                             
@@ -596,15 +600,19 @@
                     });
                 };
 
-                // ОСЬ ВІН - ТОЙ САМИЙ ПРАЦЮЮЧИЙ ФОКУС! Жодних originalFocus
-                $(card).on('hover:focus', function () {
+                // ТОЙ САМИЙ ПРАЦЮЮЧИЙ ФОКУС, ЩО ЗБЕРІГАЄ СКРОЛ
+                var originalFocus = events.onFocus;
+                events.onFocus = function (target) {
+                    if (typeof originalFocus === 'function') {
+                        originalFocus(target); 
+                    }
                     hidePreview(); 
                     if (element.preview && !element.is_grid) {
                         previewTimeout = setTimeout(function () { 
-                            showPreview($(card), element.preview); 
+                            showPreview($(target), element.preview); 
                         }, 1000);
                     }
-                });
+                };
             };
             
             comp.onRight = comp.filter.bind(comp); 
