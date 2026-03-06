@@ -164,7 +164,6 @@
                 return results;
             }
 
-            // --- ПАРСЕРИ LONGVIDEOS ---
             function parseCardsLongvideos(doc, siteBaseUrl) {
                 var results = [], elements = doc.querySelectorAll('.list-videos .item, .item');
                 for (var i = 0; i < elements.length; i++) {
@@ -328,7 +327,8 @@
                     var targetPath = target.replace(cleanD, '').split('?')[0].replace(/\/page\/[0-9]+$/, '').replace(/\/[0-9]+\/$/, '').replace(/\/+$/, '');
                     
                     if (currentSite === 'longvideos') {
-                        var sortListUl = doc.querySelector('#_sort_list, #list_videos_common_videos_list_sort_list, #list_content_sources_sponsors_list_sort_list');
+                        // ВИПРАВЛЕНО: Додано id для пошукового сортування
+                        var sortListUl = doc.querySelector('#_sort_list, #list_videos_common_videos_list_sort_list, #list_content_sources_sponsors_list_sort_list, #custom_list_videos_videos_list_search_result_sort_list');
                         if (sortListUl) {
                             var sortLinks = sortListUl.querySelectorAll('a');
                             var dynamicSortItems = [];
@@ -339,7 +339,7 @@
                             }
                             if (dynamicSortItems.length > 0) {
                                 var activeSortTitle = 'Сортування';
-                                var sortStrong = doc.querySelector('.sort strong, .filter-channels strong');
+                                var sortStrong = doc.querySelector('.sort strong, .filter-channels strong, .sort-open strong');
                                 if (sortStrong) {
                                     activeSortTitle = sortStrong.innerText.trim();
                                     var innerSpan = sortStrong.querySelector('span, small');
@@ -353,7 +353,6 @@
                     var res = [];
                     if (currentSite === 'longvideos') {
                         var cleanPath = targetPath.replace(/\/+$/, ''); 
-                        // ВИПРАВЛЕНО: Використовуємо переданий контекст сторінки (object.is_models)
                         var isModelsList = object.is_models || cleanPath === '/models';
                         var isSitesList = object.is_studios || cleanPath === '/sites';
                         
@@ -375,7 +374,8 @@
                     }
                     
                     if (res.length > 0) { 
-                        _this.build({ results: res, collection: true, total_pages: 50, page: object.page || 1 }); 
+                        // ВИПРАВЛЕНО: Ліміт пагінації збільшено до 1000 сторінок!
+                        _this.build({ results: res, collection: true, total_pages: 1000, page: object.page || 1 }); 
                         var rendered = _this.render();
                         rendered.addClass('main-grid');
                         
@@ -429,7 +429,8 @@
                         else res = parseCards365(doc, cleanD, false);
                     }
 
-                    if (res.length > 0) resolve({ results: res, collection: true, total_pages: 50, page: object.page }); 
+                    // ВИПРАВЛЕНО: Ліміт пагінації 1000
+                    if (res.length > 0) resolve({ results: res, collection: true, total_pages: 1000, page: object.page }); 
                     else reject();
                 }, reject);
             };
@@ -443,6 +444,7 @@
                 var isCategories = targetPath === '/categories';
                 
                 var items = [
+                    { title: '🏠 Головна', action: 'home' }, // ВИПРАВЛЕНО: Додано кнопку Головна
                     { title: 'Пошук', action: 'search' },
                     { title: '⭐ Обране', action: 'bookmarks' }
                 ];
@@ -484,7 +486,13 @@
                 if (!isCategories && sortItems.length > 0 && currentSite !== 'bookmarks') items.push({ title: 'Сортування', subtitle: currentSortTitle, action: 'sort', sort_items: sortItems });
 
                 Lampa.Select.show({ title: 'Навігація', items: items, onSelect: function (a) {
-                    if (a.action === 'search') {
+                    if (a.action === 'home') {
+                        var homeUrl = cleanD;
+                        if (currentSite === 'longvideos') homeUrl += '/latest-updates/';
+                        var siteNames = { 'porno365': 'Porno365', 'lenkino': 'Lenkino', 'longvideos': 'LongVideos' };
+                        Lampa.Activity.push({ url: homeUrl, title: siteNames[currentSite] || 'Головна', component: 'pluginx_comp', site: currentSite, page: 1 });
+                    }
+                    else if (a.action === 'search') {
                         Lampa.Input.edit({ title: 'Пошук', value: '', free: true, nosave: true }, function(v) { 
                             if (v) {
                                 var sUrl = cleanD + '/search/?q=' + encodeURIComponent(v);
@@ -496,14 +504,10 @@
                         });
                     }
                     else if (a.action === 'bookmarks') Lampa.Activity.push({ title: 'Обране', component: 'pluginx_comp', site: 'bookmarks', page: 1 });
-                    
-                    // ВИПРАВЛЕНО: Додаємо прапорці при переході в Моделі/Студії, щоб плагін запам'ятав контекст
                     else if (a.action === 'models') Lampa.Activity.push({ url: cleanD + (currentSite === 'lenkino' ? '/pornstars' : '/models/'), title: 'Моделі', component: 'pluginx_comp', site: currentSite, page: 1, is_models: true });
                     else if (a.action === 'studios') Lampa.Activity.push({ url: cleanD + '/sites/', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1, is_studios: true });
                     else if (a.action === 'studios_lenkino') Lampa.Activity.push({ url: cleanD + '/channels', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1, is_studios: true });
                     else if (a.action === 'categories') Lampa.Activity.push({ url: cleanD + '/categories', title: 'Категорії', component: 'pluginx_comp', site: currentSite, page: 1 });
-                    
-                    // ВИПРАВЛЕНО: При сортуванні наслідуємо контекст (якщо були в моделях, залишаємось в моделях)
                     else if (a.action === 'sort') Lampa.Select.show({ title: 'Сортування', items: a.sort_items, onSelect: function(s) { 
                         Lampa.Activity.push({ 
                             url: s.url, title: s.title, component: 'pluginx_comp', site: currentSite, page: 1,
@@ -582,7 +586,7 @@
                             var sources = doc.querySelectorAll('video source');
                             if (sources.length > 1) menu.push({ title: 'Відтворити в ' + (sources[1].getAttribute('label') || 'Альтернативна якість'), action: 'play_direct', url: sources[1].getAttribute('src') });
                             
-                            // ВИПРАВЛЕНО: Рівно .btn_model. 
+                            // ВИПРАВЛЕНО: ТІЛЬКИ .btn_model. Жодної самодіяльності.
                             var lvModels = doc.querySelectorAll('.btn_model');
                             var addedModels = [];
                             for (var m = 0; m < lvModels.length; m++) {
