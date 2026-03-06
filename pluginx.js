@@ -103,7 +103,6 @@
                 if (isAndroid) network.native(url, function (res) { onSuccess(typeof res === 'object' ? JSON.stringify(res) : res); }, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
                 else network.silent(url, onSuccess, function (err) { if (onError) onError(err); }, false, { dataType: 'text', headers: headers, timeout: 10000 });
             }
-            // --- ПАРСЕРИ PORNO365 та LENKINO ---
             function parseCards365(doc, siteBaseUrl, isRelated) {
                 var sel = isRelated ? '.related .related_video' : 'li.video_block, li.trailer';
                 var elements = doc.querySelectorAll(sel), results = [];
@@ -326,8 +325,9 @@
                     var cleanD = currentSite === 'lenkino' ? LENKINO_DOMAIN : (currentSite === 'longvideos' ? LONGVIDEOS_DOMAIN : PORNO365_DOMAIN);
                     var targetPath = target.replace(cleanD, '').split('?')[0].replace(/\/page\/[0-9]+$/, '').replace(/\/[0-9]+\/$/, '').replace(/\/+$/, '');
                     
+                    _this._dynamicSort = null;
+
                     if (currentSite === 'longvideos') {
-                        // ВИПРАВЛЕНО: Додано id для пошукового сортування
                         var sortListUl = doc.querySelector('#_sort_list, #list_videos_common_videos_list_sort_list, #list_content_sources_sponsors_list_sort_list, #custom_list_videos_videos_list_search_result_sort_list');
                         if (sortListUl) {
                             var sortLinks = sortListUl.querySelectorAll('a');
@@ -347,6 +347,68 @@
                                 }
                                 _this._dynamicSort = { subtitle: activeSortTitle, items: dynamicSortItems };
                             }
+                        }
+                    }
+
+                    if (currentSite === 'porno365') {
+                        var stextWrapper = doc.querySelector('.stext_wrapper');
+                        if (stextWrapper) {
+                            var p365DynamicSortItems = [];
+                            var p365ActiveSortTitle = 'Сортування';
+                            var currentSortEl = stextWrapper.querySelector('.current_sort');
+                            if (currentSortEl) {
+                                var ca = currentSortEl.querySelector('a');
+                                var cs = currentSortEl.querySelector('span');
+                                if (ca) p365ActiveSortTitle = ca.innerText.trim();
+                                else if (cs) p365ActiveSortTitle = cs.innerText.replace(/:$/, '').trim();
+                                else p365ActiveSortTitle = currentSortEl.innerText.trim().split('\n')[0];
+                            }
+                            var sortDivs = stextWrapper.querySelectorAll('.div_sort');
+                            for (var divIdx = 0; divIdx < sortDivs.length; divIdx++) {
+                                var div = sortDivs[divIdx];
+                                var ul = div.querySelector('.sort_ul');
+                                if (ul) {
+                                    var span = div.querySelector('span');
+                                    var prefix = span ? span.innerText.replace(/:$/, '').trim() + ' - ' : '';
+                                    var links = ul.querySelectorAll('a');
+                                    for (var linkIdx = 0; linkIdx < links.length; linkIdx++) {
+                                        var pUrl = links[linkIdx].getAttribute('href');
+                                        if (pUrl && pUrl.indexOf('http') !== 0) pUrl = cleanD + pUrl;
+                                        p365DynamicSortItems.push({ title: prefix + links[linkIdx].innerText.trim(), url: pUrl });
+                                    }
+                                } else {
+                                    var directA = div.querySelector('a');
+                                    if (directA) {
+                                        var dUrl = directA.getAttribute('href');
+                                        if (dUrl && dUrl.indexOf('http') !== 0) dUrl = cleanD + dUrl;
+                                        p365DynamicSortItems.push({ title: directA.innerText.trim(), url: dUrl });
+                                    }
+                                }
+                            }
+                            if (p365DynamicSortItems.length > 0) _this._dynamicSort = { subtitle: p365ActiveSortTitle, items: p365DynamicSortItems };
+                        }
+                    }
+
+                    if (currentSite === 'lenkino') {
+                        var btnsContainer = doc.querySelector('.btns.btns-s');
+                        if (btnsContainer) {
+                            var lenkinoActiveSortTitle = 'Сортування';
+                            var activeSpan = btnsContainer.querySelector('.act');
+                            if (activeSpan) lenkinoActiveSortTitle = activeSpan.innerText.trim();
+                            var lenkinoSortItems = [];
+                            var lLinks = btnsContainer.querySelectorAll('a');
+                            for(var i=0; i<lLinks.length; i++) {
+                                var lHref = lLinks[i].getAttribute('href');
+                                if (lHref && lHref.indexOf('http') !== 0 && lHref.indexOf('//') !== 0) {
+                                    lHref = cleanD + (lHref.startsWith('/') ? '' : '/') + lHref;
+                                } else if (lHref && lHref.indexOf('//') === 0) {
+                                    lHref = 'https:' + lHref;
+                                }
+                                if (lHref && lHref.indexOf('javascript') === -1) {
+                                    lenkinoSortItems.push({title: lLinks[i].innerText.trim(), url: lHref});
+                                }
+                            }
+                            if (lenkinoSortItems.length > 0) _this._dynamicSort = { subtitle: lenkinoActiveSortTitle, items: lenkinoSortItems };
                         }
                     }
 
@@ -374,7 +436,6 @@
                     }
                     
                     if (res.length > 0) { 
-                        // ВИПРАВЛЕНО: Ліміт пагінації збільшено до 1000 сторінок!
                         _this.build({ results: res, collection: true, total_pages: 1000, page: object.page || 1 }); 
                         var rendered = _this.render();
                         rendered.addClass('main-grid');
@@ -429,7 +490,6 @@
                         else res = parseCards365(doc, cleanD, false);
                     }
 
-                    // ВИПРАВЛЕНО: Ліміт пагінації 1000
                     if (res.length > 0) resolve({ results: res, collection: true, total_pages: 1000, page: object.page }); 
                     else reject();
                 }, reject);
@@ -444,46 +504,56 @@
                 var isCategories = targetPath === '/categories';
                 
                 var items = [
-                    { title: '🏠 Головна', action: 'home' }, // ВИПРАВЛЕНО: Додано кнопку Головна
-                    { title: 'Пошук', action: 'search' },
+                    { title: '🏠 Головна', action: 'home' },
+                    { title: '🔍 Пошук', action: 'search' },
                     { title: '⭐ Обране', action: 'bookmarks' }
                 ];
                 
-                if (currentSite === 'longvideos') items.push({ title: 'Моделі', action: 'models' }, { title: 'Студії', action: 'studios' });
-                else if (currentSite !== 'bookmarks') items.push({ title: 'Категорії', action: 'categories' }, { title: 'Моделі', action: 'models' });
+                if (currentSite === 'longvideos') items.push({ title: '👸 Моделі', action: 'models' }, { title: '🎬 Студії', action: 'studios' });
+                else if (currentSite !== 'bookmarks') items.push({ title: '🗂️ Категорії', action: 'categories' }, { title: '👸 Моделі', action: 'models' });
                 
-                var sortItems = [], currentSortTitle = 'Нові'; 
+                var sortItems = [], currentSortTitle = '↕️ Нові'; 
                 
                 if (currentSite === 'longvideos') {
                     if (this._dynamicSort) {
                         sortItems = this._dynamicSort.items;
-                        currentSortTitle = this._dynamicSort.subtitle;
+                        currentSortTitle = '↕️ ' + this._dynamicSort.subtitle;
                     } else {
                         sortItems.push({ title: 'Нові', url: cleanD + '/latest-updates/' }, { title: 'Рейтингові', url: cleanD + '/top-rated/all/' }, { title: 'Популярні (весь час)', url: cleanD + '/most-popular/all/' });
                     }
                 } else if (currentSite === 'lenkino') {
-                    items.push({ title: 'Студії', action: 'studios_lenkino' });
-                    if (curUrl.indexOf('/channels') !== -1) {
-                        var bS = cleanD + '/channels'; sortItems.push({ title: 'Кращі', url: bS }, { title: 'Нові', url: bS + '-new' }, { title: 'Популярні', url: bS + '-views' });
-                        if (curUrl === bS + '-new') currentSortTitle = 'Нові'; else if (curUrl === bS + '-views') currentSortTitle = 'Популярні'; else currentSortTitle = 'Кращі';
+                    items.push({ title: '🎬 Студії', action: 'studios_lenkino' });
+                    if (this._dynamicSort) {
+                        sortItems = this._dynamicSort.items;
+                        currentSortTitle = '↕️ ' + this._dynamicSort.subtitle;
                     } else {
-                        var bV = curUrl.replace(/\/top-porno$/, '').replace(/\/hot-porno$/, '').replace(/-top$/, '').replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
-                        if (bV === cleanD) { sortItems.push({ title: 'Нові', url: cleanD }, { title: 'Кращі', url: cleanD + '/top-porno' }, { title: 'Гарячі', url: cleanD + '/hot-porno' }); if (curUrl.indexOf('/top-porno') !== -1) currentSortTitle = 'Кращі'; else if (curUrl.indexOf('/hot-porno') !== -1) currentSortTitle = 'Гарячі'; else currentSortTitle = 'Нові'; }
-                        else { sortItems.push({ title: 'Нові', url: bV }, { title: 'Кращі', url: bV + '-top' }, { title: 'Гарячі', url: bV }); if (curUrl.indexOf('-top') !== -1) currentSortTitle = 'Кращі'; else currentSortTitle = 'Нові'; }
+                        if (curUrl.indexOf('/channels') !== -1) {
+                            var bS = cleanD + '/channels'; sortItems.push({ title: 'Кращі', url: bS }, { title: 'Нові', url: bS + '-new' }, { title: 'Популярні', url: bS + '-views' });
+                            if (curUrl === bS + '-new') currentSortTitle = '↕️ Нові'; else if (curUrl === bS + '-views') currentSortTitle = '↕️ Популярні'; else currentSortTitle = '↕️ Кращі';
+                        } else {
+                            var bV = curUrl.replace(/\/top-porno$/, '').replace(/\/hot-porno$/, '').replace(/-top$/, '').replace(/\/page\/[0-9]+$/, '').replace(/\/+$/, '');
+                            if (bV === cleanD) { sortItems.push({ title: 'Нові', url: cleanD }, { title: 'Кращі', url: cleanD + '/top-porno' }, { title: 'Гарячі', url: cleanD + '/hot-porno' }); if (curUrl.indexOf('/top-porno') !== -1) currentSortTitle = '↕️ Кращі'; else if (curUrl.indexOf('/hot-porno') !== -1) currentSortTitle = '↕️ Гарячі'; else currentSortTitle = '↕️ Нові'; }
+                            else { sortItems.push({ title: 'Нові', url: bV }, { title: 'Кращі', url: bV + '-top' }, { title: 'Гарячі', url: bV }); if (curUrl.indexOf('-top') !== -1) currentSortTitle = '↕️ Кращі'; else currentSortTitle = '↕️ Нові'; }
+                        }
                     }
                 } else if (currentSite === 'porno365') {
-                    var mUrl = cleanD + '/models';
-                    if (targetPath === '/models' || targetPath.indexOf('/models/sort-by-') === 0) {
-                        sortItems.push({ title: 'По кількості', url: mUrl }, { title: 'Популярність', url: mUrl + '/sort-by-subscribers' }, { title: 'За алфавітом', url: mUrl + '/sort-by-alphabetical' }, { title: 'Нові', url: mUrl + '/sort-by-date' });
-                        if (curUrl.indexOf('sort-by-subscribers') !== -1) currentSortTitle = 'Популярність'; else if (curUrl.indexOf('sort-by-alphabetical') !== -1) currentSortTitle = 'За алфавітом'; else if (curUrl.indexOf('sort-by-date') !== -1) currentSortTitle = 'Нові'; else currentSortTitle = 'По кількості';
+                    if (this._dynamicSort) {
+                        sortItems = this._dynamicSort.items;
+                        currentSortTitle = '↕️ ' + this._dynamicSort.subtitle;
                     } else {
-                        var b3 = curUrl.split('?')[0].replace(/\/popular\/week$/, '').replace(/\/popular\/month$/, '').replace(/\/popular\/year$/, '').replace(/\/popular$/, '').replace(/\/+$/, '');
-                        sortItems.push({ title: 'Нові', url: b3 }, { title: 'Топ переглядів', url: b3 + '/popular' });
-                        if (curUrl.indexOf('/popular') !== -1) currentSortTitle = 'Топ переглядів'; else currentSortTitle = 'Нові';
+                        var mUrl = cleanD + '/models';
+                        if (targetPath === '/models' || targetPath.indexOf('/models/sort-by-') === 0) {
+                            sortItems.push({ title: 'По кількості', url: mUrl }, { title: 'Популярність', url: mUrl + '/sort-by-subscribers' }, { title: 'За алфавітом', url: mUrl + '/sort-by-alphabetical' }, { title: 'Нові', url: mUrl + '/sort-by-date' });
+                            if (curUrl.indexOf('sort-by-subscribers') !== -1) currentSortTitle = '↕️ Популярність'; else if (curUrl.indexOf('sort-by-alphabetical') !== -1) currentSortTitle = '↕️ За алфавітом'; else if (curUrl.indexOf('sort-by-date') !== -1) currentSortTitle = '↕️ Нові'; else currentSortTitle = '↕️ По кількості';
+                        } else {
+                            var b3 = curUrl.split('?')[0].replace(/\/popular\/week$/, '').replace(/\/popular\/month$/, '').replace(/\/popular\/year$/, '').replace(/\/popular$/, '').replace(/\/+$/, '');
+                            sortItems.push({ title: 'Нові', url: b3 }, { title: 'Топ переглядів', url: b3 + '/popular' });
+                            if (curUrl.indexOf('/popular') !== -1) currentSortTitle = '↕️ Топ переглядів'; else currentSortTitle = '↕️ Нові';
+                        }
                     }
                 }
                 
-                if (!isCategories && sortItems.length > 0 && currentSite !== 'bookmarks') items.push({ title: 'Сортування', subtitle: currentSortTitle, action: 'sort', sort_items: sortItems });
+                if (!isCategories && sortItems.length > 0 && currentSite !== 'bookmarks') items.push({ title: '↕️ Сортування', subtitle: currentSortTitle, action: 'sort', sort_items: sortItems });
 
                 Lampa.Select.show({ title: 'Навігація', items: items, onSelect: function (a) {
                     if (a.action === 'home') {
@@ -504,10 +574,10 @@
                         });
                     }
                     else if (a.action === 'bookmarks') Lampa.Activity.push({ title: 'Обране', component: 'pluginx_comp', site: 'bookmarks', page: 1 });
-                    else if (a.action === 'models') Lampa.Activity.push({ url: cleanD + (currentSite === 'lenkino' ? '/pornstars' : '/models/'), title: 'Моделі', component: 'pluginx_comp', site: currentSite, page: 1, is_models: true });
-                    else if (a.action === 'studios') Lampa.Activity.push({ url: cleanD + '/sites/', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1, is_studios: true });
-                    else if (a.action === 'studios_lenkino') Lampa.Activity.push({ url: cleanD + '/channels', title: 'Студії', component: 'pluginx_comp', site: currentSite, page: 1, is_studios: true });
-                    else if (a.action === 'categories') Lampa.Activity.push({ url: cleanD + '/categories', title: 'Категорії', component: 'pluginx_comp', site: currentSite, page: 1 });
+                    else if (a.action === 'models') Lampa.Activity.push({ url: cleanD + (currentSite === 'lenkino' ? '/pornstars' : '/models/'), title: '👸 Моделі', component: 'pluginx_comp', site: currentSite, page: 1, is_models: true });
+                    else if (a.action === 'studios') Lampa.Activity.push({ url: cleanD + '/sites/', title: '🎬 Студії', component: 'pluginx_comp', site: currentSite, page: 1, is_studios: true });
+                    else if (a.action === 'studios_lenkino') Lampa.Activity.push({ url: cleanD + '/channels', title: '🎬 Студії', component: 'pluginx_comp', site: currentSite, page: 1, is_studios: true });
+                    else if (a.action === 'categories') Lampa.Activity.push({ url: cleanD + '/categories', title: '🗂️ Категорії', component: 'pluginx_comp', site: currentSite, page: 1 });
                     else if (a.action === 'sort') Lampa.Select.show({ title: 'Сортування', items: a.sort_items, onSelect: function(s) { 
                         Lampa.Activity.push({ 
                             url: s.url, title: s.title, component: 'pluginx_comp', site: currentSite, page: 1,
@@ -586,7 +656,6 @@
                             var sources = doc.querySelectorAll('video source');
                             if (sources.length > 1) menu.push({ title: 'Відтворити в ' + (sources[1].getAttribute('label') || 'Альтернативна якість'), action: 'play_direct', url: sources[1].getAttribute('src') });
                             
-                            // ВИПРАВЛЕНО: ТІЛЬКИ .btn_model. Жодної самодіяльності.
                             var lvModels = doc.querySelectorAll('.btn_model');
                             var addedModels = [];
                             for (var m = 0; m < lvModels.length; m++) {
