@@ -422,19 +422,28 @@
                     hidePreview(); var targetSite = currentSite;
                     if (currentSite === 'bookmarks') { if (element.url.indexOf(LENKINO_DOMAIN) !== -1) targetSite = 'lenkino'; else if (element.url.indexOf(LONGVIDEOS_DOMAIN) !== -1) targetSite = 'longvideos'; else if (element.url.indexOf(PORNHUB_DOMAIN) !== -1) targetSite = 'pornhub'; else targetSite = 'porno365'; }
                     if (element.is_grid) { Lampa.Activity.push({ url: element.url, title: element.name, component: 'pluginx_comp', site: targetSite, page: 1 }); return; }
+                    
+                    if (targetSite === 'pornhub') {
+                        smartRequest(element.url, function(htmlText) {
+                            var str = [], match = htmlText.match(/var\s+flashvars_\d+\s*=\s*(\{[\s\S]+?\});/);
+                            if (match) { try { var fv = JSON.parse(match[1]); if (fv.mediaDefinitions) { var defs = fv.mediaDefinitions.filter(function(d){ return d.videoUrl && d.videoUrl !== ''; }); defs.sort(function(a, b) { return (parseInt(a.quality) || 0) - (parseInt(b.quality) || 0); }); for(var k=0; k<defs.length; k++) { var qTitle = defs[k].quality || 'MP4'; if (!isNaN(qTitle)) qTitle += 'p'; str.push({ title: qTitle, url: defs[k].videoUrl.replace(/\\/g, '') }); } } } catch(e) {} }
+                            if (str.length > 0) {
+                                var playData = { title: element.name, url: str[str.length - 1].url, quality: str, headers: { 'Referer': 'https://www.pornhub.com/', 'Origin': 'https://www.pornhub.com' } };
+                                Lampa.Player.play(playData); Lampa.Player.playlist([playData]);
+                            } else Lampa.Noty.show('Не вдалося отримати відео');
+                        });
+                        return;
+                    }
+                    
                     smartRequest(element.url, function(htmlText) {
                         var str = [], doc = new DOMParser().parseFromString(htmlText, 'text/html');
-                        if (targetSite === 'pornhub') {
-                            var match = htmlText.match(/var\s+flashvars_\d+\s*=\s*(\{[\s\S]+?\});/);
-                            if (match) { try { var fv = JSON.parse(match[1]); if (fv.mediaDefinitions) { var defs = fv.mediaDefinitions.filter(function(d){ return d.videoUrl && d.videoUrl !== ''; }); defs.sort(function(a, b) { return (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0); }); for(var k=0; k<defs.length; k++) { var qTitle = defs[k].quality || 'MP4'; if (typeof qTitle === 'number' || !isNaN(qTitle)) qTitle += 'p'; str.push({ title: qTitle, url: defs[k].videoUrl.replace(/\\/g, '') }); } } } catch(e) {} }
-                        } else if (targetSite === 'longvideos') { var sources = doc.querySelectorAll('video source'); for(var i=0; i<sources.length; i++) str.push({ title: sources[i].getAttribute('label') || 'Оригінал', url: sources[i].getAttribute('src') });
+                        if (targetSite === 'longvideos') { var sources = doc.querySelectorAll('video source'); for(var i=0; i<sources.length; i++) str.push({ title: sources[i].getAttribute('label') || 'Оригінал', url: sources[i].getAttribute('src') });
                         } else if (targetSite === 'lenkino') { var a = htmlText.match(/video_alt_url:[\t ]+'([^']+)'/), u = htmlText.match(/video_url:[\t ]+'([^']+)'/); if (a && a[1]) str.push({ title: 'Основний (HD)', url: a[1] }); if (u && u[1]) str.push({ title: 'Стандарт', url: u[1] });
                         } else { var q = doc.querySelectorAll('.quality_chooser a'); for (var j = q.length - 1; j >= 0; j--) if (q[j].getAttribute('href')) str.push({ title: q[j].innerText.trim(), url: q[j].getAttribute('href') }); }
-                        
                         if (str.length > 0) {
-                            var playData = { title: element.name, url: str[0].url, quality: str };
+                            var bestStream = (targetSite === 'longvideos') ? str[0] : str[str.length - 1];
+                            var playData = { title: element.name, url: bestStream.url, quality: str };
                             if (targetSite === 'lenkino') playData.headers = { 'Referer': 'https://wes.lenkino.adult/', 'Origin': 'https://wes.lenkino.adult' };
-                            if (targetSite === 'pornhub') playData.headers = { 'Referer': 'https://www.pornhub.com/', 'Origin': 'https://www.pornhub.com' };
                             Lampa.Player.play(playData); Lampa.Player.playlist([playData]);
                         } else Lampa.Noty.show('Не вдалося отримати відео');
                     });
@@ -444,14 +453,22 @@
                     var toggleBookmark = function() { var currentBmarks = window.Lampa.Storage.get('pluginx_bookmarks', []); var idx = currentBmarks.findIndex(function(b) { return b.url === element.url; }); if (idx !== -1) { currentBmarks.splice(idx, 1); Lampa.Noty.show('Видалено з обраного'); } else { currentBmarks.unshift(element); Lampa.Noty.show('Додано до обраного'); } window.Lampa.Storage.set('pluginx_bookmarks', currentBmarks); };
                     var targetSite = currentSite;
                     if (currentSite === 'bookmarks') { if (element.url.indexOf(LENKINO_DOMAIN) !== -1) targetSite = 'lenkino'; else if (element.url.indexOf(LONGVIDEOS_DOMAIN) !== -1) targetSite = 'longvideos'; else if (element.url.indexOf(PORNHUB_DOMAIN) !== -1) targetSite = 'pornhub'; else targetSite = 'porno365'; }
+                    
+                    if (targetSite === 'pornhub' && !element.is_grid) {
+                        smartRequest(element.url, function (htmlText) {
+                            var doc = new DOMParser().parseFromString(htmlText, 'text/html'), menu = []; menu.push({ title: isBookmarked ? '★ Видалити з обраного' : '☆ Додати до обраного', action: 'bookmark' });
+                            var match = htmlText.match(/var\s+flashvars_\d+\s*=\s*(\{[\s\S]+?\});/), phStreams = [];
+                            if (match) { try { var fv = JSON.parse(match[1]); if (fv.mediaDefinitions) { var defs = fv.mediaDefinitions.filter(function(d){ return d.videoUrl && d.videoUrl !== ''; }); defs.sort(function(a, b) { return (parseInt(a.quality) || 0) - (parseInt(b.quality) || 0); }); for(var k=0; k<defs.length; k++) { var qTitle = defs[k].quality || 'MP4'; if (!isNaN(qTitle)) qTitle += 'p'; phStreams.push({ title: qTitle, url: defs[k].videoUrl.replace(/\\/g, '') }); } } } catch(e) {} }
+                            if (phStreams.length > 1) menu.push({ title: 'Відтворити в ' + phStreams[phStreams.length - 2].title, action: 'play_direct', url: phStreams[phStreams.length - 2].url, headers: { 'Referer': 'https://www.pornhub.com/', 'Origin': 'https://www.pornhub.com' } });
+                            var phModels = doc.querySelectorAll('.pornstarsWrapper .pstar-list-btn'); for (var p = 0; p < phModels.length; p++) menu.push({ title: phModels[p].innerText.trim(), action: 'direct', url: PORNHUB_DOMAIN + phModels[p].getAttribute('href') }); menu.push({ title: 'Схожі відео', action: 'sim', url: element.url });
+                            Lampa.Select.show({ title: 'Дії', items: menu, onSelect: function (a) { if (a.action === 'bookmark') toggleBookmark(); else if (a.action === 'play_direct') { Lampa.Player.play({ title: element.name, url: a.url, headers: a.headers }); Lampa.Player.playlist([{ title: element.name, url: a.url, headers: a.headers }]); } else if (a.action === 'sim' || a.action === 'direct') { Lampa.Activity.push({ url: a.url, title: a.title || 'Схожі', component: 'pluginx_comp', site: targetSite, page: 1, is_related: (a.action === 'sim') }); } }, onBack: function () { Lampa.Controller.toggle('content'); } });
+                        });
+                        return;
+                    }
+
                     smartRequest(element.url, function (htmlText) {
                         var doc = new DOMParser().parseFromString(htmlText, 'text/html'), menu = []; menu.push({ title: isBookmarked ? '★ Видалити з обраного' : '☆ Додати до обраного', action: 'bookmark' });
-                        if (targetSite === 'pornhub') {
-                            var match = htmlText.match(/var\s+flashvars_\d+\s*=\s*(\{[\s\S]+?\});/), phStreams = [];
-                            if (match) { try { var fv = JSON.parse(match[1]); if (fv.mediaDefinitions) { var defs = fv.mediaDefinitions.filter(function(d){ return d.videoUrl && d.videoUrl !== ''; }); defs.sort(function(a, b) { return (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0); }); for(var k=0; k<defs.length; k++) { var qTitle = defs[k].quality || 'MP4'; if (!isNaN(qTitle)) qTitle += 'p'; phStreams.push({ title: qTitle, url: defs[k].videoUrl.replace(/\\/g, '') }); } } } catch(e) {} }
-                            if (phStreams.length > 1) menu.push({ title: 'Відтворити в ' + phStreams[1].title, action: 'play_direct', url: phStreams[1].url });
-                            var phModels = doc.querySelectorAll('.pornstarsWrapper .pstar-list-btn'); for (var p = 0; p < phModels.length; p++) menu.push({ title: phModels[p].innerText.trim(), action: 'direct', url: PORNHUB_DOMAIN + phModels[p].getAttribute('href') }); menu.push({ title: 'Схожі відео', action: 'sim', url: element.url });
-                        } else if (targetSite === 'longvideos') {
+                        if (targetSite === 'longvideos') {
                             var sources = doc.querySelectorAll('video source'); if (sources.length > 1) menu.push({ title: 'Відтворити в ' + (sources[1].getAttribute('label') || 'Альтернативна якість'), action: 'play_direct', url: sources[1].getAttribute('src') });
                             var lvModels = doc.querySelectorAll('.btn_model'), addedModels = []; for (var m = 0; m < lvModels.length; m++) { var mTitle = lvModels[m].innerText.trim(), mUrl = lvModels[m].getAttribute('href'); if (mTitle && mUrl && addedModels.indexOf(mTitle) === -1) { menu.push({ title: mTitle, action: 'direct', url: mUrl }); addedModels.push(mTitle); } }
                             var sponsors = doc.querySelectorAll('.btn_sponsor, .btn_sponsor_group'); for (var sp = 0; sp < sponsors.length; sp++) { var spName = sponsors[sp].innerText.trim(); if (sponsors[sp].classList.contains('btn_sponsor_group')) spName += ' (Network)'; menu.push({ title: spName, action: 'direct', url: sponsors[sp].getAttribute('href') }); } menu.push({ title: 'Категорії', action: 'lv_cats', html: htmlText }, { title: 'Схожі відео', action: 'sim', url: element.url });
