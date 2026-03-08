@@ -79,7 +79,7 @@
                 }
 
                 if (targetSite === 'porndish' && element.picture && element.picture.indexOf('http') === 0) {
-                    var imgEl = card.find('.card__img')[0];
+                    var imgEl = card.querySelector ? card.querySelector('.card__img') : $(card).find('.card__img')[0];
                     if (imgEl) {
                         var originalSrc = element.picture;
                         imgEl.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; 
@@ -139,6 +139,7 @@
 
                 events.onMenu = function () {
                     hidePreview(); var bmarks = window.Lampa.Storage.get('pluginx_bookmarks', []); var isBookmarked = bmarks.some(function(b) { return b.url === element.url; }); var toggleBookmark = function() { var currentBmarks = window.Lampa.Storage.get('pluginx_bookmarks', []); var idx = currentBmarks.findIndex(function(b) { return b.url === element.url; }); if (idx !== -1) { currentBmarks.splice(idx, 1); Lampa.Noty.show('Видалено з обраного'); } else { currentBmarks.unshift(element); Lampa.Noty.show('Додано до обраного'); } window.Lampa.Storage.set('pluginx_bookmarks', currentBmarks); };
+                    var targetSite = currentSite; if (currentSite === 'bookmarks') { if (element.url.indexOf(LENKINO_DOMAIN) !== -1) targetSite = 'lenkino'; else if (element.url.indexOf(LONGVIDEOS_DOMAIN) !== -1) targetSite = 'longvideos'; else if (element.url.indexOf(PORNHUB_DOMAIN) !== -1) targetSite = 'pornhub'; else if (element.url.indexOf(PORNDISH_DOMAIN) !== -1) targetSite = 'porndish'; else targetSite = 'porno365'; }
                     smartRequest(element.url, function (htmlText) {
                         var doc = new DOMParser().parseFromString(htmlText, 'text/html'), menu = []; menu.push({ title: isBookmarked ? '★ Видалити з обраного' : '☆ Додати до обраного', action: 'bookmark' });
                         if (targetSite === 'pornhub' && !element.is_grid) { 
