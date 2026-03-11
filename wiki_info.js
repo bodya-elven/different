@@ -3,7 +3,9 @@
 
     function WikiInfoPlugin() {
         var _this = this;
-        var ICON_WIKI = 'https://upload.wikimedia.org/wikipedia/commons/7/77/Wikipedia_svg_logo.svg';
+        
+        // Вшита оптимізована SVG іконка Вікіпедії
+        var ICON_WIKI = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 98.05 98.05" fill="currentColor"><path d="M98.023,17.465l-19.584-0.056c-0.004,0.711-0.006,1.563-0.017,2.121c1.664,0.039,5.922,0.822,7.257,4.327L66.92,67.155c-0.919-2.149-9.643-21.528-10.639-24.02l9.072-18.818c1.873-2.863,5.455-4.709,8.918-4.843l-0.01-1.968L55.42,17.489c-0.045,0.499,0.001,1.548-0.068,2.069c5.315,0.144,7.215,1.334,5.941,4.508c-2.102,4.776-6.51,13.824-7.372,15.475c-2.696-5.635-4.41-9.972-7.345-16.064c-1.266-2.823,1.529-3.922,4.485-4.004v-1.981l-21.82-0.067c0.016,0.93-0.021,1.451-0.021,2.131c3.041,0.046,6.988,0.371,8.562,3.019c2.087,4.063,9.044,20.194,11.149,24.514c-2.685,5.153-9.207,17.341-11.544,21.913c-3.348-7.43-15.732-36.689-19.232-44.241c-1.304-3.218,3.732-5.077,6.646-5.213l0.019-2.148L0,17.398c0.005,0.646,0.027,1.71,0.029,2.187c4.025-0.037,9.908,6.573,11.588,10.683c7.244,16.811,14.719,33.524,21.928,50.349c0.002,0.029,2.256,0.059,2.281,0.008c4.717-9.653,10.229-19.797,15.206-29.56L63.588,80.64c0.005,0.004,2.082,0.016,2.093,0.007c7.962-18.196,19.892-46.118,23.794-54.933c1.588-3.767,4.245-6.064,8.543-6.194l0.032-1.956L98.023,17.465z"/></svg>';
         var cachedResults = null;
         var searchPromise = null;
         var isOpened = false;
@@ -32,26 +34,27 @@
             var container = $(html);
             if (container.find('.lampa-wiki-button').length) return;
 
+            // Змінено структуру кнопки: вставлено SVG безпосередньо, без img
             var button = $('<div class="full-start__button selector lampa-wiki-button">' +
-                                '<img src="' + ICON_WIKI + '" class="wiki-icon-img">' +
+                                ICON_WIKI +
                                 '<span>Wikipedia</span>' +
                             '</div>');
 
             var style = '<style>' +
-                '.lampa-wiki-button { display: flex !important; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.3s; } ' +
+                /* Оновлені стилі для ідеального центрування іконки */
+                '.lampa-wiki-button { display: flex !important; align-items: center; justify-content: center; gap: 7px; opacity: 0.7; transition: opacity 0.3s; } ' +
                 '.lampa-wiki-button.ready { opacity: 1; } ' +
-                '.wiki-icon-img { width: 1.6em; height: 1.6em; object-fit: contain; margin-right: 5px; filter: grayscale(100%) brightness(2); } ' +
+                '.lampa-wiki-button svg { width: 1.6em; height: 1.6em; margin: 0 !important; } ' +
                 
                 '.wiki-select-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 5000; display: flex; align-items: center; justify-content: center; }' +
-                /* max-height та overflow додано для прокрутки списку */
                 '.wiki-select-body { width: 90%; max-width: 700px; background: #1a1a1a; border-radius: 10px; padding: 20px; border: 1px solid #333; max-height: 85vh; display: flex; flex-direction: column; position: relative; overflow: hidden; }' +
                 '.wiki-items-list { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }' +
                 '.wiki-item { padding: 12px 15px; margin: 8px 0; background: #252525; border-radius: 8px; display: flex; align-items: center; gap: 15px; border: 2px solid transparent; cursor: pointer; }' +
                 '.wiki-item.focus { border-color: #fff; background: #333; outline: none; }' +
                 '.wiki-item__lang { font-size: 1.5em; width: 35px; text-align: center; }' +
                 '.wiki-item__info { display: flex; flex-direction: column; flex: 1; }' +
-                '.wiki-item__type { font-size: 0.85em; color: #999; margin-bottom: 2px; text-transform: none; }' + /* Збільшено на крок */
-                '.wiki-item__title { font-size: 1.2em; color: #fff; font-weight: 500; }' + /* Збільшено на крок */
+                '.wiki-item__type { font-size: 0.85em; color: #999; margin-bottom: 2px; text-transform: none; }' + 
+                '.wiki-item__title { font-size: 1.2em; color: #fff; font-weight: 500; }' + 
                 
                 '.wiki-viewer-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 5001; display: flex; align-items: center; justify-content: center; }' +
                 '.wiki-viewer-body { width: 100%; height: 100%; background: #121212; display: flex; flex-direction: column; position: relative; }' +
@@ -60,11 +63,9 @@
                 '.wiki-close-btn { width: 45px; height: 45px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; border: 2px solid transparent; cursor: pointer; }' +
                 '.wiki-close-btn.focus { border-color: #fff; background: #555; outline: none; }' +
                 
-                /* Шрифт статті */
                 '.wiki-content-scroll { flex: 1; overflow-y: auto; padding: 20px 5%; color: #d0d0d0; line-height: 1.6; font-size: 1.3em; -webkit-overflow-scrolling: touch; }' +
                 '.wiki-loader { text-align: center; margin-top: 50px; color: #888; }' +
                 
-                /* Текст у таблицях */
                 '.wiki-content-scroll table { font-size: inherit !important; }' + 
                 
                 '.wiki-content-scroll h1, .wiki-content-scroll h2 { color: #fff; border-bottom: 1px solid #333; margin-top: 1.5em; padding-bottom: 0.3em; }' +
@@ -122,7 +123,6 @@
                 });
             }
         };
-
         this.performSearch = function (movie, callback) {
             if (!movie || !movie.id) return $.Deferred().reject().promise();
             var _this = this;
@@ -279,7 +279,7 @@
                     if (index > 0) {
                         Lampa.Controller.collectionFocus(menu.find('.wiki-item')[index - 1], menu);
                         
-                        /* Додаткова прокрутка вгору */
+                        /* Повноцінна прокрутка вгору */
                         var list = menu.find('.wiki-items-list');
                         var focusItem = menu.find('.wiki-item.focus');
                         if (focusItem.length && focusItem.position().top < 50) {
@@ -292,7 +292,7 @@
                     if (index < items.length - 1) {
                         Lampa.Controller.collectionFocus(menu.find('.wiki-item')[index + 1], menu);
                         
-                        /* Додаткова прокрутка вниз */
+                        /* Оптимізована прокрутка вниз */
                         var list = menu.find('.wiki-items-list');
                         var focusItem = menu.find('.wiki-item.focus');
                         if (focusItem.length && focusItem.position().top > list.height() - 100) {
@@ -357,7 +357,7 @@
                 success: function(htmlContent) {
                     htmlContent = htmlContent.replace(/src="\/\//g, 'src="https://');
                     htmlContent = htmlContent.replace(/href="\//g, 'href="https://wikipedia.org/');
-                    htmlContent = htmlContent.replace(/srcset=/g, 'data-srcset=');
+                    htmlContent = htmlContent.replace(/srcset=/g, 'data-srcset='); // Фікс для відображення фото
                     htmlContent = htmlContent.replace(/style="[^"]*"/g, ""); 
                     htmlContent = htmlContent.replace(/bgcolor="[^"]*"/g, "");
                     
