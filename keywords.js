@@ -4,8 +4,8 @@
     function KeywordsPlugin() {
         var _this = this;
         
-        // Вбудована SVG іконка
-        var ICON_TAG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
+        // Вбудована SVG іконка (без фіксованих width/height, щоб CSS керував розміром)
+        var ICON_TAG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
 
         if (Lampa.Lang) {
             Lampa.Lang.add({
@@ -30,10 +30,11 @@
                 }
             });
 
+            // Використовуємо gap замість margin, щоб іконка центрювалася, коли текст приховано
             $('<style>').prop('type', 'text/css').html(
-                '.keywords-icon-svg { width: 1.4em; height: 1.4em; margin-right: 0.5em; } ' +
-                '.button--keywords { display: flex; align-items: center; opacity: 0.5; pointer-events: none; } ' + 
-                '.button--keywords.ready { opacity: 1; pointer-events: auto; }'
+                '.button--keywords { display: flex !important; align-items: center; justify-content: center; gap: 7px; opacity: 0.5; pointer-events: none; } ' + 
+                '.button--keywords.ready { opacity: 1; pointer-events: auto; } ' +
+                '.button--keywords svg { width: 1.6em; height: 1.6em; margin: 0 !important; }'
             ).appendTo('head');
         };
 
@@ -42,7 +43,9 @@
             if (!container.length || container.find('.button--keywords').length) return;
 
             var title = Lampa.Lang.translate('plugin_keywords_title');
-            var btn = $('<div class="full-start__button selector button--keywords"><div class="keywords-icon-svg">' + ICON_TAG + '</div><span>' + title + '</span></div>');
+            
+            // Прибрали зайвий div навколо іконки, тепер вона вбудована напряму, як у стандартних кнопках Lampa
+            var btn = $('<div class="full-start__button selector button--keywords">' + ICON_TAG + '<span>' + title + '</span></div>');
 
             var bookmarkBtn = container.find('.button--book, .button--like').first();
             if (bookmarkBtn.length) {
@@ -131,15 +134,12 @@
                     _this.openTypeMenu(selectedItem.tag_data, tags, btnElement, renderContainer);
                 },
                 onBack: function () {
-                    // === ТУТ САМЕ ТОЙ КОД, ЩО ПРАЦЮВАВ ===
-                    // Пересмикуємо активність, щоб відновити свайпи на телефоні
                     if (Lampa.Activity.active() && Lampa.Activity.active().activity) {
                         Lampa.Activity.active().activity.toggle();
                     } else {
                         Lampa.Controller.toggle(controllerName);
                     }
 
-                    // А фокус ставимо тільки для ТБ (щоб не було рамок на телефоні)
                     if (!Lampa.Platform.is('touch')) {
                         Lampa.Controller.collectionFocus(btnElement[0], renderContainer[0]);
                     }
@@ -164,7 +164,6 @@
                     });
                 },
                 onBack: function() {
-                    // Повертаємося до списку тегів
                     _this.openTagsMenu(allTags, btnElement, renderContainer);
                 }
             });
