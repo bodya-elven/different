@@ -10,12 +10,13 @@
         history_filter_enabled: false,
         country_filter_enabled: false,
         country_list: '',
-        keyword_filter_enabled: false, // НОВЕ: Фільтр за ключовими словами
-        keyword_list: '',              // НОВЕ: Список слів
+        keyword_filter_enabled: false,
+        keyword_list: '',
+        ru_content_filter_enabled: false, // НОВЕ: Фільтр російського та радянського контенту
         blacklist: []
     };
 
-    [span_1](start_span)// Перевірка, чи є об'єкт медіа-контентом, щоб не ховати системні елементи [cite: 1-10]
+    [cite_start]// Перевірка, чи є об'єкт медіа-контентом, щоб не ховати системні елементи [cite: 1-10]
     function isMediaContent(item) {
         if (!item) return false;
         if (item.type && typeof item.type === 'string') {
@@ -26,7 +27,7 @@
         return !!hasMediaFields;
     }
 
-    [cite_start]// Процесор фільтрів[span_1](end_span)
+    // Процесор фільтрів
     var filterProcessor = {
         filters: [
             [cite_start]// 1. Азіатський контент [cite: 10-13]
@@ -48,10 +49,9 @@
                     return !countries.some(function(c) { return itemCountry.indexOf(c) !== -1; });
                 });
             },
-            // 3. Фільтр за ключовими словами (НОВЕ)
+            // 3. Фільтр за ключовими словами
             function (items) {
                 if (!settings.keyword_filter_enabled || !settings.keyword_list) return items;
-                // Розбиваємо список слів, прибираємо пробіли та переводимо в нижній регістр
                 var keywords = settings.keyword_list.split(',').map(function(k) { return k.trim().toLowerCase(); }).filter(Boolean);
                 if (keywords.length === 0) return items;
                 
@@ -63,16 +63,31 @@
                     var name = (item.name || '').toLowerCase();
                     var originalName = (item.original_name || '').toLowerCase();
                     
-                    // Перевіряємо, чи містить назва хоча б одне слово зі списку
                     var hasKeyword = keywords.some(function(kw) {
                         return title.indexOf(kw) !== -1 || originalTitle.indexOf(kw) !== -1 || 
                                name.indexOf(kw) !== -1 || originalName.indexOf(kw) !== -1;
                     });
                     
-                    return !hasKeyword; // Якщо є збіг - приховуємо картку
+                    return !hasKeyword; 
                 });
             },
-            // 4. Ручний Чорний список
+            // 4. Фільтр російського та радянського контенту (НОВЕ)
+            function (items) {
+                if (!settings.ru_content_filter_enabled) return items;
+                return items.filter(function (item) {
+                    if (!isMediaContent(item)) return true;
+                    
+                    var lang = (item.original_language || '').toLowerCase();
+                    var countries = (item.origin_country || []).join(',').toUpperCase();
+                    
+                    // Перевірка на оригінальну російську мову (ru) або країни (RU - Росія, SU - СРСР)
+                    if (lang === 'ru' || countries.indexOf('RU') !== -1 || countries.indexOf('SU') !== -1) {
+                        return false; // Приховуємо картку
+                    }
+                    return true;
+                });
+            },
+            // 5. Ручний Чорний список
             function (items) {
                 if (!settings.blacklist || settings.blacklist.length === 0) return items;
                 return items.filter(function (item) {
@@ -103,7 +118,6 @@
                             Lampa.Storage.set('content_filter_blacklist', settings.blacklist);
                             Lampa.Noty.show(Lampa.Lang.translate('content_filter_added_to_blacklist'));
                             
-                            // Оновлюємо інтерфейс, щоб картка зникла одразу
                             if (Lampa.Activity.active() && Lampa.Activity.active().activity) {
                                 Lampa.Activity.active().activity.component.render();
                             }
@@ -118,8 +132,10 @@
     function addTranslations() {
         Lampa.Lang.add({
             content_filters: { uk: 'Фільтр контенту', en: 'Content Filter' },
+            ru_filter: { uk: 'Приховати російський/радянський контент', en: 'Hide Russian/Soviet content' },
+            ru_filter_desc: { uk: 'Приховує фільми та серіали виробництва РФ та СРСР, а також з оригінальною російською мовою', en: 'Hides movies and series produced in Russia and USSR, and with original Russian language' },
             country_filter: { uk: 'Фільтр за країнами', en: 'Country Filter' },
-            country_filter_desc: { uk: 'Вкажіть коди країн через кому (наприклад: US, RU)', en: 'Enter country codes separated by comma (e.g., US, RU)' },
+            country_filter_desc: { uk: 'Вкажіть коди країн через кому (наприклад: US, IN)', en: 'Enter country codes separated by comma (e.g., US, IN)' },
             keyword_filter: { uk: 'Фільтр за словами', en: 'Keyword Filter' },
             keyword_filter_desc: { uk: 'Слова в назві через кому (наприклад: шоу, концерт)', en: 'Words in title separated by comma (e.g., show, concert)' },
             content_filter_hide_item: { uk: 'Приховати цей контент', en: 'Hide this content' },
@@ -130,7 +146,14 @@
 
     [cite_start]// Інтеграція в меню налаштувань [cite: 52-58]
     function addSettings() {
-        // Налаштування для країн
+        // Налаштування для RU/SU контенту
+        Lampa.SettingsApi.addParam({
+            component: 'content_filters',
+            param: { name: 'ru_content_filter_enabled', type: 'trigger', default: false },
+            field: { name: Lampa.Lang.translate('ru_filter'), description: Lampa.Lang.translate('ru_filter_desc') }
+        });
+
+        // Налаштування для інших країн
         Lampa.SettingsApi.addParam({
             component: 'content_filters',
             param: { name: 'country_filter_enabled', type: 'trigger', default: false },
@@ -191,12 +214,13 @@
         settings.country_filter_enabled = Lampa.Storage.get('country_filter_enabled', false);
         settings.keyword_list = Lampa.Storage.get('keyword_list', '');
         settings.keyword_filter_enabled = Lampa.Storage.get('keyword_filter_enabled', false);
+        settings.ru_content_filter_enabled = Lampa.Storage.get('ru_content_filter_enabled', false);
     }
 
     // Ініціалізація плагіна
     function initPlugin() {
-        if (window.content_filter_pro_plugin) return;
-        window.content_filter_pro_plugin = true;
+        if (window.content_filter_ultimate_plugin) return;
+        window.content_filter_ultimate_plugin = true;
 
         loadSettings();
         addTranslations();
@@ -207,7 +231,7 @@
         Lampa.Listener.follow('request_secuses', function (e) {
             if (!e.data || !Array.isArray(e.data.results) || e.data.results.length === 0) return;
             
-            [cite_start]// Запобіжник: якщо немає медіа-контенту (наприклад, це магазин), фільтри не застосовуються [cite: 78-79]
+            [cite_start]// Запобіжник: якщо немає медіа-контенту, фільтри не застосовуються [cite: 78-79]
             if (!e.data.results.some(isMediaContent)) return;
 
             e.data.results = filterProcessor.apply(e.data.results);
