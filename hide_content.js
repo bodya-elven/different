@@ -20,24 +20,13 @@
     function isMediaContent(item) {
         if (!item) return false;
         
-        // Якщо це явно розширення/плагін за типом
         if (item.type && typeof item.type === 'string') {
             var typeLower = item.type.toLowerCase();
-            if (typeLower === 'plugin' || 
-                typeLower === 'extension' || 
-                typeLower === 'theme' ||
-                typeLower === 'addon') {
-                return false;
-            }
+            if (['plugin', 'extension', 'theme', 'addon'].indexOf(typeLower) !== -1) return false;
         }
         
-        // Якщо є явні поля розширень (і немає медіа-полів)
-        var hasExtensionFields = (item.plugin !== undefined || 
-                                 item.extension !== undefined ||
-                                 (item.type && item.type === 'extension') ||
-                                 (item.type && item.type === 'plugin'));
+        var hasExtensionFields = (item.plugin !== undefined || item.extension !== undefined || (item.type && item.type === 'extension') || (item.type && item.type === 'plugin'));
         
-        // Перевіряємо наявність характерних медіа-полів
         var hasMediaFields = 
             item.original_language !== undefined ||
             item.vote_average !== undefined ||
@@ -49,9 +38,7 @@
             (item.genre_ids && Array.isArray(item.genre_ids)) ||
             (item.genres && Array.isArray(item.genres));
 
-        // Якщо є поля розширень, але немає медіа-полів - це не медіа-контент
         if (hasExtensionFields && !hasMediaFields) return false;
-        // Якщо немає медіа-полів взагалі, це не медіа-контент
         if (!hasMediaFields) return false;
         return true;
     }
@@ -59,8 +46,7 @@
     // Процесор фільтрів
     var filterProcessor = {
         filters: [
-            // 1. Фільтр азіатського контенту
-            function (items) {
+            function (items) { // Азіатський контент
                 if (!settings.asian_filter_enabled) return items;
                 return items.filter(function (item) {
                     if (!isMediaContent(item)) return true;
@@ -70,9 +56,7 @@
                     return asianLangs.indexOf(lang) === -1;
                 });
             },
-
-            // 2. Фільтр мови
-            function (items) {
+            function (items) { // Фільтр мови
                 if (!settings.language_filter_enabled) return items;
                 return items.filter(function (item) {
                     if (!isMediaContent(item)) return true;
@@ -85,54 +69,37 @@
                     return false;
                 });
             },
-
-            // 3. Фільтр низького рейтингу (< 6.0)
-            function (items) {
+            function (items) { // Рейтинг
                 if (!settings.rating_filter_enabled) return items;
                 return items.filter(function (item) {
                     if (!isMediaContent(item)) return true;
                     if (!item) return true;
-                    var isSpecial = 
-                        item.media_type === 'video' ||
-                        item.type === 'Trailer' ||
-                        item.site === 'YouTube' ||
-                        (item.key && item.name && item.name.toLowerCase().indexOf('trailer') !== -1);
+                    var isSpecial = item.media_type === 'video' || item.type === 'Trailer' || item.site === 'YouTube' || (item.key && item.name && item.name.toLowerCase().indexOf('trailer') !== -1);
                     if (isSpecial) return true;
                     if (!item.vote_average || item.vote_average === 0) return false;
                     return item.vote_average >= 6;
                 });
             },
-
-            // 4. Переглянутий контент
-            function (items) {
+            function (items) { // Переглянутий контент
                 if (!settings.history_filter_enabled) return items;
                 var favorite = Lampa.Storage.get('favorite', '{}');
                 var timeline = Lampa.Storage.cache('timetable', 300, []);
                 return items.filter(function (item) {
                     if (!isMediaContent(item)) return true;
                     if (!item || !item.id) return true;
-
                     var mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
                     var card = Lampa.Favorite.check(item);
-                    var hasHistory = card && card.history;
-                    var isThrown = card && card.thrown;
-
-                    if (isThrown) return false;
-                    if (!hasHistory) return true;
-                    if (hasHistory && mediaType === 'movie') return false;
-
+                    if (card && card.thrown) return false;
+                    if (!card || !card.history) return true;
+                    if (card.history && mediaType === 'movie') return false;
                     var watchedFromFavorite = getWatchedEpisodesFromFavorite(item.id, favorite);
                     var watchedFromTimeline = getWatchedEpisodesFromTimeline(item.id, timeline);
                     var allWatchedEpisodes = mergeWatchedEpisodes(watchedFromFavorite, watchedFromTimeline);
                     var title = item.original_title || item.original_name || item.title || item.name || '';
-                    var isFullyWatched = isSeriesFullyWatched(title, allWatchedEpisodes);
-
-                    return !isFullyWatched;
+                    return !isSeriesFullyWatched(title, allWatchedEpisodes);
                 });
             },
-
-            // 5. RU/SU Контент
-            function (items) {
+            function (items) { // RU/SU Контент
                 if (!settings.ru_content_filter_enabled) return items;
                 return items.filter(function (item) {
                     if (!isMediaContent(item)) return true;
@@ -143,9 +110,7 @@
                     return true;
                 });
             },
-
-            // 6. Фільтр за країною
-            function (items) {
+            function (items) { // Фільтр за країною
                 if (!settings.country_filter_enabled || typeof settings.country_list !== 'string') return items;
                 var blocked = settings.country_list.split(',').map(function(c) { return c.trim().toUpperCase(); }).filter(Boolean);
                 if (blocked.length === 0) return items;
@@ -156,9 +121,7 @@
                     return !blocked.some(function(c) { return itemCountry.indexOf(c) !== -1; });
                 });
             },
-
-            // 7. Ключові слова
-            function (items) {
+            function (items) { // Ключові слова
                 if (!settings.keyword_filter_enabled || typeof settings.keyword_list !== 'string') return items;
                 var keywords = settings.keyword_list.split(',').map(function(k) { return k.trim().toLowerCase(); }).filter(Boolean);
                 if (keywords.length === 0) return items;
@@ -168,9 +131,7 @@
                     return !keywords.some(function(kw) { return text.indexOf(kw) !== -1; });
                 });
             },
-
-            // 8. Чорний список
-            function (items) {
+            function (items) { // Чорний список
                 if (!Array.isArray(settings.blacklist) || settings.blacklist.length === 0) return items;
                 return items.filter(function (item) {
                     if (!isMediaContent(item)) return true;
@@ -178,7 +139,6 @@
                 });
             }
         ],
-
         apply: function (data) {
             var results = Lampa.Arrays.clone(data);
             for (var i = 0; i < this.filters.length; i++) {
@@ -190,37 +150,25 @@
 
     // Допоміжні функції для історії
     function getWatchedEpisodesFromFavorite(id, favoriteData) {
-        var card = (favoriteData.card || []).find(function (c) {
-            return c.id === id && Array.isArray(c.seasons) && c.seasons.length > 0;
-        });
+        var card = (favoriteData.card || []).find(function (c) { return c.id === id && Array.isArray(c.seasons) && c.seasons.length > 0; });
         if (!card) return [];
-        var airedSeasons = card.seasons.filter(function (s) {
-            return s.season_number > 0 && s.episode_count > 0 && s.air_date && new Date(s.air_date) < new Date();
-        });
+        var airedSeasons = card.seasons.filter(function (s) { return s.season_number > 0 && s.episode_count > 0 && s.air_date && new Date(s.air_date) < new Date(); });
         var episodes = [];
-        airedSeasons.forEach(function (season) {
-            for (var ep = 1; ep <= season.episode_count; ep++) {
-                episodes.push({ season_number: season.season_number, episode_number: ep });
-            }
-        });
+        airedSeasons.forEach(function (season) { for (var ep = 1; ep <= season.episode_count; ep++) episodes.push({ season_number: season.season_number, episode_number: ep }); });
         return episodes;
     }
 
     function getWatchedEpisodesFromTimeline(id, timelineData) {
         var entry = (timelineData || []).find(function (e) { return e.id === id; }) || {};
         if (!Array.isArray(entry.episodes) || entry.episodes.length === 0) return [];
-        return entry.episodes.filter(function (ep) {
-            return ep.season_number > 0 && ep.air_date && new Date(ep.air_date) < new Date();
-        });
+        return entry.episodes.filter(function (ep) { return ep.season_number > 0 && ep.air_date && new Date(ep.air_date) < new Date(); });
     }
 
     function mergeWatchedEpisodes(arr1, arr2) {
         var merged = (arr1 || []).concat(arr2 || []);
         var unique = [];
         merged.forEach(function (ep) {
-            var exists = unique.some(function (u) {
-                return u.season_number === ep.season_number && u.episode_number === ep.episode_number;
-            });
+            var exists = unique.some(function (u) { return u.season_number === ep.season_number && u.episode_number === ep.episode_number; });
             if (!exists) unique.push(ep);
         });
         return unique;
@@ -230,12 +178,7 @@
         if (!watchedEpisodes || watchedEpisodes.length === 0) return false;
         for (var i = 0; i < watchedEpisodes.length; i++) {
             var ep = watchedEpisodes[i];
-            var hash = Lampa.Utils.hash([
-                ep.season_number,
-                ep.season_number > 10 ? ':' : '',
-                ep.episode_number,
-                title
-            ].join(''));
+            var hash = Lampa.Utils.hash([ep.season_number, ep.season_number > 10 ? ':' : '', ep.episode_number, title].join(''));
             var view = Lampa.Timeline.view(hash);
             if (!view || view.percent < 100) return false;
         }
@@ -314,10 +257,7 @@
             if (e.name === 'main') {
                 var render = Lampa.Settings.main().render();
                 if (render.find('[data-component="content_filters"]').length === 0) {
-                    Lampa.SettingsApi.addComponent({
-                        component: 'content_filters',
-                        name: Lampa.Lang.translate('content_filters')
-                    });
+                    Lampa.SettingsApi.addComponent({ component: 'content_filters', name: Lampa.Lang.translate('content_filters') });
                 }
                 Lampa.Settings.main().update();
                 render.find('[data-component="content_filters"]').addClass('hide');
@@ -327,10 +267,7 @@
         Lampa.SettingsApi.addParam({
             component: 'interface',
             param: { name: 'content_filters', type: 'static', default: true },
-            field: {
-                name: Lampa.Lang.translate('content_filters'),
-                description: Lampa.Lang.translate('content_filters_desc')
-            },
+            field: { name: Lampa.Lang.translate('content_filters'), description: Lampa.Lang.translate('content_filters_desc') },
             onRender: function (el) {
                 setTimeout(function () {
                     var title = Lampa.Lang.translate('content_filters');
@@ -338,55 +275,58 @@
                 }, 0);
                 el.on('hover:enter', function () {
                     Lampa.Settings.create('content_filters');
-                    Lampa.Controller.enabled().controller.back = function () {
-                        Lampa.Settings.create('interface');
-                    };
+                    Lampa.Controller.enabled().controller.back = function () { Lampa.Settings.create('interface'); };
                 });
             }
         });
 
-        // Додаємо тригери для всіх фільтрів
+        // Додаємо тригери
         var triggers = ['asian_filter_enabled', 'language_filter_enabled', 'rating_filter_enabled', 'history_filter_enabled', 'ru_content_filter_enabled', 'country_filter_enabled', 'keyword_filter_enabled'];
         triggers.forEach(function (name) {
             var shortName = name === 'ru_content_filter_enabled' ? 'ru_content_filter' : name.replace('_enabled', '');
             Lampa.SettingsApi.addParam({
                 component: 'content_filters',
                 param: { name: name, type: 'trigger', default: false },
-                field: {
-                    name: Lampa.Lang.translate(shortName),
-                    description: Lampa.Lang.translate(shortName + '_desc')
-                },
-                onChange: function (value) {
-                    settings[name] = value;
-                    Lampa.Storage.set(name, value);
-                }
+                field: { name: Lampa.Lang.translate(shortName), description: Lampa.Lang.translate(shortName + '_desc') },
+                onChange: function (value) { settings[name] = value; Lampa.Storage.set(name, value); }
             });
         });
 
-        // Додаємо поля вводу
+        // БЕЗПЕЧНІ ПОЛЯ ВВОДУ (ВИПРАВЛЕНО!)
         ['country_list', 'keyword_list'].forEach(function(name) {
             Lampa.SettingsApi.addParam({
                 component: 'content_filters',
-                param: { name: name, type: 'input', default: '' },
-                field: {
-                    name: Lampa.Lang.translate(name),
-                    description: Lampa.Lang.translate(name + '_desc')
-                },
-                onChange: function (value) {
-                    settings[name] = value;
-                    Lampa.Storage.set(name, value);
+                param: { name: name, type: 'static' }, // type static щоб уникнути помилки "Cannot read properties"
+                field: { name: Lampa.Lang.translate(name), description: Lampa.Lang.translate(name + '_desc') },
+                onRender: function (el) {
+                    // Малюємо значення справа
+                    var val = settings[name] || '';
+                    var valueDiv = $('<div class="settings-param__value"></div>').text(val);
+                    el.find('.settings-param__name').after(valueDiv);
+
+                    // Відкриваємо клавіатуру при натисканні
+                    el.on('hover:enter', function () {
+                        if (Lampa.Keypad) Lampa.Keypad.enable();
+                        Lampa.Input.edit({
+                            title: Lampa.Lang.translate(name),
+                            value: settings[name] || '',
+                            free: true,
+                            nosave: false
+                        }, function (newVal) {
+                            settings[name] = newVal;
+                            Lampa.Storage.set(name, newVal);
+                            valueDiv.text(newVal);
+                        });
+                    });
                 }
             });
         });
 
-        // Додаємо керування чорним списком
+        // Чорний список
         Lampa.SettingsApi.addParam({
             component: 'content_filters',
             param: { name: 'blacklist_manager', type: 'static' },
-            field: {
-                name: Lampa.Lang.translate('blacklist_manager'),
-                description: Lampa.Lang.translate('blacklist_manager_desc')
-            },
+            field: { name: Lampa.Lang.translate('blacklist_manager'), description: Lampa.Lang.translate('blacklist_manager_desc') },
             onRender: function (el) {
                 el.css('cursor', 'pointer').on('hover:enter', function () {
                     var items = (settings.blacklist || []).map(function(b) { return { title: b.title, id: b.id }; });
@@ -408,10 +348,8 @@
     function loadSettings() {
         var params = ['asian_filter_enabled', 'language_filter_enabled', 'rating_filter_enabled', 'history_filter_enabled', 'ru_content_filter_enabled', 'country_filter_enabled', 'keyword_filter_enabled'];
         params.forEach(function (name) { settings[name] = Lampa.Storage.get(name, false); });
-        
         settings.country_list = Lampa.Storage.get('country_list', '');
         settings.keyword_list = Lampa.Storage.get('keyword_list', '');
-        
         var bl = Lampa.Storage.get('content_filter_blacklist', []);
         settings.blacklist = Array.isArray(bl) ? bl : [];
     }
@@ -445,7 +383,6 @@
             if (e.type !== 'visible' || !needMoreButton(e.data)) return;
             var head = $(closest(e.body, '.items-line')).find('.items-line__head');
             if (head.find('.items-line__more').length) return;
-
             var more = document.createElement('div');
             more.classList.add('items-line__more', 'selector');
             more.innerText = Lampa.Lang.translate('more');
@@ -463,7 +400,6 @@
             head.append(more);
         });
 
-        // Автозавантаження
         Lampa.Listener.follow('line', function (e) {
             if (e.type !== 'append' || !needMoreButton(e.data)) return;
             if (e.items.length === e.data.results.length && Lampa.Controller.own(e.line)) {
@@ -471,47 +407,22 @@
             }
         });
 
-        // Застосування фільтрів
         Lampa.Listener.follow('request_secuses', function (e) {
             if (!e.data || !Array.isArray(e.data.results)) return;
-            
             var url = e.url || (e.data && e.data.url) || '';
             var urlStr = typeof url === 'string' ? url.toLowerCase() : '';
-            if (urlStr.indexOf('extension') !== -1 ||
-                urlStr.indexOf('plugin') !== -1 ||
-                urlStr.indexOf('store') !== -1 ||
-                urlStr.indexOf('market') !== -1 ||
-                urlStr.indexOf('магазин') !== -1) {
-                return; 
-            }
-            
+            if (urlStr.indexOf('extension') !== -1 || urlStr.indexOf('plugin') !== -1 || urlStr.indexOf('store') !== -1 || urlStr.indexOf('market') !== -1 || urlStr.indexOf('магазин') !== -1) return;
             var component = e.component || (e.data && e.data.component) || '';
             var componentStr = typeof component === 'string' ? component.toLowerCase() : '';
-            if (componentStr.indexOf('extension') !== -1 ||
-                componentStr.indexOf('plugin') !== -1 ||
-                componentStr.indexOf('store') !== -1 ||
-                componentStr.indexOf('market') !== -1) {
-                return;
-            }
-            
+            if (componentStr.indexOf('extension') !== -1 || componentStr.indexOf('plugin') !== -1 || componentStr.indexOf('store') !== -1 || componentStr.indexOf('market') !== -1) return;
             if (e.data.results.length === 0) return;
-            
-            var hasMediaContent = e.data.results.some(function(item) {
-                return isMediaContent(item);
-            });
-            
+            var hasMediaContent = e.data.results.some(function(item) { return isMediaContent(item); });
             if (!hasMediaContent) return;
-            
             e.data.original_length = e.data.results.length;
             e.data.results = filterProcessor.apply(e.data.results);
         });
     }
 
-    if (window.appready) {
-        initPlugin();
-    } else {
-        Lampa.Listener.follow('app', function (e) {
-            if (e.type === 'ready') initPlugin();
-        });
-    }
+    if (window.appready) initPlugin();
+    else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') initPlugin(); });
 })();
