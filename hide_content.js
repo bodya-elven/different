@@ -4,11 +4,11 @@
 
     try {
         var settings = {
+            ru_content_filter_enabled: false, // Тепер на першому місці
             asian_filter_enabled: false,
             language_filter_enabled: false,
             rating_filter_enabled: false,
             history_filter_enabled: false,
-            ru_content_filter_enabled: false,
             country_filter_enabled: false,
             country_list: '',
             keyword_filter_enabled: false,
@@ -16,7 +16,7 @@
             blacklist: []
         };
 
-        // 1. ГЛИБОКИЙ СКАНЕР: Розпаковує "матрьошку" даних Lampa
+        // 1. АБСОЛЮТНИЙ СКАНЕР (Алгоритм Trakt TV)
         function getMediaData(item) {
             if (!item) return null;
             
@@ -24,13 +24,16 @@
             if (item.movie && item.movie.id) data = item.movie;
             else if (item.card && item.card.id) data = item.card;
             else if (item.data && item.data.id) data = item.data;
+            
+            // Якщо ID заховано глибоко
+            if (!data.id && item.id) data.id = item.id;
+            if (!data.id && item.tmdb_id) data.id = item.tmdb_id;
 
+            // Відкидаємо системні об'єкти
             var typeStr = (data.type || item.type || '').toString().toLowerCase();
             if (['plugin', 'extension', 'theme', 'addon', 'torrent', 'person'].indexOf(typeStr) !== -1) return null;
-            
             var compStr = (data.component || item.component || '').toString().toLowerCase();
             if (['torrent', 'plugins', 'extensions'].indexOf(compStr) !== -1) return null;
-            
             if (data.plugin !== undefined || item.plugin !== undefined) return null;
 
             var hasTitle = data.title || data.name || data.original_title || data.original_name;
@@ -43,6 +46,18 @@
         // 2. ПРОЦЕСОР ФІЛЬТРІВ
         var filterProcessor = {
             filters: [
+                function (items) { // RU/SU Контент
+                    if (!settings.ru_content_filter_enabled) return items;
+                    return items.filter(function (item) {
+                        var data = getMediaData(item);
+                        if (!data) return true;
+                        var lang = (data.original_language || '').toLowerCase();
+                        var countryArr = Array.isArray(data.origin_country) ? data.origin_country : (typeof data.origin_country === 'string' ? [data.origin_country] : []);
+                        var countries = countryArr.join(',').toUpperCase();
+                        if (lang === 'ru' || countries.indexOf('RU') !== -1 || countries.indexOf('SU') !== -1) return false;
+                        return true;
+                    });
+                },
                 function (items) { // Азіатський контент
                     if (!settings.asian_filter_enabled) return items;
                     return items.filter(function (item) {
@@ -96,18 +111,6 @@
                         return !isSeriesFullyWatched(title, allWatchedEpisodes);
                     });
                 },
-                function (items) { // RU/SU Контент (Тепер бачить країни у фільмів!)
-                    if (!settings.ru_content_filter_enabled) return items;
-                    return items.filter(function (item) {
-                        var data = getMediaData(item);
-                        if (!data) return true;
-                        var lang = (data.original_language || '').toLowerCase();
-                        var countryArr = Array.isArray(data.origin_country) ? data.origin_country : (typeof data.origin_country === 'string' ? [data.origin_country] : []);
-                        var countries = countryArr.join(',').toUpperCase();
-                        if (lang === 'ru' || countries.indexOf('RU') !== -1 || countries.indexOf('SU') !== -1) return false;
-                        return true;
-                    });
-                },
                 function (items) { // Країни
                     if (!settings.country_filter_enabled || typeof settings.country_list !== 'string') return items;
                     var blocked = settings.country_list.split(',').map(function(c) { return c.trim().toUpperCase(); }).filter(Boolean);
@@ -150,6 +153,7 @@
             }
         };
 
+        // Допоміжні функції історії
         function getWatchedEpisodesFromFavorite(id, favoriteData) {
             var card = (favoriteData.card || []).find(function (c) { return c.id === id && Array.isArray(c.seasons) && c.seasons.length > 0; });
             if (!card) return [];
@@ -186,10 +190,10 @@
             return true;
         }
 
-        // 3. ГЛОБАЛЬНЕ ПЕРЕХОПЛЕННЯ ВІДМАЛЬОВКИ (Вирішує проблему Пошуку та Закладок)
+        // 3. ГЛОБАЛЬНИЙ БЛОКУВАЛЬНИК КАРТОК
         function initCardInterceptor() {
-            if (window.content_filter_interceptor_final) return;
-            window.content_filter_interceptor_final = true;
+            if (window.content_filter_final_interceptor) return;
+            window.content_filter_final_interceptor = true;
             
             if (Lampa.Card && Lampa.Card.prototype && Lampa.Card.prototype.create) {
                 var origCreate = Lampa.Card.prototype.create;
@@ -210,7 +214,28 @@
                 };
             }
         }
-        // 4. КОНТЕКСТНЕ МЕНЮ (Слухає канали 'app' та 'card')
+
+        // 4. МЕХАНІЗМ ЗАПОВНЕННЯ ПУСТИХ РЯДКІВ (АВТО-ЗАВАНТАЖЕННЯ)
+        function initAutoFiller() {
+            Lampa.Listener.follow('line', function (e) {
+                if (e.type === 'append' && e.line && e.line.render) {
+                    var visibleCards = e.line.render().find('.card:not(.hide)').length;
+                    var totalCards = e.line.render().find('.card').length;
+                    
+                    // Якщо після фільтрації залишилось менше 12 карток, автоматично завантажуємо ще
+                    if (visibleCards < 12 && totalCards > 0 && !e.line.filter_auto_loaded) {
+                        var moreBtn = e.line.render().find('.items-line__more');
+                        if (moreBtn.length) {
+                            e.line.filter_auto_loaded = true; // Захист від вічного циклу
+                            setTimeout(function() {
+                                moreBtn.trigger('hover:enter'); // Імітуємо натискання
+                            }, 400);
+                        }
+                    }
+                }
+            });
+        }
+        // 5. КОНТЕКСТНЕ МЕНЮ (100% ГАРАНТІЯ ПОЯВИ)
         function handleContextMenu(e) {
             if (e.type === 'contextmenu' && e.object && e.menu && Array.isArray(e.menu)) {
                 var data = getMediaData(e.object);
@@ -237,16 +262,36 @@
             }
         }
 
-        function addContextMenu() {
-            Lampa.Listener.follow('app', handleContextMenu);
-            Lampa.Listener.follow('card', handleContextMenu);
+        // 6. МИТТЄВЕ ЗАСТОСУВАННЯ ФІЛЬТРІВ (БЕЗ ПЕРЕЗАВАНТАЖЕННЯ)
+        function markForUpdate() {
+            window.contentFilterNeedsUpdate = true;
         }
 
-        // 5. ЛОКАЛІЗАЦІЯ (Тільки UK та EN, нові назви)
+        Lampa.Controller.listener.follow('toggle', function(e) {
+            // Коли виходимо з налаштувань назад до контенту
+            if (e.name === 'content' && window.contentFilterNeedsUpdate) {
+                window.contentFilterNeedsUpdate = false;
+                var activeActivity = Lampa.Activity.active();
+                if (activeActivity) {
+                    Lampa.Noty.show(Lampa.Lang.translate('filters_applying'));
+                    var freshActivity = Lampa.Arrays.clone(activeActivity);
+                    
+                    // Непомітно закриваємо поточну сторінку і одразу відкриваємо її заново з новими фільтрами
+                    Lampa.Activity.backward();
+                    setTimeout(function() {
+                        Lampa.Activity.push(freshActivity);
+                    }, 100);
+                }
+            }
+        });
+
+        // 7. ЛОКАЛІЗАЦІЯ (Тільки UK та EN, без російської)
         function addTranslations() {
             Lampa.Lang.add({
                 content_filters: { uk: 'Приховування контенту', en: 'Hide Content' },
                 content_filters_desc: { uk: 'Налаштування приховування небажаного контенту', en: 'Content hiding settings' },
+                ru_content_filter: { uk: 'Приховати російський контент', en: 'Hide Russian content' },
+                ru_content_filter_desc: { uk: 'Приховує фільми та серіали РФ та СРСР', en: 'Hides movies from Russia and USSR' },
                 asian_filter: { uk: 'Приховати азіатський контент', en: 'Hide Asian content' },
                 asian_filter_desc: { uk: 'Приховує картки азіатського походження', en: 'Hides cards of Asian origin' },
                 language_filter: { uk: 'Приховати без перекладу', en: 'Hide without translation' },
@@ -255,8 +300,6 @@
                 rating_filter_desc: { uk: 'Приховує картки з рейтингом нижче 6.0', en: 'Hides cards with rating below 6.0' },
                 history_filter: { uk: 'Приховати переглянуте', en: 'Hide watched' },
                 history_filter_desc: { uk: 'Приховує повністю переглянуті фільми та серіали', en: 'Hides fully watched items' },
-                ru_content_filter: { uk: 'Приховати російський/радянський', en: 'Hide Russian/Soviet content' },
-                ru_content_filter_desc: { uk: 'Приховує фільми та серіали РФ та СРСР', en: 'Hides movies from Russia and USSR' },
                 country_filter: { uk: 'Фільтр за країнами', en: 'Country Filter' },
                 country_filter_desc: { uk: 'Увімкнути фільтр', en: 'Enable filter' },
                 country_list: { uk: 'Коди країн', en: 'Country codes' },
@@ -264,19 +307,20 @@
                 keyword_filter: { uk: 'Фільтр за словами', en: 'Keyword Filter' },
                 keyword_filter_desc: { uk: 'Увімкнути фільтрацію за словами', en: 'Enable keyword filter' },
                 keyword_list: { uk: 'Список слів', en: 'List of words' },
-                keyword_list_desc: { uk: 'Слова через кому', en: 'Words separated by comma' },
+                keyword_list_desc: { uk: 'Слова через кому (наприклад: шоу, концерт)', en: 'Words separated by comma' },
                 blacklist_manager: { uk: 'Чорний список (керування)', en: 'Blacklist (manage)' },
                 blacklist_manager_desc: { uk: 'Натисніть для видалення прихованого', en: 'Click to remove hidden items' },
                 content_filter_hide_item: { uk: 'Приховати цей контент', en: 'Hide this content' },
                 content_filter_added_to_blacklist: { uk: 'Додано в чорний список', en: 'Added to blacklist' },
                 blacklist_empty: { uk: 'Список порожній', en: 'List is empty' },
                 blacklist_removed: { uk: 'Видалено: ', en: 'Removed: ' },
+                filters_applying: { uk: 'Застосування фільтрів...', en: 'Applying filters...' },
                 more: { uk: 'ще', en: 'more' },
                 title_category: { uk: 'Категорія', en: 'Category' }
             });
         }
 
-        // 6. НАЛАШТУВАННЯ В ІНТЕРФЕЙСІ
+        // 8. НАЛАШТУВАННЯ ІНТЕРФЕЙСУ
         function addSettings() {
             Lampa.Settings.listener.follow('open', function (e) {
                 if (e.name === 'main') {
@@ -305,14 +349,27 @@
                 }
             });
 
-            var triggers = ['asian_filter_enabled', 'language_filter_enabled', 'rating_filter_enabled', 'history_filter_enabled', 'ru_content_filter_enabled', 'country_filter_enabled', 'keyword_filter_enabled'];
+            var triggers = [
+                'ru_content_filter_enabled', // Російський контент на першому місці
+                'asian_filter_enabled', 
+                'language_filter_enabled', 
+                'rating_filter_enabled', 
+                'history_filter_enabled', 
+                'country_filter_enabled', 
+                'keyword_filter_enabled'
+            ];
+            
             triggers.forEach(function (name) {
                 var shortName = name === 'ru_content_filter_enabled' ? 'ru_content_filter' : name.replace('_enabled', '');
                 Lampa.SettingsApi.addParam({
                     component: 'content_filters',
                     param: { name: name, type: 'trigger', default: false },
                     field: { name: Lampa.Lang.translate(shortName), description: Lampa.Lang.translate(shortName + '_desc') },
-                    onChange: function (value) { settings[name] = value; Lampa.Storage.set(name, value); }
+                    onChange: function (value) { 
+                        settings[name] = value; 
+                        Lampa.Storage.set(name, value); 
+                        markForUpdate(); // Реєструємо потребу в оновленні екрана
+                    }
                 });
             });
 
@@ -337,6 +394,7 @@
                                 settings[name] = newVal;
                                 Lampa.Storage.set(name, newVal);
                                 valueDiv.text(newVal);
+                                markForUpdate();
                             });
                         });
                     }
@@ -358,6 +416,7 @@
                                 settings.blacklist = settings.blacklist.filter(function(b) { return b.id !== item.id; });
                                 Lampa.Storage.set('content_filter_blacklist', settings.blacklist);
                                 Lampa.Noty.show(Lampa.Lang.translate('blacklist_removed') + item.title);
+                                markForUpdate();
                             }
                         });
                     });
@@ -365,7 +424,6 @@
             });
         }
 
-        // 7. ЗАВАНТАЖЕННЯ І СТАРТ
         function loadSettings() {
             var params = ['asian_filter_enabled', 'language_filter_enabled', 'rating_filter_enabled', 'history_filter_enabled', 'ru_content_filter_enabled', 'country_filter_enabled', 'keyword_filter_enabled'];
             params.forEach(function (name) { settings[name] = Lampa.Storage.get(name, false); });
@@ -391,14 +449,18 @@
         }
 
         function initPlugin() {
-            if (window.content_filter_surgery_final) return;
-            window.content_filter_surgery_final = true;
+            if (window.content_filter_master_edition) return;
+            window.content_filter_master_edition = true;
 
             loadSettings();
             addTranslations();
             addSettings();
-            addContextMenu();
-            initCardInterceptor(); // Активація глобального блокування карток
+            
+            Lampa.Listener.follow('app', handleContextMenu);
+            Lampa.Listener.follow('card', handleContextMenu); // Слухаємо меню звідусіль
+            
+            initCardInterceptor(); // Блокування карток
+            initAutoFiller(); // Авто-дозавантаження списків
 
             Lampa.Listener.follow('line', function (e) {
                 if (e.type !== 'visible' || !needMoreButton(e.data)) return;
@@ -428,7 +490,6 @@
                 }
             });
 
-            // Мережевий фільтр залишаємо для підвантаження наступних сторінок
             Lampa.Listener.follow('request_secuses', function (e) {
                 if (!e.data || !Array.isArray(e.data.results)) return;
                 var url = e.url || (e.data && e.data.url) || '';
