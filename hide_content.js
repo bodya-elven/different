@@ -246,30 +246,19 @@
         }
 
         function addSettings() {
-            Lampa.Settings.listener.follow('open', function (e) {
-                if (e.name === 'main') {
-                    var render = Lampa.Settings.main().render();
-                    if (render.find('[data-component="content_filters"]').length === 0) {
-                        Lampa.SettingsApi.addComponent({ component: 'content_filters', name: Lampa.Lang.translate('content_filters') });
-                    }
-                    Lampa.Settings.main().update();
-                    render.find('[data-component="content_filters"]').addClass('hide');
-                }
-            });
+            var targetMenu = 'interface'; // Додаємо налаштування в стандартний розділ Lampa
 
+            // Додаємо візуальний розділювач
             Lampa.SettingsApi.addParam({
-                component: 'interface',
-                param: { name: 'content_filters_menu', type: 'static', default: true },
-                field: { name: Lampa.Lang.translate('content_filters'), description: 'Налаштування фільтрації' },
+                component: targetMenu,
+                param: { name: 'content_filter_header', type: 'static' },
+                field: { 
+                    name: '--- ' + Lampa.Lang.translate('content_filters') + ' ---', 
+                    description: '' 
+                },
                 onRender: function (el) {
-                    setTimeout(function () {
-                        var title = Lampa.Lang.translate('content_filters');
-                        $('.settings-param > div:contains("' + title + '")').parent().insertAfter($('div[data-name="interface_size"]'));
-                    }, 0);
-                    el.on('hover:enter', function () {
-                        Lampa.Settings.create('content_filters');
-                        Lampa.Controller.enabled().controller.back = function () { Lampa.Settings.create('interface'); };
-                    });
+                    el.css('pointer-events', 'none'); // Робимо неактивним для кліку
+                    el.find('.settings-param__descr').remove();
                 }
             });
 
@@ -277,7 +266,7 @@
             triggers.forEach(function (name) {
                 var shortName = name === 'ru_content_filter_enabled' ? 'ru_content_filter' : name.replace('_enabled', '');
                 Lampa.SettingsApi.addParam({
-                    component: 'content_filters',
+                    component: targetMenu,
                     param: { name: name, type: 'trigger', default: false },
                     field: { name: Lampa.Lang.translate(shortName), description: Lampa.Lang.translate(shortName + '_desc') },
                     onChange: function (value) { settings[name] = value; Lampa.Storage.set(name, value); }
@@ -286,7 +275,7 @@
 
             ;['country_list', 'keyword_list'].forEach(function(name) {
                 Lampa.SettingsApi.addParam({
-                    component: 'content_filters',
+                    component: targetMenu,
                     param: { name: name, type: 'input', default: '' },
                     field: { name: Lampa.Lang.translate(name), description: Lampa.Lang.translate(name + '_desc') },
                     onChange: function (value) { settings[name] = value; Lampa.Storage.set(name, value); }
@@ -294,7 +283,7 @@
             });
 
             Lampa.SettingsApi.addParam({
-                component: 'content_filters',
+                component: targetMenu,
                 param: { name: 'blacklist_manager', type: 'static' },
                 field: { name: Lampa.Lang.translate('blacklist_manager'), description: Lampa.Lang.translate('blacklist_manager_desc') },
                 onRender: function (el) {
@@ -325,8 +314,8 @@
 
         function initPlugin() {
             try {
-                if (window.content_filter_final_plugin) return;
-                window.content_filter_final_plugin = true;
+                if (window.content_filter_safe_plugin) return;
+                window.content_filter_safe_plugin = true;
 
                 initCardListener();
                 loadSettings();
@@ -374,7 +363,6 @@
                 });
             } catch (err) {
                 console.error("Plugin init error:", err);
-                if (window.Lampa && window.Lampa.Noty) Lampa.Noty.show('Помилка ініціалізації: ' + err.message);
             }
         }
 
@@ -387,10 +375,5 @@
         }
     } catch (globalErr) {
         console.error("Global Plugin Error:", globalErr);
-        setTimeout(function() {
-            if (window.Lampa && window.Lampa.Noty) {
-                window.Lampa.Noty.show('Критична помилка плагіна: ' + globalErr.message);
-            }
-        }, 3000);
     }
 })();
