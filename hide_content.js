@@ -16,18 +16,18 @@
             blacklist: []
         };
 
-        // НОВА, РОЗУМНА ПЕРЕВІРКА КАРТОК
+        // НАДІЙНА ПЕРЕВІРКА (Тепер розпізнає контент у всіх розділах)
         function isMediaContent(item) {
             if (!item) return false;
             
-            // Відкидаємо віджети, плагіни та системні елементи
-            if (item.plugin !== undefined || item.extension !== undefined) return false;
+            // Відкидаємо плагіни, віджети та торренти
             var typeStr = (item.type || '').toString().toLowerCase();
             if (['plugin', 'extension', 'theme', 'addon', 'torrent', 'person'].indexOf(typeStr) !== -1) return false;
             var compStr = (item.component || '').toString().toLowerCase();
             if (['torrent', 'plugins', 'extensions'].indexOf(compStr) !== -1) return false;
+            if (item.plugin !== undefined || item.extension !== undefined) return false;
 
-            // Будь-яка картка, що має ID та назву, вважається медіа (фільм/серіал)
+            // Будь-що з ID та назвою вважається контентом
             var hasTitle = item.title || item.name || item.original_title || item.original_name;
             var hasId = item.id !== undefined && item.id !== null;
             
@@ -138,7 +138,6 @@
             }
         };
 
-        // Допоміжні функції історії
         function getWatchedEpisodesFromFavorite(id, favoriteData) {
             var card = (favoriteData.card || []).find(function (c) { return c.id === id && Array.isArray(c.seasons) && c.seasons.length > 0; });
             if (!card) return [];
@@ -175,52 +174,67 @@
             return true;
         }
 
-        // ГЛОБАЛЬНЕ ПЕРЕХОПЛЕННЯ МАЛЮВАННЯ КАРТОК (ВИРІШУЄ ПРОБЛЕМУ ПОШУКУ/ЗАКЛАДОК)
-        function initCardInterceptor() {
-            if (window.content_filter_card_interceptor) return;
-            window.content_filter_card_interceptor = true;
+        // --- ГЛОБАЛЬНЕ ПРИХОВУВАННЯ У ВСІХ РОЗДІЛАХ ---
+        function initCardListener() {
+            if (window.content_filter_card_listener_v3) return;
+            window.content_filter_card_listener_v3 = true;
             
-            var originalCreate = Lampa.Card.prototype.create;
-            Lampa.Card.prototype.create = function () {
-                originalCreate.apply(this, arguments);
-                try {
-                    if (this.data && isMediaContent(this.data)) {
-                        var filtered = filterProcessor.apply([this.data]);
-                        if (filtered.length === 0) {
-                            // Якщо картка не пройшла фільтр, ми робимо її повністю невидимою
-                            this.card.addClass('hide').css('display', 'none', 'important');
-                        }
-                    }
-                } catch (e) {}
-            };
-        }
+            // Включаємо системну подію створення картки
+            Object.defineProperty(Lampa.Card.prototype, 'build', {
+                get: function () { return this._build; },
+                set: function (value) {
+                    this._build = function () {
+                        value.apply(this);
+                        Lampa.Listener.send('card', { type: 'build', object: this });
+                    }.bind(this);
+                }
+            });
 
-        // КОНТЕКСТНЕ МЕНЮ (Тепер працює ідеально скрізь)
-        function addContextMenu() {
-            Lampa.Listener.follow('app', function (e) {
-                if (e.type === 'contextmenu' && e.object && e.menu && Array.isArray(e.menu)) {
-                    if (isMediaContent(e.object)) {
-                        e.menu.push({
-                            title: Lampa.Lang.translate('content_filter_hide_item'),
-                            icon: '<svg height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.82l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.74-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z" fill="currentColor"/></svg>',
-                            onSelect: function () {
-                                if (!Array.isArray(settings.blacklist)) settings.blacklist = [];
-                                if (!settings.blacklist.some(function(b) { return b.id === e.object.id; })) {
-                                    settings.blacklist.push({ id: e.object.id, title: e.object.title || e.object.name || 'Unknown' });
-                                    Lampa.Storage.set('content_filter_blacklist', settings.blacklist);
-                                    Lampa.Noty.show(Lampa.Lang.translate('content_filter_added_to_blacklist'));
-                                    
-                                    // Миттєво приховуємо картку з екрана після натискання
-                                    $('.card[data-id="'+e.object.id+'"]').css('display', 'none', 'important');
-                                }
-                            }
-                        });
+            // Ловимо картку в момент відмальовки
+            Lampa.Listener.follow('card', function(e) {
+                if (e.type === 'build' && e.object && e.object.data && e.object.card) {
+                    if (isMediaContent(e.object.data)) {
+                        var passed = filterProcessor.apply([e.object.data]);
+                        if (passed.length === 0) {
+                            // Робимо повністю невидимою та прибираємо з фокусу навігації
+                            e.object.card.addClass('hide').removeClass('focusable').css('display', 'none', 'important');
+                        }
                     }
                 }
             });
         }
 
-        // ЛОКАЛІЗАЦІЯ (Тільки UK та EN, назви замінено)
+        // КОНТЕКСТНЕ МЕНЮ (Виправлено)
+        function addContextMenu() {
+            Lampa.Listener.follow('app', function (e) {
+                if (e.type === 'contextmenu' && e.object && e.menu && Array.isArray(e.menu)) {
+                    if (isMediaContent(e.object)) {
+                        // Перевіряємо чи не додано вже в чорний список
+                        var isBlacklisted = false;
+                        if (Array.isArray(settings.blacklist)) {
+                            isBlacklisted = settings.blacklist.some(function(b) { return b.id === e.object.id; });
+                        }
+
+                        if (!isBlacklisted) {
+                            e.menu.push({
+                                title: Lampa.Lang.translate('content_filter_hide_item'),
+                                onSelect: function () {
+                                    if (!Array.isArray(settings.blacklist)) settings.blacklist = [];
+                                    settings.blacklist.push({ id: e.object.id, title: e.object.title || e.object.name || 'Unknown' });
+                                    Lampa.Storage.set('content_filter_blacklist', settings.blacklist);
+                                    Lampa.Noty.show(Lampa.Lang.translate('content_filter_added_to_blacklist'));
+                                    
+                                    // Миттєво ховаємо картку
+                                    $('.card[data-id="'+e.object.id+'"]').addClass('hide').removeClass('focusable').css('display', 'none', 'important');
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        // ЛОКАЛІЗАЦІЯ (Без російської, нові назви)
         function addTranslations() {
             Lampa.Lang.add({
                 content_filters: { uk: 'Приховування контенту', en: 'Hide Content' },
@@ -366,16 +380,15 @@
         }
 
         function initPlugin() {
-            if (window.content_filter_ultimate_v3) return;
-            window.content_filter_ultimate_v3 = true;
+            if (window.content_filter_pro_v4) return;
+            window.content_filter_pro_v4 = true;
 
             loadSettings();
             addTranslations();
             addSettings();
             addContextMenu();
-            initCardInterceptor(); // Підключаємо глобальне перехоплення всіх карток!
+            initCardListener(); // Підключення глобального перехоплення карток
 
-            // Додавання кнопки "Ще" при фільтрації
             Lampa.Listener.follow('line', function (e) {
                 if (e.type !== 'visible' || !needMoreButton(e.data)) return;
                 var head = $(closest(e.body, '.items-line')).find('.items-line__head');
@@ -404,7 +417,7 @@
                 }
             });
 
-            // Залишаємо перехоплення мережі для правильної роботи пагінації (завантаження наступних сторінок)
+            // Мережевий перехоплювач для коректної пагінації
             Lampa.Listener.follow('request_secuses', function (e) {
                 if (!e.data || !Array.isArray(e.data.results)) return;
                 var url = e.url || (e.data && e.data.url) || '';
