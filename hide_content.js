@@ -1,4 +1,4 @@
-/* Created by Elven (1|1) - Final Stable Core */
+/* Created by Elven (1|1) - Core Architecture Perfected */
 (function () {
     'use strict';
 
@@ -39,32 +39,27 @@
                 var data = getMediaData(item);
                 if (!data) return true;
 
-                // 1. Чорний список
                 var id = data.id || data.tmdb_id;
                 if (settings.blacklist.some(function(b) { return b.id == id; })) return false;
 
                 var lang = (data.original_language || '').toLowerCase();
 
-                // 2. Мовні фільтри
                 if (settings.ru_lang_enabled && lang === 'ru') return false;
                 if (settings.asian_lang_enabled && ['ja', 'ko', 'zh'].indexOf(lang) !== -1) return false;
                 if (settings.indian_lang_enabled && ['hi', 'te', 'ta', 'kn', 'ml'].indexOf(lang) !== -1) return false;
                 if (settings.turkish_lang_enabled && lang === 'tr') return false;
                 if (settings.arabic_lang_enabled && lang === 'ar') return false;
 
-                // 3. Інші мови
                 if (settings.other_languages) {
                     var other = settings.other_languages.split(',').map(function(s){ return s.trim().toLowerCase(); });
                     if (other.indexOf(lang) !== -1) return false;
                 }
 
-                // 4. Рейтинг
                 if (settings.rating_limit > 0) {
                     var vote = parseFloat(data.vote_average || 0);
                     if (vote < settings.rating_limit) return false;
                 }
 
-                // 5. Переглянуте
                 if (settings.hide_watched) {
                     var cardStatus = Lampa.Favorite.check(data);
                     if (cardStatus) {
@@ -75,7 +70,6 @@
                     }
                 }
 
-                // 6. Слова
                 if (settings.keyword_filter) {
                     var words = settings.keyword_filter.split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
                     var title = (data.title || data.name || data.original_title || data.original_name || '').toLowerCase();
@@ -86,6 +80,7 @@
             });
         }
     };
+
     function addContextMenu() {
         var menuHandler = function (e) {
             if (e.type === 'contextmenu' && e.menu && e.object) {
@@ -144,7 +139,7 @@
     }
 
     function addSettings() {
-        // 1. СТВОРЮЄМО ШАБЛОН І КОМПОНЕНТ РАЗОМ (Усуває помилку "Template not found")
+        // Гарантована реєстрація шаблону і компонента
         if (!Lampa.Template.get('settings_content_filters', true)) {
             Lampa.Template.add('settings_content_filters', '<div><div class="settings-folder scroll"></div></div>');
         }
@@ -153,43 +148,40 @@
             name: Lampa.Lang.translate('content_filters')
         });
 
-        // 2. ХОВАЄМО З ГОЛОВНОГО МЕНЮ БЕЗ ВИКЛИКУ ".update()" (Усуває помилку "reading '0'")
+        // 100% СИНХРОННЕ І БЕЗПЕЧНЕ ВТРУЧАННЯ В МЕНЮ
         Lampa.Settings.listener.follow('open', function (e) {
+            // Вирізаємо з Головного меню
             if (e.name === 'main') {
-                e.render.find('[data-component="content_filters"]').css('display', 'none');
+                e.render.find('[data-component="content_filters"]').remove();
             }
-        });
-
-        // 3. ДОДАЄМО КНОПКУ В "ІНТЕРФЕЙС" (4-й пункт)
-        Lampa.SettingsApi.addParam({
-            component: 'interface',
-            param: { name: 'content_filters_btn', type: 'static', default: true },
-            field: { name: Lampa.Lang.translate('content_filters'), description: Lampa.Lang.translate('content_filters_desc') },
-            onRender: function (el) {
-                // Плавне переміщення після генерації списку
-                setTimeout(function () {
-                    var target = $('.settings-param').filter(function() {
-                        return $(this).text().indexOf('Розмір інтерфейсу') !== -1 || $(this).text().indexOf('Interface size') !== -1;
+            
+            // Вставляємо в Інтерфейс (Синхронно, без таймерів)
+            if (e.name === 'interface') {
+                if (e.render.find('.content-filters-trigger').length === 0) {
+                    var btnHTML = '<div class="settings-param selector content-filters-trigger" data-static="true">' +
+                                  '<div class="settings-param__name" title="' + Lampa.Lang.translate('content_filters') + '">' + Lampa.Lang.translate('content_filters') + '</div>' +
+                                  '<div class="settings-param__descr">' + Lampa.Lang.translate('content_filters_desc') + '</div>' +
+                                  '</div>';
+                    var btn = $(btnHTML);
+                    
+                    btn.on('hover:enter', function () {
+                        Lampa.Settings.create('content_filters');
+                        var controller = Lampa.Controller.enabled().controller;
+                        if (controller) controller.back = function () { Lampa.Settings.create('interface'); };
                     });
-                    if (target.length) {
-                        el.insertAfter(target.last());
-                    } else {
-                        var items = el.parent().children('.settings-param');
-                        if (items.length >= 4) el.insertAfter(items.eq(2));
-                    }
-                }, 50);
 
-                el.on('hover:enter', function () {
-                    Lampa.Settings.create('content_filters');
-                    var controller = Lampa.Controller.enabled().controller;
-                    if (controller) {
-                        controller.back = function () { Lampa.Settings.create('interface'); };
+                    // Ставимо рівно 4-м пунктом (індекс 2, бо рахунок з нуля: 0, 1, 2... і після нього)
+                    var items = e.render.find('.settings-param');
+                    if (items.length >= 3) {
+                        btn.insertAfter(items.eq(2));
+                    } else {
+                        e.render.find('.settings-folder').append(btn);
                     }
-                });
+                }
             }
         });
 
-        // 4. НАПОВНЮЄМО НАШЕ МЕНЮ
+        // Наповнюємо наше власне меню налаштувань
         var params = [
             { id: 'ru_lang', name: 'ru_lang_enabled' },
             { id: 'asian_lang', name: 'asian_lang_enabled' },
@@ -277,8 +269,8 @@
     }
 
     function initPlugin() {
-        if (window.content_filter_rock_solid_v5) return;
-        window.content_filter_rock_solid_v5 = true;
+        if (window.content_filter_absolute_final) return;
+        window.content_filter_absolute_final = true;
 
         var keys = ['ru_lang_enabled', 'asian_lang_enabled', 'indian_lang_enabled', 'turkish_lang_enabled', 'arabic_lang_enabled', 'other_languages', 'rating_limit', 'hide_watched', 'keyword_filter'];
         keys.forEach(function(k) { settings[k] = Lampa.Storage.get(k, settings[k]); });
