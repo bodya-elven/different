@@ -1,4 +1,4 @@
-/* Created by Elven (1|1) - 100% Original Settings Architecture */
+/* Created by Elven (1|1) - 100% Original UI Architecture */
 (function () {
     'use strict';
 
@@ -15,7 +15,7 @@
         blacklist: []
     };
 
-    // Оригінальний захист від фільтрації плагінів/доповнень
+    // Оригінальний захист від фільтрації плагінів
     function isMediaContent(item) {
         if (!item) return false;
         if (item.type && typeof item.type === 'string') {
@@ -63,7 +63,7 @@
                 if (settings.arabic_lang_enabled && lang === 'ar') return false;
 
                 if (settings.other_languages) {
-                    var other = settings.other_languages.split(',').map(function(s){ return s.trim().toLowerCase(); });
+                    var other = settings.other_languages.split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
                     if (other.indexOf(lang) !== -1) return false;
                 }
 
@@ -277,8 +277,8 @@
     }
 
     function initPlugin() {
-        if (window.content_filter_classic_arch) return;
-        window.content_filter_classic_arch = true;
+        if (window.content_filter_classic_v3) return;
+        window.content_filter_classic_v3 = true;
 
         var keys = ['ru_lang_enabled', 'asian_lang_enabled', 'indian_lang_enabled', 'turkish_lang_enabled', 'arabic_lang_enabled', 'other_languages', 'rating_limit', 'hide_watched', 'keyword_filter'];
         keys.forEach(function(k) { settings[k] = Lampa.Storage.get(k, settings[k]); });
