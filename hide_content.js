@@ -1,4 +1,4 @@
-/* Created by Elven (1|1) - Fixed Logic based on app.min.js */
+/* Created by Elven (1|1) - Final Absolute Fix */
 (function () {
     'use strict';
 
@@ -17,10 +17,6 @@
 
     function isMediaContent(item) {
         if (!item) return false;
-        if (item.type && typeof item.type === 'string') {
-            var t = item.type.toLowerCase();
-            if (t === 'plugin' || t === 'extension' || t === 'theme' || t === 'addon') return false;
-        }
         var hasMedia = item.original_language || item.vote_average || item.media_type || item.release_date || item.original_title;
         return !!hasMedia;
     }
@@ -42,13 +38,11 @@
                 var data = getMediaData(item);
                 if (!data) return true;
 
-                // 1. Чорний список
                 var id = data.id || data.tmdb_id;
                 if (settings.blacklist.some(function(b) { return b.id == id; })) return false;
 
                 var lang = (data.original_language || '').toLowerCase();
 
-                // 2. Мовні фільтри (Оригінальні коди)
                 if (settings.ru_lang_enabled && lang === 'ru') return false;
                 if (settings.asian_lang_enabled && ['ja', 'ko', 'zh'].indexOf(lang) !== -1) return false;
                 if (settings.indian_lang_enabled && ['hi', 'te', 'ta', 'kn', 'ml'].indexOf(lang) !== -1) return false;
@@ -60,13 +54,11 @@
                     if (other.indexOf(lang) !== -1) return false;
                 }
 
-                // 3. Рейтинг
                 if (settings.rating_limit > 0) {
                     var vote = parseFloat(data.vote_average || 0);
                     if (vote < settings.rating_limit) return false;
                 }
 
-                // 4. Переглянуте
                 if (settings.hide_watched) {
                     var cardStatus = Lampa.Favorite.check(data);
                     if (cardStatus) {
@@ -77,13 +69,11 @@
                     }
                 }
 
-                // 5. Ключові слова
                 if (settings.keyword_filter) {
                     var words = settings.keyword_filter.split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
                     var title = (data.title || data.name || data.original_title || data.original_name || '').toLowerCase();
                     if (words.some(function(w) { return title.indexOf(w) !== -1; })) return false;
                 }
-
                 return true;
             });
         }
@@ -133,30 +123,33 @@
     }
 
     function addSettings() {
-        // ВИКОРИСТОВУЄМО ОРИГІНАЛЬНИЙ МЕТОД ІЗ ТВОГО КОДУ
+        // КЛЮЧОВИЙ МОМЕНТ: Реєструємо шаблон, який шукає функція update$3
+        if (!Lampa.Template.get('settings_content_filters', true)) {
+            Lampa.Template.add('settings_content_filters', '<div class="settings-folder scroll"></div>');
+        }
+
+        Lampa.SettingsApi.addComponent({
+            component: 'content_filters',
+            name: Lampa.Lang.translate('content_filters')
+        });
+
+        // Ховаємо з головного списку, щоб не заважало
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name === 'main') {
-                var render = Lampa.Settings.main().render();
-                if (render.find('[data-component="content_filters"]').length === 0) {
-                    Lampa.SettingsApi.addComponent({
-                        component: 'content_filters',
-                        name: Lampa.Lang.translate('content_filters')
-                    });
-                }
-                Lampa.Settings.main().update();
-                render.find('[data-component="content_filters"]').addClass('hide');
+                e.render.find('[data-component="content_filters"]').hide();
             }
         });
 
+        // Додаємо в Інтерфейс
         Lampa.SettingsApi.addParam({
             component: 'interface',
             param: { name: 'content_filters', type: 'static', default: true },
-            field: { name: Lampa.Lang.translate('content_filters'), description: 'Налаштування приховування карток' },
+            field: { name: Lampa.Lang.translate('content_filters'), description: 'Налаштування фільтрації контенту' },
             onRender: function (el) {
-                setTimeout(function () {
-                    var title = Lampa.Lang.translate('content_filters');
-                    $('.settings-param > div:contains("' + title + '")').parent().insertAfter($('div[data-name="interface_size"]'));
-                }, 0);
+                // Ставимо після розміру інтерфейсу (найбезпечніший спосіб)
+                var target = $('div[data-name="interface_size"]').parent();
+                if (target.length) el.insertAfter(target);
+                
                 el.on('hover:enter', function () {
                     Lampa.Settings.create('content_filters');
                     Lampa.Controller.enabled().controller.back = function () { Lampa.Settings.create('interface'); };
@@ -164,7 +157,6 @@
             }
         });
 
-        // ПУНКТИ МЕНЮ
         var pMap = [
             {id:'ru_lang', n:'ru_lang_enabled'}, {id:'asian_lang', n:'asian_lang_enabled'},
             {id:'indian_lang', n:'indian_lang_enabled'}, {id:'turkish_lang', n:'turkish_lang_enabled'},
@@ -236,8 +228,8 @@
     }
 
     function initPlugin() {
-        if (window.content_filter_final_fix) return;
-        window.content_filter_final_fix = true;
+        if (window.content_filter_rock_solid_fix) return;
+        window.content_filter_rock_solid_fix = true;
 
         var keys = ['ru_lang_enabled','asian_lang_enabled','indian_lang_enabled','turkish_lang_enabled','arabic_lang_enabled','other_languages','rating_limit','hide_watched','keyword_filter'];
         keys.forEach(function(k){ settings[k] = Lampa.Storage.get(k, settings[k]); });
@@ -252,8 +244,7 @@
             if (!e.data || !Array.isArray(e.data.results)) return;
             var url = (e.url || e.data.url || '').toLowerCase();
             if (url.indexOf('extension') !== -1 || url.indexOf('plugin') !== -1 || url.indexOf('store') !== -1) return;
-            
-            if (e.data.results.length > 0 && e.data.results.some(isMediaContent)) {
+            if (e.data.results.length > 0) {
                 e.data.original_length = e.data.results.length;
                 e.data.results = filterProcessor.apply(e.data.results);
             }
