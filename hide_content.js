@@ -39,27 +39,32 @@
                 var data = getMediaData(item);
                 if (!data) return true;
 
+                // 1. Чорний список
                 var id = data.id || data.tmdb_id;
                 if (settings.blacklist.some(function(b) { return b.id == id; })) return false;
 
                 var lang = (data.original_language || '').toLowerCase();
 
+                // 2. Мовні фільтри
                 if (settings.ru_lang_enabled && lang === 'ru') return false;
                 if (settings.asian_lang_enabled && ['ja', 'ko', 'zh'].indexOf(lang) !== -1) return false;
                 if (settings.indian_lang_enabled && ['hi', 'te', 'ta', 'kn', 'ml'].indexOf(lang) !== -1) return false;
                 if (settings.turkish_lang_enabled && lang === 'tr') return false;
                 if (settings.arabic_lang_enabled && lang === 'ar') return false;
 
+                // 3. Інші мови
                 if (settings.other_languages) {
                     var other = settings.other_languages.split(',').map(function(s){ return s.trim().toLowerCase(); });
                     if (other.indexOf(lang) !== -1) return false;
                 }
 
+                // 4. Рейтинг (включно з нульовим)
                 if (settings.rating_limit > 0) {
                     var vote = parseFloat(data.vote_average || 0);
                     if (vote < settings.rating_limit) return false;
                 }
 
+                // 5. Переглянуте
                 if (settings.hide_watched) {
                     var cardStatus = Lampa.Favorite.check(data);
                     if (cardStatus) {
@@ -70,6 +75,7 @@
                     }
                 }
 
+                // 6. Слова
                 if (settings.keyword_filter) {
                     var words = settings.keyword_filter.split(',').map(function(s){ return s.trim().toLowerCase(); });
                     var title = (data.title || data.name || data.original_title || data.original_name || '').toLowerCase();
@@ -95,8 +101,6 @@
                                 if (!Array.isArray(settings.blacklist)) settings.blacklist = [];
                                 settings.blacklist.push({ id: id, title: title });
                                 Lampa.Storage.set('content_filter_blacklist', settings.blacklist);
-                                
-                                // Жодного візуального приховування тут! Тільки повідомлення. Це рятує від крашу.
                                 Lampa.Noty.show(Lampa.Lang.translate('content_filter_added_to_blacklist'));
                             }
                         });
@@ -140,38 +144,38 @@
     }
 
     function addSettings() {
-        // Реєстрація компонента (без нього виникає помилка "Template not found")
-        Lampa.SettingsApi.addComponent({
-            component: 'content_filters',
-            name: Lampa.Lang.translate('content_filters')
-        });
-
-        // Ховаємо наш компонент із загального списку головного меню
+        // ТОЙ САМИЙ РОБОЧИЙ МЕХАНІЗМ ІЗ ВЧОРАШНЬОЇ ВЕРСІЇ
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name === 'main') {
-                e.render.find('[data-component="content_filters"]').css('display', 'none');
+                var render = Lampa.Settings.main().render();
+                if (render.find('[data-component="content_filters"]').length === 0) {
+                    Lampa.SettingsApi.addComponent({ component: 'content_filters', name: Lampa.Lang.translate('content_filters') });
+                }
+                Lampa.Settings.main().update();
+                render.find('[data-component="content_filters"]').addClass('hide');
             }
         });
 
-        // БЕЗПЕЧНЕ додавання кнопки як 4-го пункту в розділ "Інтерфейс"
         Lampa.SettingsApi.addParam({
             component: 'interface',
-            param: { name: 'content_filters_btn', type: 'static' },
+            param: { name: 'content_filters', type: 'static', default: true },
             field: { name: Lampa.Lang.translate('content_filters'), description: Lampa.Lang.translate('content_filters_desc') },
             onRender: function (el) {
-                // Переміщуємо синхронно відразу під час рендеру. Це рятує пульт від помилки!
-                var target = el.parent().children('.settings-param').eq(2);
-                if (target.length) el.insertAfter(target);
-
+                setTimeout(function () {
+                    var title = Lampa.Lang.translate('content_filters');
+                    $('.settings-param > div:contains("' + title + '")').parent().insertAfter($('div[data-name="interface_size"]'));
+                }, 0);
                 el.on('hover:enter', function () {
                     Lampa.Settings.create('content_filters');
                     var controller = Lampa.Controller.enabled().controller;
-                    if (controller) controller.back = function () { Lampa.Settings.create('interface'); };
+                    if (controller) {
+                        controller.back = function () { Lampa.Settings.create('interface'); };
+                    }
                 });
             }
         });
 
-        // Додаємо наші пункти всередину нашого меню
+        // ПУНКТИ МЕНЮ НАЛАШТУВАНЬ ПЛАГІНА
         var params = [
             { id: 'ru_lang', name: 'ru_lang_enabled' },
             { id: 'asian_lang', name: 'asian_lang_enabled' },
@@ -255,13 +259,8 @@
     }
 
     function initPlugin() {
-        if (window.content_filter_v20_stable) return;
-        window.content_filter_v20_stable = true;
-
-        // Ініціалізація шаблону для нашого меню
-        if (!Lampa.Template.get('settings_content_filters', true)) {
-            Lampa.Template.add('settings_content_filters', '<div><div class="settings-folder scroll"></div></div>');
-        }
+        if (window.content_filter_original_ui_restored) return;
+        window.content_filter_original_ui_restored = true;
 
         var keys = ['ru_lang_enabled', 'asian_lang_enabled', 'indian_lang_enabled', 'turkish_lang_enabled', 'arabic_lang_enabled', 'other_languages', 'rating_limit', 'hide_watched', 'keyword_filter'];
         keys.forEach(function(k) { settings[k] = Lampa.Storage.get(k, settings[k]); });
@@ -272,7 +271,7 @@
         addSettings();
         addContextMenu();
 
-        // Працюємо виключно з мережею, ніякого ламання карток!
+        // Тільки мережева фільтрація, повністю безпечно
         Lampa.Listener.follow('request_secuses', function (e) {
             if (e.data && Array.isArray(e.data.results)) {
                 e.data.results = filterProcessor.apply(e.data.results);
