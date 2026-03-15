@@ -97,6 +97,7 @@
                                 Lampa.Storage.set('content_filter_blacklist', settings.blacklist);
                                 Lampa.Noty.show(Lampa.Lang.translate('content_filter_added_to_blacklist'));
                                 
+                                // Безпечне приховування після ручного кліку
                                 if (e.object.card && e.object.card.node) $(e.object.card.node).css('display', 'none');
                                 else $('.card[data-id="' + id + '"]').css('display', 'none');
                             }
@@ -113,27 +114,27 @@
     function addTranslations() {
         Lampa.Lang.add({
             content_filters: { uk: 'Приховування контенту', en: 'Content Hiding' },
-            content_filters_desc: { uk: 'Налаштування фільтрації', en: 'Filtering settings' },
+            content_filters_desc: { uk: 'Налаштування приховування небажаного контенту', en: 'Settings for hiding unwanted content' },
             ru_lang: { uk: 'Приховати російський контент', en: 'Hide Russian content' },
-            ru_lang_desc: { uk: 'Приховує картки з мовою оригіналу: **ru**', en: 'Hides original language: **ru**' },
+            ru_lang_desc: { uk: 'Приховує картки з мовою оригіналу: <b>ru</b>', en: 'Hides cards with original language: <b>ru</b>' },
             asian_lang: { uk: 'Приховати азійський контент', en: 'Hide Asian content' },
-            asian_lang_desc: { uk: 'Приховує картки з мовами: **ja**, **ko**, **zh**', en: 'Hides languages: **ja**, **ko**, **zh**' },
+            asian_lang_desc: { uk: 'Приховує картки з мовами оригіналу: <b>ja</b>, <b>ko</b>, <b>zh</b>', en: 'Hides cards with original languages: <b>ja</b>, <b>ko</b>, <b>zh</b>' },
             indian_lang: { uk: 'Приховати індійський контент', en: 'Hide Indian content' },
-            indian_lang_desc: { uk: 'Приховує картки з мовою оригіналу: **hi**', en: 'Hides original language: **hi**' },
+            indian_lang_desc: { uk: 'Приховує картки з мовою оригіналу: <b>hi</b>', en: 'Hides cards with original language: <b>hi</b>' },
             turkish_lang: { uk: 'Приховати турецький контент', en: 'Hide Turkish content' },
-            turkish_lang_desc: { uk: 'Приховує картки з мовою оригіналу: **tr**', en: 'Hides original language: **tr**' },
+            turkish_lang_desc: { uk: 'Приховує картки з мовою оригіналу: <b>tr</b>', en: 'Hides cards with original language: <b>tr</b>' },
             arabic_lang: { uk: 'Приховати арабський контент', en: 'Hide Arabic content' },
-            arabic_lang_desc: { uk: 'Приховує картки з мовою оригіналу: **ar**', en: 'Hides original language: **ar**' },
+            arabic_lang_desc: { uk: 'Приховує картки з мовою оригіналу: <b>ar</b>', en: 'Hides cards with original language: <b>ar</b>' },
             other_langs: { uk: 'Інші мови', en: 'Other languages' },
-            other_langs_desc: { uk: 'Впишіть коди мов через кому', en: 'Enter language codes separated by comma' },
+            other_langs_desc: { uk: 'Впишіть коди мов через кому для приховування відповідного контенту', en: 'Enter language codes separated by comma to hide relevant content' },
             low_rating: { uk: 'Приховати низький рейтинг', en: 'Hide low rating' },
             low_rating_desc: { uk: 'Приховує контент за рейтингом TMDb', en: 'Hides content by TMDb rating' },
             hide_watched: { uk: 'Приховати переглянуте', en: 'Hide watched' },
             hide_watched_desc: { uk: 'Приховує переглянуті фільми та серіали', en: 'Hides watched movies and TV shows' },
             word_filter: { uk: 'Приховування за словами', en: 'Hiding by words' },
-            word_filter_desc: { uk: 'Приховує фільми та серіали за словами у назві', en: 'Hides movies and TV shows by words in title' },
+            word_filter_desc: { uk: 'Приховує фільми та серіали, у назві яких є певні слова чи фрази', en: 'Hides movies and TV shows that have certain words or phrases in the title' },
             blacklist_title: { uk: 'Чорний список', en: 'Blacklist' },
-            blacklist_desc: { uk: 'Керування прихованим контентом', en: 'Manage hidden content' },
+            blacklist_desc: { uk: 'Керування контентом, що був прихований вручну через меню «Дії»', en: 'Manage content hidden manually via the "Actions" menu' },
             content_filter_hide_item: { uk: 'Приховати цей контент', en: 'Hide this content' },
             content_filter_added_to_blacklist: { uk: 'Додано в чорний список', en: 'Added to blacklist' },
             rating_none: { uk: 'Ні', en: 'None' }
@@ -141,31 +142,44 @@
     }
 
     function addSettings() {
-        // Кнопка в меню "Інтерфейс"
+        // Реєстрація компонента (щоб не було "Template not found")
+        Lampa.SettingsApi.addComponent({
+            component: 'content_filters',
+            name: Lampa.Lang.translate('content_filters')
+        });
+
+        // Додаємо кнопку до розділу "Інтерфейс"
         Lampa.SettingsApi.addParam({
             component: 'interface',
             param: { name: 'content_filters_btn', type: 'static' },
             field: { name: Lampa.Lang.translate('content_filters'), description: Lampa.Lang.translate('content_filters_desc') },
             onRender: function (el) {
-                // Безпечно переносимо кнопку нагору (на друге місце)
-                setTimeout(function () {
-                    var firstItem = el.parent().children().eq(0);
-                    if (firstItem.length && el[0] !== firstItem[0]) {
-                        el.insertAfter(firstItem);
-                    }
-                }, 50);
-
                 el.on('hover:enter', function () {
                     Lampa.Settings.create('content_filters');
                     var controller = Lampa.Controller.enabled().controller;
-                    if (controller) {
-                        controller.back = function () { Lampa.Settings.create('interface'); };
-                    }
+                    if (controller) controller.back = function () { Lampa.Settings.create('interface'); };
                 });
             }
         });
 
-        // Налаштування самого плагіна
+        // СИНХРОННЕ ПЕРЕМІЩЕННЯ: Ховаємо з головного меню і ставимо четвертим в Інтерфейсі
+        Lampa.Settings.listener.follow('open', function (e) {
+            if (e.name === 'main') {
+                e.render.find('[data-component="content_filters"]').addClass('hide');
+            } else if (e.name === 'interface') {
+                // Знаходимо нашу кнопку за назвою
+                var title = Lampa.Lang.translate('content_filters');
+                var myBtn = e.render.find('.settings-param:contains("' + title + '")').closest('.settings-param');
+                var allParams = e.render.find('.settings-param');
+                
+                // Ставимо після 3-го елемента (тобто робимо 4-м)
+                if (myBtn.length && allParams.length >= 3 && myBtn[0] !== allParams[3]) {
+                    myBtn.insertAfter(allParams.eq(2));
+                }
+            }
+        });
+
+        // ПУНКТИ САМОГО ПЛАГІНА
         var params = [
             { id: 'ru_lang', name: 'ru_lang_enabled' },
             { id: 'asian_lang', name: 'asian_lang_enabled' },
@@ -249,10 +263,10 @@
     }
 
     function initPlugin() {
-        if (window.content_filter_final_fixed) return;
-        window.content_filter_final_fixed = true;
+        if (window.content_filter_v18_final) return;
+        window.content_filter_v18_final = true;
 
-        // ВАЖЛИВО: Реєстрація шаблону для меню налаштувань (вирішує "Template not found")
+        // ВАЖЛИВО: Реєстрація шаблону для нашого вікна налаштувань (Вирішує "Template not found")
         if (!Lampa.Template.get('settings_content_filters', true)) {
             Lampa.Template.add('settings_content_filters', '<div><div class="settings-folder scroll"></div></div>');
         }
