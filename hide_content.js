@@ -1,4 +1,4 @@
-/* Created by Elven (1|1) - Core Architecture Perfected */
+/* Created by Elven (1|1) - 100% Native Safe Version */
 (function () {
     'use strict';
 
@@ -34,32 +34,37 @@
 
     var filterProcessor = {
         apply: function (items) {
-            var results = Lampa.Arrays.clone(items);
-            return results.filter(function (item) {
+            if (!Array.isArray(items)) return items;
+            return items.filter(function (item) {
                 var data = getMediaData(item);
                 if (!data) return true;
 
+                // 1. Чорний список
                 var id = data.id || data.tmdb_id;
                 if (settings.blacklist.some(function(b) { return b.id == id; })) return false;
 
                 var lang = (data.original_language || '').toLowerCase();
 
+                // 2. Мовні фільтри
                 if (settings.ru_lang_enabled && lang === 'ru') return false;
                 if (settings.asian_lang_enabled && ['ja', 'ko', 'zh'].indexOf(lang) !== -1) return false;
                 if (settings.indian_lang_enabled && ['hi', 'te', 'ta', 'kn', 'ml'].indexOf(lang) !== -1) return false;
                 if (settings.turkish_lang_enabled && lang === 'tr') return false;
                 if (settings.arabic_lang_enabled && lang === 'ar') return false;
 
+                // 3. Інші мови
                 if (settings.other_languages) {
                     var other = settings.other_languages.split(',').map(function(s){ return s.trim().toLowerCase(); });
                     if (other.indexOf(lang) !== -1) return false;
                 }
 
+                // 4. Рейтинг
                 if (settings.rating_limit > 0) {
                     var vote = parseFloat(data.vote_average || 0);
                     if (vote < settings.rating_limit) return false;
                 }
 
+                // 5. Переглянуте
                 if (settings.hide_watched) {
                     var cardStatus = Lampa.Favorite.check(data);
                     if (cardStatus) {
@@ -70,6 +75,7 @@
                     }
                 }
 
+                // 6. Слова
                 if (settings.keyword_filter) {
                     var words = settings.keyword_filter.split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
                     var title = (data.title || data.name || data.original_title || data.original_name || '').toLowerCase();
@@ -80,7 +86,6 @@
             });
         }
     };
-
     function addContextMenu() {
         var menuHandler = function (e) {
             if (e.type === 'contextmenu' && e.menu && e.object) {
@@ -139,49 +144,41 @@
     }
 
     function addSettings() {
-        // Гарантована реєстрація шаблону і компонента
+        // Обов'язкова реєстрація шаблону для нашого вікна (без цього буде "Template not found")
         if (!Lampa.Template.get('settings_content_filters', true)) {
             Lampa.Template.add('settings_content_filters', '<div><div class="settings-folder scroll"></div></div>');
         }
+
+        // Реєструємо сам компонент у системі Lampa
         Lampa.SettingsApi.addComponent({
             component: 'content_filters',
             name: Lampa.Lang.translate('content_filters')
         });
 
-        // 100% СИНХРОННЕ І БЕЗПЕЧНЕ ВТРУЧАННЯ В МЕНЮ
+        // Тихо ховаємо його з головного списку (щоб не дублювався), безпечно
         Lampa.Settings.listener.follow('open', function (e) {
-            // Вирізаємо з Головного меню
             if (e.name === 'main') {
-                e.render.find('[data-component="content_filters"]').remove();
-            }
-            
-            // Вставляємо в Інтерфейс (Синхронно, без таймерів)
-            if (e.name === 'interface') {
-                if (e.render.find('.content-filters-trigger').length === 0) {
-                    var btnHTML = '<div class="settings-param selector content-filters-trigger" data-static="true">' +
-                                  '<div class="settings-param__name" title="' + Lampa.Lang.translate('content_filters') + '">' + Lampa.Lang.translate('content_filters') + '</div>' +
-                                  '<div class="settings-param__descr">' + Lampa.Lang.translate('content_filters_desc') + '</div>' +
-                                  '</div>';
-                    var btn = $(btnHTML);
-                    
-                    btn.on('hover:enter', function () {
-                        Lampa.Settings.create('content_filters');
-                        var controller = Lampa.Controller.enabled().controller;
-                        if (controller) controller.back = function () { Lampa.Settings.create('interface'); };
-                    });
-
-                    // Ставимо рівно 4-м пунктом (індекс 2, бо рахунок з нуля: 0, 1, 2... і після нього)
-                    var items = e.render.find('.settings-param');
-                    if (items.length >= 3) {
-                        btn.insertAfter(items.eq(2));
-                    } else {
-                        e.render.find('.settings-folder').append(btn);
-                    }
-                }
+                e.render.find('[data-component="content_filters"]').hide();
             }
         });
 
-        // Наповнюємо наше власне меню налаштувань
+        // Нативно додаємо кнопку переходу в розділ "Інтерфейс". Вона автоматично стане в самий низ.
+        Lampa.SettingsApi.addParam({
+            component: 'interface',
+            param: { name: 'content_filters_btn', type: 'static' },
+            field: { name: Lampa.Lang.translate('content_filters'), description: Lampa.Lang.translate('content_filters_desc') },
+            onRender: function (el) {
+                el.on('hover:enter', function () {
+                    Lampa.Settings.create('content_filters');
+                    var controller = Lampa.Controller.enabled().controller;
+                    if (controller) {
+                        controller.back = function () { Lampa.Settings.create('interface'); };
+                    }
+                });
+            }
+        });
+
+        // --- Далі йде наповнення нашого меню налаштувань ---
         var params = [
             { id: 'ru_lang', name: 'ru_lang_enabled' },
             { id: 'asian_lang', name: 'asian_lang_enabled' },
@@ -269,8 +266,8 @@
     }
 
     function initPlugin() {
-        if (window.content_filter_absolute_final) return;
-        window.content_filter_absolute_final = true;
+        if (window.content_filter_native_end) return;
+        window.content_filter_native_end = true;
 
         var keys = ['ru_lang_enabled', 'asian_lang_enabled', 'indian_lang_enabled', 'turkish_lang_enabled', 'arabic_lang_enabled', 'other_languages', 'rating_limit', 'hide_watched', 'keyword_filter'];
         keys.forEach(function(k) { settings[k] = Lampa.Storage.get(k, settings[k]); });
@@ -281,14 +278,16 @@
         addSettings();
         addContextMenu();
 
+        // 100% безпечна фільтрація без втручання в DOM
         Lampa.Listener.follow('request_secuses', function (e) {
-            if (!e.data || !Array.isArray(e.data.results)) return;
-            var urlStr = typeof (e.url || (e.data && e.data.url)) === 'string' ? (e.url || (e.data && e.data.url)).toLowerCase() : '';
-            if (urlStr.indexOf('extension') !== -1 || urlStr.indexOf('plugin') !== -1 || urlStr.indexOf('store') !== -1) return;
-            
-            if (e.data.results.length > 0) {
-                e.data.original_length = e.data.results.length;
-                e.data.results = filterProcessor.apply(e.data.results);
+            if (e.data && Array.isArray(e.data.results)) {
+                var urlStr = typeof (e.url || (e.data && e.data.url)) === 'string' ? (e.url || (e.data && e.data.url)).toLowerCase() : '';
+                if (urlStr.indexOf('extension') !== -1 || urlStr.indexOf('plugin') !== -1 || urlStr.indexOf('store') !== -1) return;
+                
+                if (e.data.results.length > 0) {
+                    e.data.original_length = e.data.results.length;
+                    e.data.results = filterProcessor.apply(e.data.results);
+                }
             }
         });
     }
