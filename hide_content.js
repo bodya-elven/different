@@ -61,7 +61,8 @@
                 var focusEl = active.activity.render().find('.focus');
                 if (focusEl.length) {
                     focusEl.css('display', 'none');
-                    Lampa.Controller.toggle('content'); // Перекидаємо фокус на наступну картку
+                    var next = focusEl.next('.item');
+                    if (next.length) Lampa.Controller.toggle('content'); 
                 }
             }
         }
@@ -442,6 +443,42 @@
         for (var key in settings) settings[key] = Lampa.Storage.get(key, settings[key]);
     }
 
+    // Правильний і офіційний метод Lampa для додавання у меню "Дії"
+    function registerContextMenu() {
+        if (!Lampa.Manifest) Lampa.Manifest = {};
+        if (!Lampa.Manifest.plugins) Lampa.Manifest.plugins = [];
+
+        var exists = Array.isArray(Lampa.Manifest.plugins) && Lampa.Manifest.plugins.some(function(p) { return p.name === 'content_hiding_blacklist'; });
+        if (exists) return;
+
+        var contextPlugin = {
+            type: 'video',
+            name: 'content_hiding_blacklist',
+            onContextMenu: function (card) {
+                if (card && card.id && isMediaContent(card)) {
+                    var blacklist = Lampa.Storage.get('content_blacklist', []);
+                    var inList = blacklist.some(function(i) { return i.id === card.id; });
+                    // Lampa очікує повернення об'єкта З КЛЮЧЕМ name (саме цей текст іде у кнопку Дії)
+                    return {
+                        name: inList ? Lampa.Lang.translate('blacklist_remove') : Lampa.Lang.translate('blacklist_add')
+                    };
+                }
+            },
+            onContextLauch: function (card) { // Lauch написано правильно, це помилка в ядрі Lampa
+                if (card && card.id) {
+                    toggleBlacklist(card);
+                }
+            }
+        };
+
+        // Деякі версії Lampa дозволяють push, деякі перепризначають об'єкт
+        if (Array.isArray(Lampa.Manifest.plugins)) {
+            Lampa.Manifest.plugins.push(contextPlugin);
+        } else {
+            Lampa.Manifest.plugins = [contextPlugin];
+        }
+    }
+
     function initPlugin() {
         if (window.content_hiding_plugin) return;
         window.content_hiding_plugin = true;
@@ -449,21 +486,7 @@
         loadSettings();
         addTranslations();
         addSettings();
-
-        // Офіційний і правильний метод інтеграції у контекстне меню (Дії)
-        Lampa.Listener.follow('contextmenu', function (e) {
-            if (e.type === 'card' && e.data && e.items && isMediaContent(e.data)) {
-                var blacklist = Lampa.Storage.get('content_blacklist', []);
-                var inList = blacklist.some(function(i) { return i.id === e.data.id; });
-                
-                e.items.push({
-                    title: inList ? Lampa.Lang.translate('blacklist_remove') : Lampa.Lang.translate('blacklist_add'),
-                    onSelect: function() {
-                        toggleBlacklist(e.data);
-                    }
-                });
-            }
-        });
+        registerContextMenu(); // Запускаємо створення меню 
 
         Lampa.Listener.follow('line', function (e) {
             if (e.type !== 'visible' || !needMoreButton(e.data)) return;
