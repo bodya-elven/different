@@ -15,6 +15,9 @@
         filter_words: ''
     };
 
+    var autoLoadCount = 0;
+    var lastRequestUrl = '';
+
     // Функція перевірки, чи є елемент медіа-контентом
     function isMediaContent(item) {
         if (!item) return false;
@@ -41,8 +44,8 @@
             function (items) {
                 var langsToHide = [];
                 if (settings.filter_ru) langsToHide.push('ru');
-                if (settings.filter_asian) langsToHide.push('ja', 'ko', 'zh');
-                if (settings.filter_in) langsToHide.push('hi');
+                if (settings.filter_asian) langsToHide.push('ja', 'ko', 'zh', 'th', 'id');
+                if (settings.filter_in) langsToHide.push('hi', 'te', 'ta', 'ml', 'kn');
                 if (settings.filter_tr) langsToHide.push('tr');
                 if (settings.filter_ar) langsToHide.push('ar');
                 
@@ -184,6 +187,21 @@
         return true;
     }
 
+    function needMoreButton(data) {
+        if (!data || !Array.isArray(data.results)) return false;
+        var orig = data.original_length || 0;
+        return orig > data.results.length && data.page === 1 && data.total_pages > 1;
+    }
+
+    function closest(el, selector) {
+        if (el && el.closest) return el.closest(selector);
+        while (el && el !== document) {
+            if (el.matches && el.matches(selector)) return el;
+            el = el.parentElement || el.parentNode;
+        }
+        return null;
+    }
+
     function addTranslations() {
         Lampa.Lang.add({
             content_hiding: { uk: 'Приховування контенту', en: 'Hide Content' },
@@ -191,23 +209,24 @@
             filter_ru: { uk: 'Приховати російський контент', en: 'Hide Russian content' },
             filter_ru_desc: { uk: 'Приховує картки з мовою оригіналу: ru', en: 'Hides cards with original language: ru' },
             filter_asian: { uk: 'Приховати азійський контент', en: 'Hide Asian content' },
-            filter_asian_desc: { uk: 'Приховує картки з мовами оригіналу: ja, ko, zh', en: 'Hides cards with original languages: ja, ko, zh' },
+            filter_asian_desc: { uk: 'Приховує картки з мовами оригіналу: ja, ko, zh, th, id', en: 'Hides cards with original languages: ja, ko, zh, th, id' },
             filter_in: { uk: 'Приховати індійський контент', en: 'Hide Indian content' },
-            filter_in_desc: { uk: 'Приховує картки з мовою оригіналу: hi', en: 'Hides cards with original language: hi' },
+            filter_in_desc: { uk: 'Приховує картки з мовами оригіналу: hi, te, ta, ml, kn', en: 'Hides cards with original languages: hi, te, ta, ml, kn' },
             filter_tr: { uk: 'Приховати турецький контент', en: 'Hide Turkish content' },
             filter_tr_desc: { uk: 'Приховує картки з мовою оригіналу: tr', en: 'Hides cards with original language: tr' },
             filter_ar: { uk: 'Приховати арабський контент', en: 'Hide Arabic content' },
             filter_ar_desc: { uk: 'Приховує картки з мовою оригіналу: ar', en: 'Hides cards with original language: ar' },
             filter_custom_langs: { uk: 'Інші мови', en: 'Other languages' },
-            filter_custom_langs_desc: { uk: 'Впишіть коди мов через кому (наприклад: fr, de, it)', en: 'Enter language codes separated by commas (e.g.: fr, de, it)' },
+            filter_custom_langs_desc: { uk: 'Впишіть коди мов через кому', en: 'Enter language codes separated by commas' },
             filter_rating: { uk: 'Приховати низький рейтинг', en: 'Hide low rating' },
             filter_rating_desc: { uk: 'Приховує контент за рейтингом TMDb', en: 'Hides content based on TMDb rating' },
             filter_rating_none: { uk: 'Ні', en: 'No' },
             filter_history: { uk: 'Приховати переглянуте', en: 'Hide watched' },
             filter_history_desc: { uk: 'Приховує фільми та серіали, які ви вже повністю подивилися', en: 'Hides movies and TV series that you have already fully watched' },
-            filter_words: { uk: 'Фільтр слів у назві', en: 'Title word filter' },
-            filter_words_desc: { uk: 'Приховує картки, що містять ці слова (через кому)', en: 'Hides cards containing these words (comma separated)' },
-            more: { uk: 'ще', en: 'more' }
+            filter_words: { uk: 'Приховати за словами в назві', en: 'Hide by words in title' },
+            filter_words_desc: { uk: 'Приховує картки, у назві яких є певні слова чи фрази (через кому)', en: 'Hides cards containing specific words or phrases in the title (comma separated)' },
+            more: { uk: 'ще', en: 'more' },
+            title_category: { uk: 'Категорія', en: 'Category' }
         });
     }
 
@@ -262,7 +281,6 @@
             });
         });
 
-        // ВИПРАВЛЕНО: Замість type: 'input' використовуємо type: 'static' з викликом клавіатури Lampa.Input.edit
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { name: 'filter_custom_langs', type: 'static', default: '' },
@@ -323,7 +341,6 @@
             }
         });
 
-        // ВИПРАВЛЕНО: Замість type: 'input' використовуємо type: 'static'
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { name: 'filter_words', type: 'static', default: '' },
@@ -362,6 +379,30 @@
         addTranslations();
         addSettings();
 
+        // Додаємо кнопку "ще", якщо в рядку приховано контент
+        Lampa.Listener.follow('line', function (e) {
+            if (e.type !== 'visible' || !needMoreButton(e.data)) return;
+            var head = $(closest(e.body, '.items-line')).find('.items-line__head');
+            if (head.find('.items-line__more').length) return;
+
+            var more = document.createElement('div');
+            more.classList.add('items-line__more', 'selector');
+            more.innerText = Lampa.Lang.translate('more');
+            more.addEventListener('hover:enter', function () {
+                Lampa.Activity.push({
+                    url: e.data.url,
+                    title: e.data.title || Lampa.Lang.translate('title_category'),
+                    component: 'category_full',
+                    page: 1,
+                    genres: e.params.genres,
+                    filter: e.data.filter,
+                    source: e.data.source || (e.params.object ? e.params.object.source : '')
+                });
+            });
+            head.append(more);
+        });
+
+        // Застосування фільтрів і автозавантаження сторінок
         Lampa.Listener.follow('request_secuses', function (e) {
             if (!e.data || !Array.isArray(e.data.results)) return;
             
@@ -379,8 +420,30 @@
             
             if (!hasMediaContent) return;
             
-            e.data.original_length = e.data.results.length;
+            var originalCount = e.data.results.length;
             e.data.results = filterProcessor.apply(e.data.results);
+            e.data.original_length = originalCount;
+
+            // Логіка автозавантаження для категорій (category_full)
+            var currentUrlBase = urlStr.split('&page=')[0];
+            if (currentUrlBase !== lastRequestUrl) {
+                autoLoadCount = 0; // Скидаємо лічильник при зміні запиту
+                lastRequestUrl = currentUrlBase;
+            }
+
+            if (e.data.results.length < 10 && e.data.page && e.data.total_pages && e.data.page < e.data.total_pages) {
+                if (autoLoadCount < 3) {
+                    autoLoadCount++;
+                    setTimeout(function() {
+                        var activeActivity = Lampa.Activity.active();
+                        if (activeActivity && activeActivity.component === 'category_full' && activeActivity.activity && typeof activeActivity.activity.append === 'function') {
+                            activeActivity.activity.append();
+                        }
+                    }, 400); // Невелика затримка для плавного підвантаження
+                } else {
+                    autoLoadCount = 0; // Скидаємо лічильник після досягнення ліміту (3 сторінки)
+                }
+            }
         });
     }
 
