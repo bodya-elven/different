@@ -18,7 +18,7 @@
     var autoLoadCount = 0;
     var lastRequestUrl = '';
 
-    // Функція перевірки, чи є елемент медіа-контентом
+    // Перевірка, чи є елемент медіа-контентом
     function isMediaContent(item) {
         if (!item) return false;
         if (item.type && typeof item.type === 'string') {
@@ -34,7 +34,7 @@
         return true;
     }
 
-    // Керування Чорним списком
+    // Керування списком прихованих елементів
     function toggleBlacklist(cardData) {
         var blacklist = Lampa.Storage.get('content_blacklist', []);
         var isBlocked = false;
@@ -49,13 +49,12 @@
         
         if (isBlocked) {
             Lampa.Storage.set('content_blacklist', newList);
-            Lampa.Noty.show(Lampa.Lang.translate('blacklist_removed') + ': ' + title);
+            Lampa.Noty.show('"' + title + '" ' + Lampa.Lang.translate('blacklist_removed_suffix'));
         } else {
             newList.push({ id: cardData.id, title: title });
             Lampa.Storage.set('content_blacklist', newList);
-            Lampa.Noty.show(Lampa.Lang.translate('blacklist_added') + ': ' + title);
+            Lampa.Noty.show('"' + title + '" ' + Lampa.Lang.translate('blacklist_added_suffix'));
             
-            // Миттєво приховуємо картку з екрана
             var active = Lampa.Activity.active();
             if (active && active.activity && active.activity.render) {
                 var focusEl = active.activity.render().find('.focus');
@@ -68,10 +67,9 @@
         }
     }
 
-    // Процесор приховування (фільтрів)
+    // Процесор приховування
     var hideProcessor = {
         filters: [
-            // Чорний список
             function (items) {
                 var blacklist = Lampa.Storage.get('content_blacklist', []);
                 if (blacklist.length === 0) return items;
@@ -83,8 +81,6 @@
                     return true;
                 });
             },
-
-            // Мови
             function (items) {
                 var langsToHide = [];
                 if (settings.hide_ru) langsToHide.push('ru');
@@ -104,8 +100,6 @@
                     return langsToHide.indexOf(item.original_language.toLowerCase()) === -1;
                 });
             },
-
-            // Рейтинг
             function (items) {
                 if (settings.hide_rating === 'none') return items;
                 var limit = parseFloat(settings.hide_rating);
@@ -121,8 +115,6 @@
                     return item.vote_average >= limit;
                 });
             },
-
-            // Переглянуте
             function (items) {
                 if (!settings.hide_history) return items;
 
@@ -150,8 +142,6 @@
                     return !isSeriesFullyWatched(title, allWatchedEpisodes);
                 });
             },
-
-            // Слова в назві
             function (items) {
                 var words = (settings.hide_words || '').split(',').map(function(s) { return s.trim().toLowerCase(); }).filter(function(s) { return s; });
                 if (words.length === 0) return items;
@@ -167,7 +157,6 @@
                 });
             }
         ],
-
         apply: function (data) {
             var results = Lampa.Arrays.clone(data);
             for (var i = 0; i < this.filters.length; i++) {
@@ -177,6 +166,7 @@
         }
     };
 
+    // Допоміжні функції для історії переглядів
     function getWatchedEpisodesFromFavorite(id, favoriteData) {
         var card = (favoriteData.card || []).find(function (c) { return c.id === id && Array.isArray(c.seasons) && c.seasons.length > 0; });
         if (!card) return [];
@@ -230,6 +220,7 @@
         return null;
     }
 
+    // Словник локалізації
     function addTranslations() {
         Lampa.Lang.add({
             content_hiding: { uk: 'Приховування контенту', en: 'Hide Content' },
@@ -254,21 +245,19 @@
             hide_words: { uk: 'Приховати за словами в назві', en: 'Hide by words in title' },
             hide_words_desc: { uk: 'Приховує картки, у назві яких є певні слова чи фрази (через кому)', en: 'Hides cards containing specific words or phrases in the title (comma separated)' },
             blacklist_manage: { uk: 'Чорний список', en: 'Blacklist' },
-            blacklist_manage_desc: { uk: 'Список прихованих фільмів та серіалів', en: 'List of hidden movies and series' },
             blacklist_count: { uk: 'Заблоковано карток', en: 'Blocked cards' },
             blacklist_empty: { uk: 'Чорний список порожній', en: 'Blacklist is empty' },
-            blacklist_remove_action: { uk: 'Натисніть, щоб видалити', en: 'Press to remove' },
+            blacklist_remove_action: { uk: 'Натисніть на назву, щоб видалити з чорного списку', en: 'Click on the title to remove from blacklist' },
             blacklist_clear_all: { uk: '[ Очистити весь список ]', en: '[ Clear all list ]' },
-            blacklist_add: { uk: 'Додати в чорний список', en: 'Add to blacklist' },
+            blacklist_add: { uk: 'Додати до чорного списку', en: 'Add to blacklist' },
             blacklist_remove: { uk: 'Видалити з чорного списку', en: 'Remove from blacklist' },
-            blacklist_added: { uk: 'Додано в чорний список', en: 'Added to blacklist' },
-            blacklist_removed: { uk: 'Видалено з чорного списку', en: 'Removed from blacklist' },
+            blacklist_added_suffix: { uk: 'додано до чорного списку', en: 'added to blacklist' },
+            blacklist_removed_suffix: { uk: 'видалено з чорного списку', en: 'removed from blacklist' },
             more: { uk: 'ще', en: 'more' },
             title_category: { uk: 'Категорія', en: 'Category' }
         });
     }
-
-    // Візуальне відображення введеного тексту справа (як на 1 скриншоті)
+    // Оновлення текстового значення в налаштуваннях
     function updateSettingsValue(el, value) {
         var valEl = el.find('.settings-param__value');
         if (!valEl.length) {
@@ -278,6 +267,7 @@
         valEl.text(value || '');
     }
 
+    // Меню налаштувань плагіна
     function addSettings() {
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name === 'main') {
@@ -306,7 +296,6 @@
             }
         });
 
-        // Перемикачі мов
         ['ru', 'asian', 'in', 'tr', 'ar'].forEach(function (langKey) {
             Lampa.SettingsApi.addParam({
                 component: 'content_hiding',
@@ -319,7 +308,6 @@
             });
         });
 
-        // Поле: Інші мови
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { name: 'hide_custom_langs', type: 'static', default: '' },
@@ -341,7 +329,6 @@
             }
         });
 
-        // Випадаючий список: Рейтинг
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { 
@@ -357,7 +344,6 @@
             }
         });
 
-        // Перемикач: Історія
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { name: 'hide_history', type: 'trigger', default: false },
@@ -368,7 +354,6 @@
             }
         });
 
-        // Поле: Слова в назві
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { name: 'hide_words', type: 'static', default: '' },
@@ -390,7 +375,7 @@
             }
         });
 
-        // Менеджер Чорного списку
+        // Інтерфейс Чорного списку
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { name: 'hide_blacklist_manage', type: 'static' },
@@ -409,7 +394,7 @@
                         return;
                     }
                     var items = list.map(function(item) {
-                        return { title: item.title, subtitle: Lampa.Lang.translate('blacklist_remove_action'), itemData: item };
+                        return { title: item.title, itemData: item };
                     });
                     items.push({
                         title: Lampa.Lang.translate('blacklist_clear_all'),
@@ -420,14 +405,16 @@
                         }
                     });
                     
+                    var menuTitle = Lampa.Lang.translate('blacklist_manage') + '<br><span style="font-size: 0.8em; opacity: 0.6;">' + Lampa.Lang.translate('blacklist_remove_action') + '</span>';
+                    
                     Lampa.Select.show({
-                        title: Lampa.Lang.translate('blacklist_manage'),
+                        title: menuTitle,
                         items: items,
                         onSelect: function(selected) {
                             if (selected.itemData) {
                                 var newList = Lampa.Storage.get('content_blacklist', []).filter(function(i) { return i.id !== selected.itemData.id; });
                                 Lampa.Storage.set('content_blacklist', newList);
-                                Lampa.Noty.show(Lampa.Lang.translate('blacklist_removed') + ': ' + selected.itemData.title);
+                                Lampa.Noty.show('"' + selected.itemData.title + '" ' + Lampa.Lang.translate('blacklist_removed_suffix'));
                                 updateCount();
                                 Lampa.Controller.toggle('settings_component');
                             }
@@ -443,7 +430,7 @@
         for (var key in settings) settings[key] = Lampa.Storage.get(key, settings[key]);
     }
 
-    // Правильний і офіційний метод Lampa для додавання у меню "Дії"
+    // Реєстрація пункту в контекстному меню картки
     function registerContextMenu() {
         if (!Lampa.Manifest) Lampa.Manifest = {};
         if (!Lampa.Manifest.plugins) Lampa.Manifest.plugins = [];
@@ -453,25 +440,23 @@
 
         var contextPlugin = {
             type: 'video',
-            name: 'content_hiding_blacklist',
+            name: 'content_hiding_blacklist', 
             onContextMenu: function (card) {
                 if (card && card.id && isMediaContent(card)) {
                     var blacklist = Lampa.Storage.get('content_blacklist', []);
                     var inList = blacklist.some(function(i) { return i.id === card.id; });
-                    // Lampa очікує повернення об'єкта З КЛЮЧЕМ name (саме цей текст іде у кнопку Дії)
                     return {
                         name: inList ? Lampa.Lang.translate('blacklist_remove') : Lampa.Lang.translate('blacklist_add')
                     };
                 }
             },
-            onContextLauch: function (card) { // Lauch написано правильно, це помилка в ядрі Lampa
+            onContextLauch: function (card) { 
                 if (card && card.id) {
                     toggleBlacklist(card);
                 }
             }
         };
 
-        // Деякі версії Lampa дозволяють push, деякі перепризначають об'єкт
         if (Array.isArray(Lampa.Manifest.plugins)) {
             Lampa.Manifest.plugins.push(contextPlugin);
         } else {
@@ -479,6 +464,7 @@
         }
     }
 
+    // Ініціалізація
     function initPlugin() {
         if (window.content_hiding_plugin) return;
         window.content_hiding_plugin = true;
@@ -486,7 +472,7 @@
         loadSettings();
         addTranslations();
         addSettings();
-        registerContextMenu(); // Запускаємо створення меню 
+        registerContextMenu(); 
 
         Lampa.Listener.follow('line', function (e) {
             if (e.type !== 'visible' || !needMoreButton(e.data)) return;
@@ -505,6 +491,7 @@
             head.append(more);
         });
 
+        // Застосування фільтрів та автозавантаження сторінок
         Lampa.Listener.follow('request_secuses', function (e) {
             if (!e.data || !Array.isArray(e.data.results)) return;
             var urlStr = (e.url || (e.data && e.data.url) || '').toLowerCase();
@@ -542,6 +529,7 @@
         });
     }
 
+    // Запуск плагіна
     if (window.appready) initPlugin();
     else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') initPlugin(); });
 })();
