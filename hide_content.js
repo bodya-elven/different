@@ -251,16 +251,15 @@
             hide_rating_desc: { uk: 'Приховує контент за рейтингом TMDb', en: 'Hides content based on TMDb rating' },
             hide_rating_none: { uk: 'Ні', en: 'No' },
             hide_history: { uk: 'Приховати переглянуте', en: 'Hide watched' },
-            hide_history_desc: { uk: 'Приховує фільми та серіали, які ви вже повністю подивилися', en: 'Hides movies and TV series that you have already fully watched' },
+            hide_history_desc: { uk: 'Приховує фільми та серіали, які є в історії перегляду.', en: 'Hides movies and TV series that are in the viewing history.' },
             hide_words: { uk: 'Приховати за словами в назві', en: 'Hide by words in title' },
             hide_words_desc: { uk: 'Приховує картки, у назві яких є певні слова чи фрази (через кому)', en: 'Hides cards containing specific words or phrases in the title (comma separated)' },
+            blacklist_context: { uk: 'Чорний список', en: 'Blacklist' },
             blacklist_manage: { uk: 'Чорний список', en: 'Blacklist' },
             blacklist_count: { uk: 'Заблоковано карток', en: 'Blocked cards' },
             blacklist_empty: { uk: 'Чорний список порожній', en: 'Blacklist is empty' },
             blacklist_remove_action: { uk: 'Натисніть на назву нижче, щоб видалити з чорного списку', en: 'Click on the title below to remove from blacklist' },
             blacklist_clear_all: { uk: 'Очистити весь список', en: 'Clear all list' },
-            blacklist_add: { uk: 'Додати до чорного списку', en: 'Add to blacklist' },
-            blacklist_remove: { uk: 'Видалити з чорного списку', en: 'Remove from blacklist' },
             blacklist_added_suffix: { uk: 'додано до чорного списку', en: 'added to blacklist' },
             blacklist_removed_suffix: { uk: 'видалено з чорного списку', en: 'removed from blacklist' },
             more: { uk: 'ще', en: 'more' },
@@ -429,7 +428,7 @@
                                 Lampa.Storage.set('content_blacklist', newList);
                                 Lampa.Noty.show('"' + selected.itemData.title + '" ' + Lampa.Lang.translate('blacklist_removed_suffix'));
                                 updateCount();
-                                showManager(); // Рекурсивний виклик для миттєвого оновлення
+                                showManager(); // Рекурсивний виклик
                             }
                         },
                         onBack: function() { Lampa.Controller.toggle('settings_component'); }
@@ -450,24 +449,18 @@
         if (!Lampa.Manifest) Lampa.Manifest = {};
         if (!Lampa.Manifest.plugins) Lampa.Manifest.plugins = [];
 
+        var pluginName = Lampa.Lang.translate('blacklist_context') || 'Чорний список';
         var exists = Array.isArray(Lampa.Manifest.plugins) && Lampa.Manifest.plugins.some(function(p) { return p.component === 'content_hiding_context'; });
         if (exists) return;
 
         var contextPlugin = {
             type: 'video',
-            name: Lampa.Lang.translate('blacklist_add') || 'Додати до чорного списку',
+            name: pluginName,
             component: 'content_hiding_context',
             onContextMenu: function (card) {
                 if (card && card.id && isMediaContent(card)) {
-                    var blacklist = Lampa.Storage.get('content_blacklist', []);
-                    var inList = blacklist.some(function(i) { return i.id === card.id; });
-                    
-                    // Динамічно змінюємо назву кнопки перед відображенням
-                    var currentName = inList ? Lampa.Lang.translate('blacklist_remove') : Lampa.Lang.translate('blacklist_add');
-                    this.name = currentName;
-
                     return {
-                        name: currentName
+                        name: pluginName
                     };
                 }
             },
