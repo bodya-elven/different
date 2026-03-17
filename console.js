@@ -9,7 +9,7 @@
     var uiReady = false;
     var counts = { logs: 0, errors: 0, network: 0 };
     var startTime = performance.now();
-    var prev_controller = 'content'; // Змінна для збереження історії Лампи
+    var prev_controller = 'content'; // Зберігаємо попередній контролер
 
     function escapeHtml(unsafe) {
         if (typeof unsafe !== 'string') return String(unsafe);
@@ -230,7 +230,6 @@
         if (uiReady) return;
 
         var css = `
-            /* Іконка 100% біла, жодних рамок при фокусі */
             .lmc-head-btn { color: #fff; opacity: 1; transition: all 0.2s; cursor: pointer; outline: none !important; }
             .lmc-head-btn.focus, .lmc-head-btn:hover { opacity: 1; outline: none !important; background: rgba(255,255,255,0.05); border-radius: 4px; }
 
@@ -252,8 +251,10 @@
             .lmc-content.active { display: flex; }
             .lmc-content.lmc-reversed { flex-direction: column-reverse; }
 
-            .lmc-action { padding: 5px 12px; background: #1e2126; border-radius: 4px; font-size: 11.5px; cursor: pointer; color: #ccc; text-transform: uppercase; font-weight: bold; }
-            .lmc-action.focus { background: #20c997; color: #000; outline: none; }
+            /* Стилізація хрестика для закриття */
+            #lampa-mob-console-close { padding: 2px 12px; font-size: 22px; line-height: 1; border-radius: 4px; cursor: pointer; color: #aaa; transition: color 0.2s; }
+            #lampa-mob-console-close:hover { color: #fff; }
+            #lampa-mob-console-close.focus { color: #fff; background: rgba(255,255,255,0.1); outline: none; }
             
             .lmc-row { font-size: 11.5px; margin-bottom: 0; padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.07); user-select: none; cursor: pointer; border-radius: 2px; }
             .lmc-row:hover { background: rgba(255,255,255,0.02); }
@@ -294,7 +295,7 @@
             <div id="lampa-mob-console-window">
                 <div id="lampa-mob-console-header">
                     <span style="font-weight:bold; font-size: 16px;">Console Tools</span>
-                    <div id="lampa-mob-console-close" class="lmc-action selector">Сховати</div>
+                    <div id="lampa-mob-console-close" class="selector" title="Закрити">×</div>
                 </div>
                 <div id="lmc-search-bar">
                     <input type="text" id="lmc-search-input" class="selector" placeholder="Пошук...">
@@ -327,7 +328,8 @@
         function injectHeaderBtn() {
             if ($('#lmc-head-btn-wrap').length) return; 
             
-            var iconSvg = '<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">' +
+            // stroke-width 1.6 для ідеальної товщини
+            var iconSvg = '<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">' +
                           '<path d="M3.5 4.5L6.5 7.5L3.5 10.5M8 10.5H12M1.5 1.5H13.5C14.0523 1.5 14.5 1.94772 14.5 2.5V12.5C14.5 13.0523 14.0523 13.5 13.5 13.5H1.5C0.947716 13.5 0.5 13.0523 0.5 12.5V2.5C0.5 1.94772 0.947715 1.5 1.5 1.5Z"/>' +
                           '</svg>';
             
@@ -344,31 +346,23 @@
         setInterval(injectHeaderBtn, 1000);
         injectHeaderBtn();
 
-        // Логіка закриття з правильним поверненням фокусу
-        function closeConsole(fromHistory) {
+        // Єдина функція закриття консолі
+        function closeConsole() {
             $('#lampa-mob-console-window').hide();
             
-            if (!fromHistory && window.history.state && window.history.state.lmc_open) {
-                window.history.back(); // Відкочуємо нашу модалку з історії браузера
-            }
-            
-            // Відновлення Lampa.Controller
+            // Відновлюємо контролер Лампи, який був активний ДО відкриття консолі
             if (window.Lampa && Lampa.Controller && prev_controller) {
                 Lampa.Controller.toggle(prev_controller);
             }
         }
 
         function openConsole() {
-            // Запам'ятовуємо, хто керував до нас (наприклад, full_start)
+            // Запам'ятовуємо, який контролер керує екраном зараз (щоб потім повернути йому фокус)
             if (window.Lampa && Lampa.Controller && Lampa.Controller.enabled()) {
                 prev_controller = Lampa.Controller.enabled().name;
             }
 
             $('#lampa-mob-console-window').css('display', 'flex');
-            
-            if (!window.history.state || !window.history.state.lmc_open) {
-                window.history.pushState({lmc_open: true}, "");
-            }
             
             if (window.Lampa && Lampa.Controller) {
                 if (!window.lmc_controller_added) {
@@ -381,39 +375,27 @@
                         left: function() { Lampa.Controller.collectionDirection('left', $('#lampa-mob-console-window .selector')); },
                         down: function() { Lampa.Controller.collectionDirection('down', $('#lampa-mob-console-window .selector')); },
                         up: function() { Lampa.Controller.collectionDirection('up', $('#lampa-mob-console-window .selector')); },
-                        back: function() { closeConsole(false); }
+                        // Коли Лампа отримує сигнал "Назад" (з пульта чи свайпу), вона викликає цю функцію
+                        back: function() { closeConsole(); }
                     });
                     window.lmc_controller_added = true;
                 }
+                // Передаємо керування нашому вікну
                 Lampa.Controller.toggle('lmc_console');
             }
         }
 
+        // Хрестик просто викликає загальну логіку закриття, як і кнопка Назад
         $('#lampa-mob-console-close').on('click', function () { 
-            closeConsole(false); 
+            closeConsole(); 
         });
 
-        // Свайп "Назад" на телефоні (popstate)
-        window.addEventListener('popstate', function(e) {
-            if ($('#lampa-mob-console-window').is(':visible')) {
-                e.stopImmediatePropagation();
-                e.preventDefault();
-                closeConsole(true); 
+        // Забороняємо Лампі йти назад, якщо ми зараз стираємо текст (Backspace)
+        $('#lmc-search-input').on('keydown', function(e) {
+            if (e.keyCode === 8) {
+                e.stopPropagation();
             }
-        }, false);
-
-        window.addEventListener('keydown', function(e) {
-            if ($('#lampa-mob-console-window').is(':visible')) {
-                if (e.keyCode === 8 && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
-                    return; 
-                }
-                if (e.keyCode === 27 || e.keyCode === 8 || e.keyCode === 10009 || e.keyCode === 461) {
-                    e.stopImmediatePropagation();
-                    e.preventDefault();
-                    closeConsole(false);
-                }
-            }
-        }, true);
+        });
         
         $(document).on('hover:enter', '.selector', function(e) {
             $(this).trigger('click');
