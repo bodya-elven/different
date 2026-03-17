@@ -2,6 +2,7 @@
 (function () {
     'use strict';
 
+    // Налаштування за замовчуванням
     var settings = {
         hide_ru: false,
         hide_asian: false,
@@ -14,14 +15,7 @@
         hide_words: ''
     };
 
-    var autoLoadCount = 0;
-
-    // Скидаємо лічильник при зміні сторінки (щоб автозавантаження не блокувалося)
-    Lampa.Listener.follow('activity', function(e){
-        if(e.type === 'start') autoLoadCount = 0;
-    });
-
-    // Отримання текстової назви контенту
+    // Отримання безпечної назви контенту
     function getSafeTitle(item) {
         if (!item) return 'Контент';
         var title = item.title || item.name || item.original_title || item.original_name || 'Контент';
@@ -47,7 +41,7 @@
         return true;
     }
 
-    // Керування чорним списком
+    // Додавання/Видалення з чорного списку
     function toggleBlacklist(cardData) {
         var blacklist = Lampa.Storage.get('content_blacklist', []);
         var isBlocked = false;
@@ -80,7 +74,7 @@
         }
     }
 
-    // Процесор приховування
+    // Процесор приховування (Фільтри)
     var hideProcessor = {
         filters: [
             function (items) {
@@ -179,6 +173,7 @@
         }
     };
 
+    // Обробка переглянутого контенту
     function getWatchedEpisodesFromFavorite(id, favoriteData) {
         var card = (favoriteData.card || []).find(function (c) { return c.id === id && Array.isArray(c.seasons) && c.seasons.length > 0; });
         if (!card) return [];
@@ -217,21 +212,7 @@
         return true;
     }
 
-    function needMoreButton(data) {
-        if (!data || !Array.isArray(data.results)) return false;
-        var orig = data.original_length || 0;
-        return orig > data.results.length && data.page === 1 && data.total_pages > 1;
-    }
-
-    function closest(el, selector) {
-        if (el && el.closest) return el.closest(selector);
-        while (el && el !== document) {
-            if (el.matches && el.matches(selector)) return el;
-            el = el.parentElement || el.parentNode;
-        }
-        return null;
-    }
-
+    // Локалізація
     function addTranslations() {
         Lampa.Lang.add({
             content_hiding: { uk: 'Приховування контенту', en: 'Hide Content' },
@@ -262,11 +243,10 @@
             blacklist_remove_action: { uk: 'Натисніть на назву нижче, щоб видалити з чорного списку', en: 'Click on the title below to remove from blacklist' },
             blacklist_clear_all: { uk: 'Очистити весь список', en: 'Clear all list' },
             blacklist_added_suffix: { uk: 'додано до чорного списку', en: 'added to blacklist' },
-            blacklist_removed_suffix: { uk: 'видалено з чорного списку', en: 'removed from blacklist' },
-            more: { uk: 'ще', en: 'more' },
-            title_category: { uk: 'Категорія', en: 'Category' }
+            blacklist_removed_suffix: { uk: 'видалено з чорного списку', en: 'removed from blacklist' }
         });
     }
+    // Оновлення візуального значення в меню
     function updateSettingsValue(el, value) {
         var valEl = el.find('.settings-param__value');
         if (!valEl.length) {
@@ -276,6 +256,7 @@
         valEl.text(value || '');
     }
 
+    // Створення розділу налаштувань
     function addSettings() {
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name === 'main') {
@@ -383,7 +364,7 @@
             }
         });
 
-        // Менеджер Чорного списку
+        // Інтерфейс Менеджера чорного списку
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { name: 'hide_blacklist_manage', type: 'static' },
@@ -443,6 +424,7 @@
         for (var key in settings) settings[key] = Lampa.Storage.get(key, settings[key]);
     }
 
+    // Реєстрація статичного контекстного меню
     function registerContextMenu() {
         if (!Lampa.Manifest) Lampa.Manifest = {};
         if (!Lampa.Manifest.plugins) Lampa.Manifest.plugins = [];
@@ -476,6 +458,107 @@
         }
     }
 
+    // МЕРЕЖЕВИЙ ПЕРЕХОПЛЮВАЧ (API PROXY)
+    function patchReguest() {
+        if (window.content_hiding_patched) return;
+        window.content_hiding_patched = true;
+
+        var origSilent = Lampa.Reguest.prototype.silent;
+        var origRequest = Lampa.Reguest.prototype.request;
+
+        function doIntercept(origMethod, ctx, args) {
+            var url = args[0];
+            var data = typeof args[1] === 'function' ? null : args[1];
+            var oncomplite = typeof args[1] === 'function' ? args[1] : args[2];
+            var onerror = typeof args[1] === 'function' ? args[2] : args[3];
+
+            if (typeof url !== 'string') return origMethod.apply(ctx, args);
+
+            var urlStr = url.toLowerCase();
+            var isProxy = urlStr.indexOf('blacklist_proxy=1') !== -1;
+            var isApi = urlStr.indexOf('tmdb') !== -1 || urlStr.indexOf('cub') !== -1 || urlStr.indexOf('lampa') !== -1;
+            var isMedia = urlStr.indexOf('/movie') !== -1 || urlStr.indexOf('/tv') !== -1 || urlStr.indexOf('/discover') !== -1 || urlStr.indexOf('/trending') !== -1 || urlStr.indexOf('/search') !== -1 || urlStr.indexOf('/list') !== -1;
+            var isNotPlugin = urlStr.indexOf('extension') === -1 && urlStr.indexOf('plugin') === -1 && urlStr.indexOf('store') === -1;
+
+            if (isProxy || !(isApi && isMedia && isNotPlugin)) {
+                var cleanUrl = url.replace('&blacklist_proxy=1', '').replace('?blacklist_proxy=1', '');
+                if (data) return origMethod.call(ctx, cleanUrl, data, oncomplite, onerror);
+                return origMethod.call(ctx, cleanUrl, oncomplite, onerror);
+            }
+
+            var processData = function(json, currentUrl, accumulated, pagesFetched) {
+                if (!json || !json.results || !Array.isArray(json.results)) {
+                    if (accumulated.length > 0 && json) json.results = accumulated;
+                    return oncomplite(json);
+                }
+
+                var filtered = hideProcessor.apply(json.results);
+                var combined = accumulated.concat(filtered);
+
+                // Очищення дублікатів у рамках одного запиту
+                var unique = [];
+                var seen = {};
+                for (var i = 0; i < combined.length; i++) {
+                    if (combined[i] && combined[i].id) {
+                        if (!seen[combined[i].id]) {
+                            seen[combined[i].id] = true;
+                            unique.push(combined[i]);
+                        }
+                    } else {
+                        unique.push(combined[i]);
+                    }
+                }
+
+                // Якщо назбирали достатньо карток, або вичерпали ліміт дозавантажень
+                if (unique.length >= 20 || pagesFetched >= 3 || json.page >= json.total_pages) {
+                    json.results = unique;
+                    return oncomplite(json);
+                }
+
+                // Фоновe дозавантаження наступної сторінки
+                var nextPage = parseInt(json.page || 1) + 1;
+                var nextUrl = currentUrl;
+                if (nextUrl.indexOf('page=') !== -1) {
+                    nextUrl = nextUrl.replace(/page=\d+/, 'page=' + nextPage);
+                } else {
+                    nextUrl += (nextUrl.indexOf('?') === -1 ? '?' : '&') + 'page=' + nextPage;
+                }
+                nextUrl += '&blacklist_proxy=1';
+
+                var nextComplite = function(nextJson) {
+                    if (nextJson && nextJson.results) {
+                        nextJson.page = json.page; 
+                        nextJson.total_pages = json.total_pages; 
+                        processData(nextJson, nextUrl.replace('&blacklist_proxy=1',''), unique, pagesFetched + 1);
+                    } else {
+                        json.results = unique;
+                        oncomplite(json);
+                    }
+                };
+
+                if (data) {
+                    origMethod.call(ctx, nextUrl, data, nextComplite, function() { json.results = unique; oncomplite(json); });
+                } else {
+                    origMethod.call(ctx, nextUrl, nextComplite, function() { json.results = unique; oncomplite(json); });
+                }
+            };
+
+            var firstComplite = function(json) {
+                processData(json, url, [], 0);
+            };
+
+            if (data) origMethod.call(ctx, url, data, firstComplite, onerror);
+            else origMethod.call(ctx, url, firstComplite, onerror);
+        }
+
+        Lampa.Reguest.prototype.silent = function() {
+            doIntercept(origSilent, this, arguments);
+        };
+        Lampa.Reguest.prototype.request = function() {
+            doIntercept(origRequest, this, arguments);
+        };
+    }
+
     function initPlugin() {
         if (window.content_hiding_plugin) return;
         window.content_hiding_plugin = true;
@@ -484,104 +567,7 @@
         addTranslations();
         addSettings();
         registerContextMenu(); 
-
-        // ХАК ДЛЯ ГОРИЗОНТАЛЬНОГО РЯДКА (LINE PADDING)
-        Lampa.Listener.follow('line', function (e) {
-            // Перевіряємо, чи ми щось приховали з рядка
-            if (e.type === 'append' && e.data && e.data.original_length > e.data.results.length) {
-                var missing = e.data.original_length - e.data.results.length;
-                var url = e.data._fetch_url; // Збережений URL
-                
-                // Якщо є куди дозавантажувати (є наступна сторінка)
-                if (url && missing > 0 && e.data.page === 1 && e.data.total_pages > 1) {
-                    var nextUrl = url;
-                    // Підміняємо page=1 на page=2 для бекграунд-запиту
-                    if (nextUrl.match(/page=\d+/)) {
-                        nextUrl = nextUrl.replace(/page=\d+/, 'page=2');
-                    } else {
-                        nextUrl += (nextUrl.indexOf('?') === -1 ? '?' : '&') + 'page=2';
-                    }
-                    
-                    var network = new Lampa.Reguest();
-                    network.silent(nextUrl, function (json) {
-                        if (json && json.results) {
-                            var filtered = hideProcessor.apply(json.results);
-                            var toAdd = filtered.slice(0, missing); // Беремо рівно стільки, скільки не вистачає
-                            
-                            var body = e.item ? e.item.find('.items-line__body') : (e.line.render ? e.line.render().find('.items-line__body') : null);
-                            
-                            if (body && body.length) {
-                                toAdd.forEach(function (item) {
-                                    var card = new Lampa.Card(item, { card_category: true });
-                                    card.create();
-                                    body.append(card.render());
-                                    if (e.line && e.line.items) {
-                                        e.line.items.push(card); // Додаємо в масив, щоб працювала навігація
-                                    }
-                                });
-                            }
-                        }
-                    });
-                }
-            }
-
-            // Додаємо кнопку "Ще" у хедер рядка, якщо контенту взагалі замало
-            if (e.type === 'visible' && needMoreButton(e.data)) {
-                var head = $(closest(e.body, '.items-line')).find('.items-line__head');
-                if (!head.find('.items-line__more').length) {
-                    var more = document.createElement('div');
-                    more.classList.add('items-line__more', 'selector');
-                    more.innerText = Lampa.Lang.translate('more');
-                    more.addEventListener('hover:enter', function () {
-                        Lampa.Activity.push({
-                            url: e.data.url, title: getSafeTitle(e.data) || Lampa.Lang.translate('title_category'), component: 'category_full',
-                            page: 1, genres: e.params.genres, filter: e.data.filter, source: e.data.source || (e.params.object ? e.params.object.source : '')
-                        });
-                    });
-                    head.append(more);
-                }
-            }
-        });
-
-        // ОСНОВНЕ ПРИХОВУВАННЯ ТА ДОЗАВАНТАЖЕННЯ ДЛЯ ПОВНИХ КАТАЛОГІВ
-        Lampa.Listener.follow('request_secuses', function (e) {
-            if (!e.data || !Array.isArray(e.data.results)) return;
-            var urlStr = (e.url || (e.data && e.data.url) || '').toLowerCase();
-            if (urlStr.indexOf('extension') !== -1 || urlStr.indexOf('plugin') !== -1 || urlStr.indexOf('store') !== -1) return;
-            var componentStr = (e.component || (e.data && e.data.component) || '').toLowerCase();
-            if (componentStr.indexOf('extension') !== -1 || componentStr.indexOf('plugin') !== -1) return;
-            if (e.data.results.length === 0) return;
-            
-            var hasMediaContent = e.data.results.some(function(item) { return isMediaContent(item); });
-            if (!hasMediaContent) return;
-            
-            e.data._fetch_url = e.url || (e.object ? e.object.url : ''); // Зберігаємо точну URL для хаку рядка
-
-            var originalCount = e.data.results.length;
-            e.data.results = hideProcessor.apply(e.data.results);
-            e.data.original_length = originalCount;
-
-            // Логіка для "Повних категорій", якщо карток менше 15
-            var active = Lampa.Activity.active();
-            if (active && active.component === 'category_full') {
-                if (e.data.results.length < 15 && e.data.page < e.data.total_pages) {
-                    autoLoadCount++;
-                    if (autoLoadCount <= 3) {
-                        setTimeout(function() {
-                            if (typeof active.activity.append === 'function') {
-                                active.activity.append();
-                            } else {
-                                // Альтернативний імітатор скролу, якщо append() заблокований
-                                var scrollBody = active.activity.render().find('.scroll__body');
-                                if (scrollBody.length) scrollBody.trigger('scroll');
-                            }
-                        }, 800); 
-                    }
-                } else {
-                    autoLoadCount = 0; 
-                }
-            }
-        });
+        patchReguest(); // Активуємо мережеве перехоплення
     }
 
     if (window.appready) initPlugin();
