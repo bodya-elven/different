@@ -7,11 +7,8 @@
     var logBuffer = [];
     var netBuffer = [];
     var uiReady = false;
-
-    // Лічильники
     var counts = { logs: 0, errors: 0, network: 0 };
 
-    // --- ДОПОМІЖНІ ФУНКЦІЇ ---
     function escapeHtml(unsafe) {
         if (typeof unsafe !== 'string') return String(unsafe);
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
@@ -45,27 +42,21 @@
     function applySearch() {
         var query = $('#lmc-search-input').val().toLowerCase();
         var $activeContent = $('.lmc-content.active');
-        
         $activeContent.children('.lmc-row, .lmc-network-row').each(function () {
             var text = $(this).text().toLowerCase();
             $(this).toggle(text.indexOf(query) !== -1);
         });
-        
         if (query.length > 0) $('#lmc-search-clear').show();
         else $('#lmc-search-clear').hide();
     }
 
     function showToast(text) {
-        $('.lmc-toast').remove(); // Видаляємо попередні, якщо є
+        $('.lmc-toast').remove();
         var $toast = $('<div class="lmc-toast">' + text + '</div>').appendTo('body');
         setTimeout(function() { $toast.fadeOut(300, function() { $(this).remove(); }); }, 2000);
     }
 
-    // --- ПЕРЕХОПЛЕННЯ CONSOLE ТА ПОМИЛОК ---
-    var originalLog = console.log;
-    var originalWarn = console.warn;
-    var originalError = console.error;
-    var originalInfo = console.info;
+    var originalLog = console.log, originalWarn = console.warn, originalError = console.error, originalInfo = console.info;
 
     window.addEventListener('error', function(event) {
         var msg = "Глобальна помилка: " + event.message;
@@ -75,19 +66,17 @@
     }, true);
 
     window.addEventListener('unhandledrejection', function(event) {
-        var reason = event.reason;
-        console.error("Необроблений Promise: " + (reason && reason.stack ? reason.stack : reason));
+        console.error("Необроблений Promise: " + (event.reason && event.reason.stack ? event.reason.stack : event.reason));
     });
 
     function processMessage(args) {
         var output = [];
         for (var i = 0; i < args.length; i++) {
             if (typeof args[i] === 'object' && args[i] !== null) {
-                try { output.push(JSON.stringify(args[i], null, 2)); } 
-                catch (e) { output.push('[Складний об\'єкт/DOM]'); }
-            } else if (args[i] === undefined) { output.push('undefined');
-            } else if (args[i] === null) { output.push('null');
-            } else { output.push(String(args[i])); }
+                try { output.push(JSON.stringify(args[i], null, 2)); } catch (e) { output.push('[Об\'єкт]'); }
+            } else if (args[i] === undefined) output.push('undefined');
+            else if (args[i] === null) output.push('null');
+            else output.push(String(args[i]));
         }
         return output.join(' ');
     }
@@ -95,10 +84,8 @@
     function pushLogToUI(msg, type) {
         if (!uiReady) return;
         var cssClass = type === 'warn' ? 'lmc-warn' : type === 'error' ? 'lmc-error' : type === 'info' ? 'lmc-info' : '';
-        
         var time = new Date().toLocaleTimeString('uk-UA', { hour12: false }).substring(0, 5);
         var formattedMsg = formatLongText(msg);
-        // Додаємо class="focusable" для пульта ТВ
         var html = '<div class="lmc-row focusable ' + cssClass + '"><span class="lmc-time">' + time + ' - </span><span class="lmc-prefix">[' + type.toUpperCase() + ']</span> ' + formattedMsg + '</div>';
 
         var $logs = $('#lmc-content-logs');
@@ -110,15 +97,12 @@
             if ($errs.children().length > 100) $errs.children().first().remove();
             $errs.append(html);
         }
-        
-        updateCounter(type);
-        applySearch();
+        updateCounter(type); applySearch();
     }
 
     function interceptLog(type, args) {
         var msg = processMessage(args);
-        if (uiReady) pushLogToUI(msg, type);
-        else logBuffer.push({ msg: msg, type: type });
+        if (uiReady) pushLogToUI(msg, type); else logBuffer.push({ msg: msg, type: type });
     }
 
     console.log = function () { interceptLog('log', arguments); originalLog.apply(console, arguments); };
@@ -126,7 +110,6 @@
     console.error = function () { interceptLog('error', arguments); originalError.apply(console, arguments); };
     console.info = function () { interceptLog('info', arguments); originalInfo.apply(console, arguments); };
 
-    // --- ПЕРЕХОПЛЕННЯ NETWORK ---
     function pushNetToUI(method, url, status, responseText) {
         if (!uiReady) return;
         var $net = $('#lmc-content-network');
@@ -138,29 +121,18 @@
 
         var html = '<div class="lmc-network-row focusable">' +
             '<div class="lmc-net-head"><span class="lmc-time">' + time + ' - </span><span class="lmc-net-status ' + statusClass + '">' + status + '</span> ' + 
-            '<strong style="color:#1de9b6;">' + method + '</strong> <span class="lmc-net-url">' + escapeHtml(url) + '</span></div>' +
-            '<div class="lmc-net-response">' + formattedResponse + '</div>' +
-            '</div>';
+            '<strong style="color:#20c997;">' + method + '</strong> <span class="lmc-net-url">' + escapeHtml(url) + '</span></div>' +
+            '<div class="lmc-net-response">' + formattedResponse + '</div></div>';
 
-        $net.append(html);
-        updateCounter('net');
-        applySearch();
+        $net.append(html); updateCounter('net'); applySearch();
     }
 
     function interceptNet(method, url, status, responseText) {
-        if (uiReady) pushNetToUI(method, url, status, responseText);
-        else netBuffer.push({ method: method, url: url, status: status, response: responseText });
+        if (uiReady) pushNetToUI(method, url, status, responseText); else netBuffer.push({ method: method, url: url, status: status, response: responseText });
     }
 
-    var originalXhrOpen = window.XMLHttpRequest.prototype.open;
-    var originalXhrSend = window.XMLHttpRequest.prototype.send;
-
-    window.XMLHttpRequest.prototype.open = function (method, url) {
-        this._lmcMethod = method;
-        this._lmcUrl = url;
-        return originalXhrOpen.apply(this, arguments);
-    };
-
+    var originalXhrOpen = window.XMLHttpRequest.prototype.open, originalXhrSend = window.XMLHttpRequest.prototype.send;
+    window.XMLHttpRequest.prototype.open = function (method, url) { this._lmcMethod = method; this._lmcUrl = url; return originalXhrOpen.apply(this, arguments); };
     window.XMLHttpRequest.prototype.send = function () {
         this.addEventListener('load', function () { interceptNet(this._lmcMethod, this._lmcUrl, this.status, this.responseText); });
         this.addEventListener('error', function () { interceptNet(this._lmcMethod, this._lmcUrl, 'ERR', 'Network Error / CORS'); });
@@ -171,36 +143,17 @@
     window.fetch = function () {
         var url = typeof arguments[0] === 'object' ? arguments[0].url : arguments[0];
         var method = arguments[1] && arguments[1].method ? arguments[1].method : 'GET';
-        
         return originalFetch.apply(this, arguments).then(function (response) {
-            var clone = response.clone();
-            clone.text().then(function (text) { interceptNet(method, url, response.status, text); });
-            return response;
-        }).catch(function (error) {
-            interceptNet(method, url, 'ERR', error.message);
-            throw error;
-        });
+            var clone = response.clone(); clone.text().then(function (text) { interceptNet(method, url, response.status, text); }); return response;
+        }).catch(function (error) { interceptNet(method, url, 'ERR', error.message); throw error; });
     };
 
-    // --- ОНОВЛЕННЯ ДИНАМІЧНИХ ВЛАДОК ---
     function updateStorageAndCache() {
-        var $storage = $('#lmc-content-storage').empty();
-        var $cache = $('#lmc-content-cache').empty();
-        
+        var $storage = $('#lmc-content-storage').empty(), $cache = $('#lmc-content-cache').empty();
         for (var i = 0; i < localStorage.length; i++) {
-            var key = localStorage.key(i);
-            var val = localStorage.getItem(key);
-            
-            var html = '<div class="lmc-row lmc-flex-row focusable">' +
-                       '<div style="flex:1; overflow:hidden;"><strong style="color:#1de9b6;">' + escapeHtml(key) + '</strong>: ' + formatLongText(val) + '</div>' +
-                       '<div class="lmc-del-btn focusable" data-key="' + escapeHtml(key) + '">Видалити</div>' +
-                       '</div>';
-            
-            if (key.indexOf('cache') > -1 || key.indexOf('hash') > -1 || key.indexOf('history') > -1) {
-                $cache.append(html);
-            } else {
-                $storage.append(html);
-            }
+            var key = localStorage.key(i), val = localStorage.getItem(key);
+            var html = '<div class="lmc-row lmc-flex-row focusable"><div style="flex:1; overflow:hidden;"><strong style="color:#20c997;">' + escapeHtml(key) + '</strong>: ' + formatLongText(val) + '</div><div class="lmc-del-btn focusable" data-key="' + escapeHtml(key) + '">Видалити</div></div>';
+            if (key.indexOf('cache') > -1 || key.indexOf('hash') > -1 || key.indexOf('history') > -1) $cache.append(html); else $storage.append(html);
         }
     }
 
@@ -214,86 +167,56 @@
             { k: 'Pixel Ratio', v: window.devicePixelRatio },
             { k: 'Cookies Enabled', v: navigator.cookieEnabled }
         ];
-        
-        data.forEach(function(item) {
-            $info.append('<div class="lmc-row focusable"><strong>' + item.k + ':</strong> <span style="color:#aaa;">' + escapeHtml(item.v) + '</span></div>');
-        });
+        data.forEach(function(item) { $info.append('<div class="lmc-row focusable"><strong>' + item.k + ':</strong> <span style="color:#aaa;">' + escapeHtml(item.v) + '</span></div>'); });
     }
 
     function updateExtensionsTab() {
         var $ext = $('#lmc-content-extensions').empty();
-        
         $ext.append('<div class="lmc-section-title">Завантажені скрипти (DOM)</div>');
-        $('script').each(function() {
-            if (this.src) {
-                $ext.append('<div class="lmc-row focusable"><span style="color:#aaa;">' + escapeHtml(this.src) + '</span></div>');
-            }
-        });
-
+        $('script').each(function() { if (this.src) $ext.append('<div class="lmc-row focusable"><span style="color:#aaa;">' + escapeHtml(this.src) + '</span></div>'); });
         if (window.Lampa && Lampa.Storage) {
             $ext.append('<div class="lmc-section-title" style="margin-top:15px;">Встановлені плагіни (Storage)</div>');
             var plugins = Lampa.Storage.get('plugins') || [];
             plugins.forEach(function(p) {
-                var stat = p.status ? '<span style="color:#1de9b6;">[ON]</span>' : '<span style="color:#f44336;">[OFF]</span>';
+                var stat = p.status ? '<span style="color:#20c997;">[ON]</span>' : '<span style="color:#f44336;">[OFF]</span>';
                 $ext.append('<div class="lmc-row focusable">' + stat + ' <strong>' + escapeHtml(p.name || 'Без назви') + '</strong><br><span style="color:#888;">' + escapeHtml(p.url) + '</span></div>');
             });
         }
     }
 
-    // --- ІНТЕРФЕЙС ТА ЛОГІКА ВІДКРИТТЯ/ЗАКРИТТЯ ---
-    function openConsole() {
-        $('#lampa-mob-console-window').css('display', 'flex');
-        history.pushState({lmc_open: true}, "Console", null);
-    }
-
-    function closeConsole() {
-        $('#lampa-mob-console-window').hide();
-    }
-
-    window.addEventListener('popstate', function(e) {
-        if ($('#lampa-mob-console-window').is(':visible')) {
-            e.stopImmediatePropagation(); 
-            closeConsole();
-        }
-    }, true); 
-
+    // --- ПРОДОВЖЕННЯ ---
     function initUI() {
         if (uiReady) return;
 
         var css = `
-            /* Кнопка в хедері */
             .lmc-head-btn { padding: 0 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.8; transition: opacity 0.3s; }
-            .lmc-head-btn:hover, .lmc-head-btn.focus { opacity: 1; outline: 2px solid #1de9b6; background: rgba(29, 233, 182, 0.1); border-radius: 6px; }
-            .lmc-head-btn svg { width: 26px; height: 26px; stroke: #fff; fill: none; display: block; }
+            .lmc-head-btn:hover, .lmc-head-btn.focus { opacity: 1; outline: 2px solid #20c997; background: rgba(32, 201, 151, 0.1); border-radius: 6px; }
+            .lmc-head-btn svg { width: 28px; height: 28px; stroke: #fff; fill: none; display: block; }
 
-            /* Консоль на весь екран */
             #lampa-mob-console-window { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; background: #121212; z-index: 9999999; flex-direction: column; font-family: monospace; color: #e0e0e0; }
             #lampa-mob-console-header { display: flex; justify-content: space-between; padding: 12px 16px; background: #1e1e1e; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; }
             
             #lmc-search-bar { padding: 10px 16px; background: #181818; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
             #lmc-search-input { width: 100%; background: #242424; color: #fff; border: 1px solid transparent; padding: 10px 35px 10px 12px; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px; box-sizing: border-box; }
-            #lmc-search-input:focus, #lmc-search-input.focus { border-color: #1de9b6; background: #2a2a2a; }
+            #lmc-search-input:focus, #lmc-search-input.focus { border-color: #20c997; background: #2a2a2a; }
             #lmc-search-clear { position: absolute; right: 24px; top: 18px; color: #888; font-size: 18px; cursor: pointer; display: none; font-weight: bold; width: 20px; height: 20px; text-align: center; line-height: 18px; }
 
-            /* Вкладки */
             #lampa-mob-console-tabs { display: flex; background: #121212; overflow-x: auto; white-space: nowrap; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
             #lampa-mob-console-tabs::-webkit-scrollbar { display: none; }
             .lmc-tab { padding: 8px 14px; background: #1e1e1e; border-radius: 6px; margin-right: 8px; text-align: center; color: #aaa; font-size: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s; user-select: none; }
-            .lmc-tab.active { background: rgba(29, 233, 182, 0.1); color: #1de9b6; border-color: #1de9b6; }
+            .lmc-tab.active { background: rgba(32, 201, 151, 0.1); color: #20c997; border-color: #20c997; }
             .lmc-tab.focus { outline: 2px solid #fff; }
 
-            /* Контент та Реверс-сортування */
             .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 10px 16px; font-size: 12px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; flex-direction: column; }
             .lmc-content.active { display: flex; }
-            .lmc-content.lmc-reversed { flex-direction: column-reverse; } /* Реверс сортування */
+            .lmc-content.lmc-reversed { flex-direction: column-reverse; }
 
             .lmc-action { padding: 6px 14px; background: #242424; border-radius: 6px; margin-left: 10px; font-size: 13px; cursor: pointer; color: #ddd; }
-            .lmc-action.focus { background: #1de9b6; color: #000; }
+            .lmc-action.focus { background: #20c997; color: #000; }
             
-            /* Рядки та Фокус ТБ */
             .lmc-row { margin-bottom: 0; padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); user-select: none; -webkit-user-select: none; cursor: pointer; transition: background 0.2s; border-radius: 4px; }
             .lmc-row:hover { background: rgba(255,255,255,0.03); }
-            .lmc-row.focus, .lmc-network-row.focus { outline: 2px solid #1de9b6; background: rgba(29, 233, 182, 0.05); }
+            .lmc-row.focus, .lmc-network-row.focus { outline: 2px solid #20c997; background: rgba(32, 201, 151, 0.05); }
             
             .lmc-time { color: #666; font-size: 11px; }
             .lmc-prefix { color: #aaa; font-size: 11px; margin-right: 5px; font-weight: bold; }
@@ -301,13 +224,11 @@
             .lmc-error .lmc-prefix { color: #f44336; }
             .lmc-info .lmc-prefix { color: #03a9f4; }
             
-            /* Згортання */
             .lmc-collapsible { overflow: hidden; pointer-events: none; }
             .lmc-collapsible.collapsed { max-height: 65px; position: relative; }
             .lmc-collapsible.collapsed::after { content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 25px; background: linear-gradient(to bottom, rgba(18,18,18,0), rgba(18,18,18,1)); }
             .lmc-more-btn { color: #888; font-size: 11px; margin-top: 6px; font-weight: bold; display: inline-block; padding: 4px 8px; background: #1e1e1e; border-radius: 4px; border: 1px solid #333; pointer-events: none; }
             
-            /* Network */
             .lmc-network-row { margin-bottom: 0; padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); user-select: none; cursor: pointer; transition: background 0.2s; border-radius: 4px; }
             .lmc-network-row:hover { background: rgba(255,255,255,0.03); }
             .lmc-net-head { margin-bottom: 6px; pointer-events: none; }
@@ -317,14 +238,12 @@
             .lmc-net-url { color: #aaa; word-break: break-all; margin-left: 6px; }
             .lmc-net-response { color: #888; font-size: 11px; background: #181818; padding: 8px; border-radius: 6px; border: 1px solid #242424; pointer-events: none; }
 
-            /* Storage/Cache */
             .lmc-flex-row { display: flex; justify-content: space-between; align-items: flex-start; }
             .lmc-del-btn { background: #f44336; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 11px; margin-left: 10px; cursor: pointer; font-weight: bold; text-transform: uppercase; z-index: 2; }
             .lmc-del-btn.focus { outline: 2px solid #fff; box-shadow: 0 0 10px #f44336; }
             .lmc-section-title { font-weight: bold; color: #fff; padding: 10px 0 5px 0; border-bottom: 1px solid #333; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; }
 
-            /* Toast */
-            .lmc-toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #1de9b6; color: #000; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 99999999; box-shadow: 0 4px 15px rgba(29, 233, 182, 0.4); pointer-events: none; }
+            .lmc-toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #20c997; color: #000; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 99999999; box-shadow: 0 4px 15px rgba(32, 201, 151, 0.3); pointer-events: none; }
         `;
         $('<style>').text(css).appendTo('head');
 
@@ -369,8 +288,7 @@
 
         function injectHeaderBtn() {
             if ($('#lmc-head-btn-wrap').length) return; 
-            // Біла іконка < > 
-            var iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 2 12 8 18"></polyline><polyline points="16 18 22 12 16 6"></polyline></svg>';
+            var iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>';
             var btnHtml = '<div id="lmc-head-btn-wrap" class="head__action lmc-head-btn focusable" title="Console">' + iconSvg + '</div>';
             
             var $actions = $('.head__actions');
@@ -379,17 +297,27 @@
                 if ($reloadBtn.length) $reloadBtn.before(btnHtml);
                 else $actions.append(btnHtml);
             }
-            
-            $('#lmc-head-btn-wrap').on('click', openConsole);
+            $('#lmc-head-btn-wrap').on('click', function() { $('#lampa-mob-console-window').css('display', 'flex'); });
         }
         
         setInterval(injectHeaderBtn, 1000);
         injectHeaderBtn();
 
+        // Кнопка Сховати просто ховає UI
         $('#lampa-mob-console-close').on('click', function () { 
-            closeConsole(); 
-            if (history.state && history.state.lmc_open) history.back();
+            $('#lampa-mob-console-window').hide(); 
         });
+
+        // Перехоплення ТВ-пульта "Назад" (ESC, Backspace, Tizen/WebOS Return)
+        window.addEventListener('keydown', function(e) {
+            if ($('#lampa-mob-console-window').is(':visible')) {
+                if (e.keyCode === 27 || e.keyCode === 8 || e.keyCode === 10009 || e.keyCode === 461) {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    $('#lampa-mob-console-window').hide();
+                }
+            }
+        }, true);
 
         $('#lampa-mob-console-clear').on('click', function () { 
             var activeTab = $('.lmc-content.active').attr('id');
@@ -406,11 +334,11 @@
         $('.lmc-tab').on('click', function () {
             var target = $(this).attr('data-target');
             
-            // Якщо клік по вже активній вкладці — реверс сортування
             if ($(this).hasClass('active')) {
                 $('#' + target).toggleClass('lmc-reversed');
+                $('#' + target).scrollTop(0); // Одразу кидаємо наверх
                 var isRev = $('#' + target).hasClass('lmc-reversed');
-                showToast(isRev ? "Сортування: Нові зверху" : "Сортування: Старі зверху");
+                showToast(isRev ? "Нові зверху" : "Старі зверху");
                 return;
             }
 
@@ -431,40 +359,29 @@
         $('#lmc-search-input').on('input', applySearch);
         $('#lmc-search-clear').on('click', function() { $('#lmc-search-input').val('').trigger('input'); });
 
-        // Розгортання по КЛІКУ на ВЕСЬ РЯДОК
         $(document).on('click', '.lmc-row, .lmc-network-row', function(e) {
-            if ($(e.target).hasClass('lmc-del-btn')) return; // Ігноруємо клік по кнопці видалення
-            
+            if ($(e.target).hasClass('lmc-del-btn')) return;
             var $collapsible = $(this).find('.lmc-collapsible');
             if ($collapsible.length) {
                 var isCollapsed = $collapsible.hasClass('collapsed');
                 $collapsible.toggleClass('collapsed');
                 var $btn = $(this).find('.lmc-more-btn');
-                if (isCollapsed) {
-                    $btn.html('Згорнути <span>▲</span>');
-                } else {
-                    $btn.html('Розгорнути <span>▼</span>');
-                }
+                $btn.html(isCollapsed ? 'Згорнути <span>▲</span>' : 'Розгорнути <span>▼</span>');
             }
         });
 
-        // Підтримка ТВ Пульта (кнопка ОК = клік)
         $(document).on('keydown', '.focusable', function(e) {
-            if (e.keyCode === 13) { // Enter / OK
-                $(this).click();
-            }
+            if (e.keyCode === 13) { $(this).click(); e.preventDefault(); }
         });
 
-        // Видалення зі Storage / Cache
         $(document).on('click', '.lmc-del-btn', function(e) {
-            e.stopPropagation(); // Щоб не розгортався рядок
+            e.stopPropagation(); 
             var key = $(this).attr('data-key');
             localStorage.removeItem(key);
             $(this).closest('.lmc-row').remove();
             showToast("Видалено: " + key);
         });
 
-        // ДОВГЕ НАТИСКАННЯ ДЛЯ КОПІЮВАННЯ
         var pressTimer;
         $(document).on('touchstart mousedown', '.lmc-row, .lmc-network-row', function(e) {
             if ($(e.target).hasClass('lmc-del-btn')) return;
@@ -473,7 +390,6 @@
                 var clone = $row.clone();
                 clone.find('.lmc-more-btn, .lmc-del-btn').remove();
                 var textToCopy = clone.text().trim();
-                
                 var textarea = document.createElement("textarea");
                 textarea.value = textToCopy;
                 document.body.appendChild(textarea);
