@@ -42,7 +42,7 @@
         return true;
     }
 
-    // Додавання та видалення з Чорного списку
+    // Керування чорним списком + передача фокусу
     function toggleBlacklist(cardData) {
         var blacklist = Lampa.Storage.get('content_blacklist', []);
         var isBlocked = false;
@@ -63,19 +63,28 @@
             Lampa.Storage.set('content_blacklist', newList);
             Lampa.Noty.show('"' + title + '" ' + Lampa.Lang.translate('blacklist_added_suffix'));
             
+            // Логіка передачі естафети для пульта на Smart TV
             var active = Lampa.Activity.active();
             if (active && active.activity && active.activity.render) {
                 var focusEl = active.activity.render().find('.focus');
                 if (focusEl.length) {
-                    focusEl.css('display', 'none');
-                    var next = focusEl.next('.item');
-                    if (next.length) Lampa.Controller.toggle('content'); 
+                    var next = focusEl.nextAll('.item:visible').first();
+                    if (!next.length) next = focusEl.prevAll('.item:visible').first();
+
+                    // Повністю видаляємо картку з DOM, щоб сусідня стала на її фізичне місце
+                    focusEl.remove();
+
+                    // Перезапускаємо контролер, щоб Лампа сфокусувала картку за новими координатами
+                    Lampa.Controller.toggle('content');
+                    if (next.length) {
+                        next.trigger('hover:focus');
+                    }
                 }
             }
         }
     }
 
-    // Процесор застосування всіх фільтрів
+    // Процесор приховування
     var hideProcessor = {
         filters: [
             function (items) {
@@ -113,7 +122,6 @@
                 return items.filter(function (item) {
                     if (!isMediaContent(item)) return true;
                     if (!item) return true;
-                    // Перевірка на наявність локалізованого опису
                     return item.overview && item.overview.trim().length > 0;
                 });
             },
@@ -222,22 +230,7 @@
         return true;
     }
 
-    function needMoreButton(data) {
-        if (!data || !Array.isArray(data.results)) return false;
-        var orig = data.original_length || 0;
-        return orig > data.results.length && data.page === 1 && data.total_pages > 1;
-    }
-
-    function closest(el, selector) {
-        if (el && el.closest) return el.closest(selector);
-        while (el && el !== document) {
-            if (el.matches && el.matches(selector)) return el;
-            el = el.parentElement || el.parentNode;
-        }
-        return null;
-    }
-
-    // Словник перекладів
+    // Локалізація
     function addTranslations() {
         Lampa.Lang.add({
             content_hiding: { uk: 'Приховування контенту', en: 'Hide Content' },
@@ -270,9 +263,7 @@
             blacklist_clear_all: { uk: 'Очистити весь список', en: 'Clear all list' },
             blacklist_add: { uk: 'Приховати', en: 'Hide' },
             blacklist_added_suffix: { uk: 'додано до чорного списку', en: 'added to blacklist' },
-            blacklist_removed_suffix: { uk: 'видалено з чорного списку', en: 'removed from blacklist' },
-            more: { uk: 'ще', en: 'more' },
-            title_category: { uk: 'Категорія', en: 'Category' }
+            blacklist_removed_suffix: { uk: 'видалено з чорного списку', en: 'removed from blacklist' }
         });
     }
     // Вивід тексту справа в меню
@@ -285,7 +276,7 @@
         valEl.text(value || '');
     }
 
-    // Налаштування плагіна в інтерфейсі
+    // Налаштування плагіна
     function addSettings() {
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name === 'main') {
@@ -437,7 +428,7 @@
                                 Lampa.Storage.set('content_blacklist', newList);
                                 Lampa.Noty.show('"' + selected.itemData.title + '" ' + Lampa.Lang.translate('blacklist_removed_suffix'));
                                 updateCount();
-                                showManager(); 
+                                showManager(); // Рекурсивне оновлення списку
                             }
                         },
                         onBack: function() { Lampa.Controller.toggle('settings_component'); }
@@ -453,7 +444,7 @@
         for (var key in settings) settings[key] = Lampa.Storage.get(key, settings[key]);
     }
 
-    // Реєстрація єдиного пункту в контекстному меню "Приховати"
+    // Реєстрація єдиного стабільного пункту в контекстному меню "Приховати"
     function registerContextMenu() {
         if (!Lampa.Manifest) Lampa.Manifest = {};
         if (!Lampa.Manifest.plugins) Lampa.Manifest.plugins = [];
@@ -485,7 +476,7 @@
         }
     }
 
-    // Ініціалізація та застосування приховування
+    // Ініціалізація плагіна та класичне приховування
     function initPlugin() {
         if (window.content_hiding_plugin) return;
         window.content_hiding_plugin = true;
@@ -495,24 +486,7 @@
         addSettings();
         registerContextMenu(); 
 
-        Lampa.Listener.follow('line', function (e) {
-            if (e.type !== 'visible' || !needMoreButton(e.data)) return;
-            var head = $(closest(e.body, '.items-line')).find('.items-line__head');
-            if (head.find('.items-line__more').length) return;
-
-            var more = document.createElement('div');
-            more.classList.add('items-line__more', 'selector');
-            more.innerText = Lampa.Lang.translate('more');
-            more.addEventListener('hover:enter', function () {
-                Lampa.Activity.push({
-                    url: e.data.url, title: getSafeTitle(e.data) || Lampa.Lang.translate('title_category'), component: 'category_full',
-                    page: 1, genres: e.params.genres, filter: e.data.filter, source: e.data.source || (e.params.object ? e.params.object.source : '')
-                });
-            });
-            head.append(more);
-        });
-
-        // Класичний стабільний метод приховування
+        // Класичний стабільний метод приховування 
         Lampa.Listener.follow('request_secuses', function (e) {
             if (!e.data || !Array.isArray(e.data.results)) return;
             var urlStr = (e.url || (e.data && e.data.url) || '').toLowerCase();
