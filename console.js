@@ -89,13 +89,22 @@
         var html = '<div class="lmc-row focusable ' + cssClass + '"><span class="lmc-time">' + time + ' - </span><span class="lmc-prefix">[' + type.toUpperCase() + ']</span> ' + formattedMsg + '</div>';
 
         var $logs = $('#lmc-content-logs');
-        if ($logs.children().length > 300) $logs.children().first().remove();
-        $(html).appendTo($logs);
+        if ($logs.children().length > 300) {
+            if ($logs.hasClass('lmc-reversed')) $logs.children().last().remove();
+            else $logs.children().first().remove();
+        }
+        
+        if ($logs.hasClass('lmc-reversed')) $(html).prependTo($logs);
+        else $(html).appendTo($logs);
 
         if (type === 'error') {
             var $errs = $('#lmc-content-errors');
-            if ($errs.children().length > 100) $errs.children().first().remove();
-            $errs.append(html);
+            if ($errs.children().length > 100) {
+                if ($errs.hasClass('lmc-reversed')) $errs.children().last().remove();
+                else $errs.children().first().remove();
+            }
+            if ($errs.hasClass('lmc-reversed')) $(html).prependTo($errs);
+            else $(html).appendTo($errs);
         }
         updateCounter(type); applySearch();
     }
@@ -113,7 +122,10 @@
     function pushNetToUI(method, url, status, responseText) {
         if (!uiReady) return;
         var $net = $('#lmc-content-network');
-        if ($net.children().length > 150) $net.children().first().remove();
+        if ($net.children().length > 150) {
+            if ($net.hasClass('lmc-reversed')) $net.children().last().remove();
+            else $net.children().first().remove();
+        }
 
         var time = new Date().toLocaleTimeString('uk-UA', { hour12: false }).substring(0, 5);
         var statusClass = (status >= 200 && status < 300) ? 'lmc-net-200' : 'lmc-net-err';
@@ -124,7 +136,10 @@
             '<strong style="color:#20c997;">' + method + '</strong> <span class="lmc-net-url">' + escapeHtml(url) + '</span></div>' +
             '<div class="lmc-net-response">' + formattedResponse + '</div></div>';
 
-        $net.append(html); updateCounter('net'); applySearch();
+        if ($net.hasClass('lmc-reversed')) $(html).prependTo($net);
+        else $(html).appendTo($net);
+        
+        updateCounter('net'); applySearch();
     }
 
     function interceptNet(method, url, status, responseText) {
@@ -183,15 +198,13 @@
             });
         }
     }
-
-    // --- ПРОДОВЖЕННЯ ---
     function initUI() {
         if (uiReady) return;
 
         var css = `
             .lmc-head-btn { padding: 0 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.8; transition: opacity 0.3s; }
             .lmc-head-btn:hover, .lmc-head-btn.focus { opacity: 1; outline: 2px solid #20c997; background: rgba(32, 201, 151, 0.1); border-radius: 6px; }
-            .lmc-head-btn svg { width: 28px; height: 28px; stroke: #fff; fill: none; display: block; }
+            .lmc-head-btn svg { width: 28px; height: 28px; display: block; }
 
             #lampa-mob-console-window { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; background: #121212; z-index: 9999999; flex-direction: column; font-family: monospace; color: #e0e0e0; }
             #lampa-mob-console-header { display: flex; justify-content: space-between; padding: 12px 16px; background: #1e1e1e; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; }
@@ -208,8 +221,7 @@
             .lmc-tab.focus { outline: 2px solid #fff; }
 
             .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 10px 16px; font-size: 12px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; flex-direction: column; }
-            .lmc-content.active { display: flex; }
-            .lmc-content.lmc-reversed { flex-direction: column-reverse; }
+            .lmc-content.active { display: block; }
 
             .lmc-action { padding: 6px 14px; background: #242424; border-radius: 6px; margin-left: 10px; font-size: 13px; cursor: pointer; color: #ddd; }
             .lmc-action.focus { background: #20c997; color: #000; }
@@ -257,7 +269,7 @@
                     </div>
                 </div>
                 <div id="lmc-search-bar">
-                    <input type="text" id="lmc-search-input" class="focusable" placeholder="Пошук (напр. error або назва)...">
+                    <input type="text" id="lmc-search-input" class="focusable" placeholder="Пошук...">
                     <div id="lmc-search-clear">×</div>
                 </div>
                 <div id="lampa-mob-console-tabs">
@@ -281,21 +293,19 @@
 
         uiReady = true;
 
-        logBuffer.forEach(function (item) { pushLogToUI(item.msg, item.type); });
-        logBuffer = [];
-        netBuffer.forEach(function (item) { pushNetToUI(item.method, item.url, item.status, item.response); });
-        netBuffer = [];
+        logBuffer.forEach(function (item) { pushLogToUI(item.msg, item.type); }); logBuffer = [];
+        netBuffer.forEach(function (item) { pushNetToUI(item.method, item.url, item.status, item.response); }); netBuffer = [];
 
         function injectHeaderBtn() {
             if ($('#lmc-head-btn-wrap').length) return; 
-            var iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>';
+            // Відмальована точна копія іконки з зображення (квадрат з жирним верхом і >_ всередині)
+            var iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:28px; height:28px; display:block;"><path d="M4 6 C4 4.895 4.895 4 6 4 L18 4 C19.105 4 20 4.895 20 6 L20 8 L4 8 Z" fill="currentColor" stroke="none"></path><path d="M4 8 L4 18 C4 19.105 4.895 20 6 20 L18 20 C19.105 20 20 19.105 20 18 L20 8"></path><path d="M8 12 L11 14.5 L8 17"></path><path d="M13 17 L16 17"></path></svg>';
             var btnHtml = '<div id="lmc-head-btn-wrap" class="head__action lmc-head-btn focusable" title="Console">' + iconSvg + '</div>';
             
             var $actions = $('.head__actions');
             if ($actions.length) {
                 var $reloadBtn = $actions.find('.open--reload, [data-action="reload"]').first();
-                if ($reloadBtn.length) $reloadBtn.before(btnHtml);
-                else $actions.append(btnHtml);
+                if ($reloadBtn.length) $reloadBtn.before(btnHtml); else $actions.append(btnHtml);
             }
             $('#lmc-head-btn-wrap').on('click', function() { $('#lampa-mob-console-window').css('display', 'flex'); });
         }
@@ -303,12 +313,12 @@
         setInterval(injectHeaderBtn, 1000);
         injectHeaderBtn();
 
-        // Кнопка Сховати просто ховає UI
+        // Просто ховаємо вікно на кнопку "Сховати"
         $('#lampa-mob-console-close').on('click', function () { 
             $('#lampa-mob-console-window').hide(); 
         });
 
-        // Перехоплення ТВ-пульта "Назад" (ESC, Backspace, Tizen/WebOS Return)
+        // Блокуємо пульт ТБ "Назад" для Lampa і закриваємо консоль
         window.addEventListener('keydown', function(e) {
             if ($('#lampa-mob-console-window').is(':visible')) {
                 if (e.keyCode === 27 || e.keyCode === 8 || e.keyCode === 10009 || e.keyCode === 461) {
@@ -335,10 +345,13 @@
             var target = $(this).attr('data-target');
             
             if ($(this).hasClass('active')) {
-                $('#' + target).toggleClass('lmc-reversed');
-                $('#' + target).scrollTop(0); // Одразу кидаємо наверх
-                var isRev = $('#' + target).hasClass('lmc-reversed');
-                showToast(isRev ? "Нові зверху" : "Старі зверху");
+                var $content = $('#' + target);
+                $content.toggleClass('lmc-reversed');
+                // Фізичний реверс елементів у DOM (надійніше за CSS flex)
+                var children = $content.children('.lmc-row, .lmc-network-row').get();
+                $content.append(children.reverse());
+                $content.scrollTop(0); // Залишаємось зверху
+                showToast($content.hasClass('lmc-reversed') ? "Нові зверху" : "Старі зверху");
                 return;
             }
 
