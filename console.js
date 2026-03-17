@@ -166,17 +166,33 @@
 
     function updateInfoTab() {
         var $info = $('#lmc-content-info').empty();
+        
+        // Підрахунок зайнятого місця в localStorage
+        var lsTotal = 0;
+        for (var x in localStorage) { 
+            if (localStorage.hasOwnProperty(x)) { 
+                lsTotal += ((localStorage[x].length + x.length) * 2); 
+            } 
+        }
+        var lsSize = (lsTotal / 1024).toFixed(2) + ' KB';
+        
+        var activeComp = window.Lampa && Lampa.Activity && Lampa.Activity.active() ? Lampa.Activity.active().component : 'None';
+        var activePlugs = window.Lampa && Lampa.Storage ? (Lampa.Storage.get('plugins')||[]).filter(function(p){return p.status;}).length : 0;
+        var uptime = Math.round(performance.now() / 1000 / 60) + ' хв';
+
         var data = [
-            { k: 'Location', v: window.location.href },
-            { k: 'Build Version', v: window.Lampa && Lampa.Manifest ? Lampa.Manifest.app_version : 'Unknown' },
+            { k: 'Source URL', v: window.location.href },
+            { k: 'Lampa Version', v: window.Lampa && Lampa.Manifest ? Lampa.Manifest.app_version : 'Unknown' },
             { k: 'Platform', v: window.Lampa && Lampa.Platform ? Lampa.Platform.get() : 'Unknown' },
-            { k: 'Is PWA', v: window.matchMedia('(display-mode: standalone)').matches ? 'true' : 'false' },
-            { k: 'Is Touch', v: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) ? 'true' : 'false' },
-            { k: 'Touch Points', v: navigator.maxTouchPoints || 0 },
-            { k: 'User Agent', v: navigator.userAgent },
+            { k: 'Local Storage Used', v: lsSize },
+            { k: 'Active Plugins', v: activePlugs },
+            { k: 'Current Page (Activity)', v: activeComp },
+            { k: 'App Uptime', v: uptime },
+            { k: 'Interface Size', v: window.innerWidth + 'x' + window.innerHeight },
+            { k: 'Screen Size', v: window.screen.width + 'x' + window.screen.height },
             { k: 'Pixel Ratio', v: window.devicePixelRatio },
-            { k: 'Interface Size', v: window.innerWidth + ' / ' + window.innerHeight },
-            { k: 'Screen Size', v: window.screen.width + ' / ' + window.screen.height }
+            { k: 'Is PWA', v: window.matchMedia('(display-mode: standalone)').matches ? 'true' : 'false' },
+            { k: 'Is Touch', v: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) ? 'true' : 'false' }
         ];
         data.forEach(function(item) { $info.append('<div class="lmc-row focusable"><strong>' + item.k + ':</strong> <span style="color:#aaa;">' + escapeHtml(item.v) + '</span></div>'); });
     }
@@ -198,7 +214,7 @@
         if (uiReady) return;
 
         var css = `
-            /* Іконка використовує відносний розмір Лампи (em) */
+            /* Іконка з правильним viewBox розміром */
             .lmc-head-btn { padding: 0 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.8; transition: opacity 0.3s; }
             .lmc-head-btn:hover, .lmc-head-btn.focus { opacity: 1; outline: 2px solid #20c997; background: rgba(32, 201, 151, 0.1); border-radius: 6px; }
             .lmc-head-btn svg { width: 1.6em; height: 1.6em; stroke: #fff; fill: none; display: block; }
@@ -206,10 +222,12 @@
             #lampa-mob-console-window { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; background: #121212; z-index: 9999999; flex-direction: column; font-family: monospace; color: #e0e0e0; }
             #lampa-mob-console-header { display: flex; justify-content: space-between; padding: 12px 16px; background: #1e1e1e; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; }
             
-            #lmc-search-bar { padding: 10px 16px; background: #181818; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
-            #lmc-search-input { width: 100%; background: #242424; color: #fff; border: 1px solid transparent; padding: 10px 35px 10px 12px; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px; box-sizing: border-box; }
+            #lmc-search-bar { padding: 10px 16px; background: #181818; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; display: flex; align-items: center; }
+            #lmc-search-input { flex: 1; background: #242424; color: #fff; border: 1px solid transparent; padding: 10px 35px 10px 12px; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px; box-sizing: border-box; margin-right: 10px; }
             #lmc-search-input:focus, #lmc-search-input.focus { border-color: #20c997; background: #2a2a2a; }
-            #lmc-search-clear { position: absolute; right: 24px; top: 18px; color: #888; font-size: 18px; cursor: pointer; display: none; font-weight: bold; width: 20px; height: 20px; text-align: center; line-height: 18px; }
+            #lmc-search-clear { position: absolute; right: 85px; top: 18px; color: #888; font-size: 18px; cursor: pointer; display: none; font-weight: bold; width: 20px; height: 20px; text-align: center; line-height: 18px; }
+            #lmc-clear-logs-btn { padding: 8px 12px; background: #242424; border-radius: 6px; font-size: 11px; cursor: pointer; color: #aaa; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.1); }
+            #lmc-clear-logs-btn.focus { border-color: #f44336; color: #f44336; }
 
             #lampa-mob-console-tabs { display: flex; background: #121212; overflow-x: auto; white-space: nowrap; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
             #lampa-mob-console-tabs::-webkit-scrollbar { display: none; }
@@ -220,7 +238,7 @@
             .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 10px 16px; font-size: 12px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; flex-direction: column; }
             .lmc-content.active { display: flex; }
 
-            .lmc-action { padding: 6px 14px; background: #242424; border-radius: 6px; margin-left: 10px; font-size: 13px; cursor: pointer; color: #ddd; }
+            .lmc-action { padding: 6px 14px; background: #242424; border-radius: 6px; font-size: 13px; cursor: pointer; color: #ddd; }
             .lmc-action.focus { background: #20c997; color: #000; }
             
             .lmc-row { margin-bottom: 0; padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); user-select: none; -webkit-user-select: none; cursor: pointer; transition: background 0.2s; border-radius: 4px; }
@@ -248,8 +266,9 @@
             .lmc-net-response { color: #888; font-size: 11px; background: #181818; padding: 8px; border-radius: 6px; border: 1px solid #242424; pointer-events: none; }
 
             .lmc-flex-row { display: flex; justify-content: space-between; align-items: flex-start; }
-            .lmc-del-btn { background: #f44336; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 11px; margin-left: 10px; cursor: pointer; font-weight: bold; text-transform: uppercase; z-index: 2; }
-            .lmc-del-btn.focus { outline: 2px solid #fff; box-shadow: 0 0 10px #f44336; }
+            /* Оновлені, маленькі кнопки Видалити */
+            .lmc-del-btn { background: rgba(244, 67, 54, 0.1); color: #f44336; padding: 4px 8px; border-radius: 4px; font-size: 9px; margin-left: 10px; cursor: pointer; border: 1px solid rgba(244, 67, 54, 0.3); z-index: 2; }
+            .lmc-del-btn.focus { outline: 2px solid #fff; background: #f44336; color: #fff; }
             .lmc-section-title { font-weight: bold; color: #fff; padding: 10px 0 5px 0; border-bottom: 1px solid #333; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; }
 
             .lmc-toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #20c997; color: #000; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 99999999; box-shadow: 0 4px 15px rgba(32, 201, 151, 0.3); pointer-events: none; }
@@ -260,14 +279,12 @@
             <div id="lampa-mob-console-window">
                 <div id="lampa-mob-console-header">
                     <span style="font-weight:bold; font-size: 18px;">Console</span>
-                    <div style="display:flex;">
-                        <div id="lampa-mob-console-clear" class="lmc-action focusable">Очистити</div>
-                        <div id="lampa-mob-console-close" class="lmc-action focusable">Сховати</div>
-                    </div>
+                    <div id="lampa-mob-console-close" class="lmc-action focusable">Сховати</div>
                 </div>
                 <div id="lmc-search-bar">
                     <input type="text" id="lmc-search-input" class="focusable" placeholder="Пошук...">
                     <div id="lmc-search-clear">×</div>
+                    <div id="lmc-clear-logs-btn" class="focusable">Очистити</div>
                 </div>
                 <div id="lampa-mob-console-tabs">
                     <div class="lmc-tab focusable active" data-target="lmc-content-logs">Console - 0</div>
@@ -296,8 +313,8 @@
         function injectHeaderBtn() {
             if ($('#lmc-head-btn-wrap').length) return; 
             
-            // Відмальована іконка термінала (квадратна рамка, жирний верхній контур, >_ всередині)
-            var iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' +
+            // Іконка з обрізаним viewBox, щоб вона займала весь доступний простір
+            var iconSvg = '<svg viewBox="2 2 20 20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' +
                           '<path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" stroke-width="2"/>' +
                           '<path d="M4 9h16" stroke-width="2"/>' +
                           '<path d="M8 13l2 2l-2 2" stroke-width="2"/>' +
@@ -316,12 +333,10 @@
         setInterval(injectHeaderBtn, 1000);
         injectHeaderBtn();
 
-        // Закриття з телефона (без історії)
         $('#lampa-mob-console-close').on('click', function () { 
             $('#lampa-mob-console-window').hide(); 
         });
 
-        // Закриття з пульта ТБ (перехоплення Back/Return/ESC)
         window.addEventListener('keydown', function(e) {
             if ($('#lampa-mob-console-window').is(':visible')) {
                 if (e.keyCode === 27 || e.keyCode === 8 || e.keyCode === 10009 || e.keyCode === 461) {
@@ -332,10 +347,11 @@
             }
         }, true);
 
-        $('#lampa-mob-console-clear').on('click', function () { 
+        // Очищення перенесено в панель пошуку
+        $('#lmc-clear-logs-btn').on('click', function () { 
             var activeTab = $('.lmc-content.active').attr('id');
             if(activeTab === 'lmc-content-storage' || activeTab === 'lmc-content-cache' || activeTab === 'lmc-content-info' || activeTab === 'lmc-content-extensions') {
-                showToast("Використовуйте точкове видалення");
+                showToast("Тут не можна очистити все одразу");
             } else {
                 $('#' + activeTab).empty();
                 if (activeTab === 'lmc-content-logs') { counts.logs = 0; updateCounter('log'); }
@@ -347,7 +363,6 @@
         $('.lmc-tab').on('click', function () {
             var target = $(this).attr('data-target');
             
-            // Сортування тільки для Network
             if ($(this).hasClass('active')) {
                 if (target === 'lmc-content-network') {
                     var $content = $('#' + target);
@@ -355,7 +370,7 @@
                     
                     var children = $content.children('.lmc-network-row').get();
                     $content.append(children.reverse());
-                    $content.scrollTop(0); // Залишаємося зверху
+                    $content.scrollTop(0); 
                     
                     showToast($content.hasClass('lmc-reversed') ? "Нові зверху" : "Старі зверху");
                 }
