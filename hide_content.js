@@ -18,7 +18,17 @@
     var autoLoadCount = 0;
     var lastRequestUrl = '';
 
-    // Перевірка, чи є елемент медіа-контентом
+    // Безпечне отримання назви (захист від [object Object])
+    function getSafeTitle(item) {
+        if (!item) return 'Контент';
+        var title = item.title || item.name || item.original_title || item.original_name || 'Контент';
+        if (typeof title === 'object' && title !== null) {
+            title = title.uk || title.ru || title.en || title.original || 'Контент';
+        }
+        return String(title);
+    }
+
+    // Перевірка на медіа-контент
     function isMediaContent(item) {
         if (!item) return false;
         if (item.type && typeof item.type === 'string') {
@@ -34,7 +44,7 @@
         return true;
     }
 
-    // Керування списком прихованих елементів
+    // Логіка додавання/видалення з Чорного списку
     function toggleBlacklist(cardData) {
         var blacklist = Lampa.Storage.get('content_blacklist', []);
         var isBlocked = false;
@@ -45,7 +55,7 @@
             else newList.push(blacklist[i]);
         }
         
-        var title = cardData.title || cardData.name || cardData.original_title || cardData.original_name || 'Item';
+        var title = getSafeTitle(cardData);
         
         if (isBlocked) {
             Lampa.Storage.set('content_blacklist', newList);
@@ -67,7 +77,7 @@
         }
     }
 
-    // Процесор приховування
+    // Процесор приховування карток
     var hideProcessor = {
         filters: [
             function (items) {
@@ -148,7 +158,7 @@
 
                 return items.filter(function (item) {
                     if (!isMediaContent(item)) return true;
-                    var title = (item.title || item.name || item.original_title || item.original_name || '').toLowerCase();
+                    var title = getSafeTitle(item).toLowerCase();
                     
                     for (var i = 0; i < words.length; i++) {
                         if (title.indexOf(words[i]) !== -1) return false;
@@ -166,7 +176,7 @@
         }
     };
 
-    // Допоміжні функції для історії переглядів
+    // Допоміжні функції історії
     function getWatchedEpisodesFromFavorite(id, favoriteData) {
         var card = (favoriteData.card || []).find(function (c) { return c.id === id && Array.isArray(c.seasons) && c.seasons.length > 0; });
         if (!card) return [];
@@ -220,7 +230,7 @@
         return null;
     }
 
-    // Словник локалізації
+    // Локалізація
     function addTranslations() {
         Lampa.Lang.add({
             content_hiding: { uk: 'Приховування контенту', en: 'Hide Content' },
@@ -250,14 +260,13 @@
             blacklist_remove_action: { uk: 'Натисніть на назву, щоб видалити з чорного списку', en: 'Click on the title to remove from blacklist' },
             blacklist_clear_all: { uk: '[ Очистити весь список ]', en: '[ Clear all list ]' },
             blacklist_add: { uk: 'Додати до чорного списку', en: 'Add to blacklist' },
-            blacklist_remove: { uk: 'Видалити з чорного списку', en: 'Remove from blacklist' },
             blacklist_added_suffix: { uk: 'додано до чорного списку', en: 'added to blacklist' },
             blacklist_removed_suffix: { uk: 'видалено з чорного списку', en: 'removed from blacklist' },
             more: { uk: 'ще', en: 'more' },
             title_category: { uk: 'Категорія', en: 'Category' }
         });
     }
-    // Оновлення текстового значення в налаштуваннях
+    // Вивід введеного тексту справа від пункту
     function updateSettingsValue(el, value) {
         var valEl = el.find('.settings-param__value');
         if (!valEl.length) {
@@ -267,7 +276,7 @@
         valEl.text(value || '');
     }
 
-    // Меню налаштувань плагіна
+    // Інтерфейс налаштувань плагіна
     function addSettings() {
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name === 'main') {
@@ -375,7 +384,7 @@
             }
         });
 
-        // Інтерфейс Чорного списку
+        // Менеджер Чорного списку
         Lampa.SettingsApi.addParam({
             component: 'content_hiding',
             param: { name: 'hide_blacklist_manage', type: 'static' },
@@ -383,7 +392,7 @@
             onRender: function (el) {
                 var updateCount = function() {
                     var list = Lampa.Storage.get('content_blacklist', []);
-                    el.find('.settings-param__des').text(Lampa.Lang.translate('blacklist_count') + ': ' + list.length);
+                    updateSettingsValue(el, list.length.toString());
                 };
                 updateCount();
                 
@@ -393,11 +402,12 @@
                         Lampa.Noty.show(Lampa.Lang.translate('blacklist_empty'));
                         return;
                     }
-                    var items = list.map(function(item) {
-                        return { title: item.title, itemData: item };
-                    });
+                    
+                    var items = [];
+                    // Кнопка очищення та інструкція нагорі списку
                     items.push({
                         title: Lampa.Lang.translate('blacklist_clear_all'),
+                        subtitle: Lampa.Lang.translate('blacklist_remove_action'),
                         onSelect: function() {
                             Lampa.Storage.set('content_blacklist', []);
                             updateCount();
@@ -405,10 +415,12 @@
                         }
                     });
                     
-                    var menuTitle = Lampa.Lang.translate('blacklist_manage') + '<br><span style="font-size: 0.8em; opacity: 0.6;">' + Lampa.Lang.translate('blacklist_remove_action') + '</span>';
+                    list.forEach(function(item) {
+                        items.push({ title: item.title, itemData: item });
+                    });
                     
                     Lampa.Select.show({
-                        title: menuTitle,
+                        title: Lampa.Lang.translate('blacklist_manage'),
                         items: items,
                         onSelect: function(selected) {
                             if (selected.itemData) {
@@ -430,7 +442,7 @@
         for (var key in settings) settings[key] = Lampa.Storage.get(key, settings[key]);
     }
 
-    // Реєстрація пункту в контекстному меню картки
+    // Реєстрація стабільного меню "Дії"
     function registerContextMenu() {
         if (!Lampa.Manifest) Lampa.Manifest = {};
         if (!Lampa.Manifest.plugins) Lampa.Manifest.plugins = [];
@@ -443,11 +455,8 @@
             name: 'content_hiding_blacklist', 
             onContextMenu: function (card) {
                 if (card && card.id && isMediaContent(card)) {
-                    var blacklist = Lampa.Storage.get('content_blacklist', []);
-                    var inList = blacklist.some(function(i) { return i.id === card.id; });
-                    return {
-                        name: inList ? Lampa.Lang.translate('blacklist_remove') : Lampa.Lang.translate('blacklist_add')
-                    };
+                    // Статична назва пункту
+                    return { name: Lampa.Lang.translate('blacklist_add') };
                 }
             },
             onContextLauch: function (card) { 
@@ -464,7 +473,7 @@
         }
     }
 
-    // Ініціалізація
+    // Ініціалізація плагіна
     function initPlugin() {
         if (window.content_hiding_plugin) return;
         window.content_hiding_plugin = true;
@@ -484,14 +493,14 @@
             more.innerText = Lampa.Lang.translate('more');
             more.addEventListener('hover:enter', function () {
                 Lampa.Activity.push({
-                    url: e.data.url, title: e.data.title || Lampa.Lang.translate('title_category'), component: 'category_full',
+                    url: e.data.url, title: getSafeTitle(e.data) || Lampa.Lang.translate('title_category'), component: 'category_full',
                     page: 1, genres: e.params.genres, filter: e.data.filter, source: e.data.source || (e.params.object ? e.params.object.source : '')
                 });
             });
             head.append(more);
         });
 
-        // Застосування фільтрів та автозавантаження сторінок
+        // Застосування фільтрів та автозавантаження
         Lampa.Listener.follow('request_secuses', function (e) {
             if (!e.data || !Array.isArray(e.data.results)) return;
             var urlStr = (e.url || (e.data && e.data.url) || '').toLowerCase();
@@ -529,7 +538,6 @@
         });
     }
 
-    // Запуск плагіна
     if (window.appready) initPlugin();
     else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') initPlugin(); });
 })();
