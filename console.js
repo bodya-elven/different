@@ -34,7 +34,7 @@
                     type === 'net' ? 'lmc-content-network' : '';
         
         if (tabId === 'lmc-content-logs') counts.logs++;
-        if (type === 'error') { counts.errors++; counts.logs++; } // Помилки йдуть і в загальну
+        if (type === 'error') { counts.errors++; counts.logs++; }
         if (type === 'net') counts.network++;
 
         $('.lmc-tab[data-target="lmc-content-logs"]').text('Console - ' + counts.logs);
@@ -56,6 +56,7 @@
     }
 
     function showToast(text) {
+        $('.lmc-toast').remove(); // Видаляємо попередні, якщо є
         var $toast = $('<div class="lmc-toast">' + text + '</div>').appendTo('body');
         setTimeout(function() { $toast.fadeOut(300, function() { $(this).remove(); }); }, 2000);
     }
@@ -83,7 +84,7 @@
         for (var i = 0; i < args.length; i++) {
             if (typeof args[i] === 'object' && args[i] !== null) {
                 try { output.push(JSON.stringify(args[i], null, 2)); } 
-                catch (e) { output.push('[Складний об\'єкт]'); }
+                catch (e) { output.push('[Складний об\'єкт/DOM]'); }
             } else if (args[i] === undefined) { output.push('undefined');
             } else if (args[i] === null) { output.push('null');
             } else { output.push(String(args[i])); }
@@ -97,7 +98,8 @@
         
         var time = new Date().toLocaleTimeString('uk-UA', { hour12: false }).substring(0, 5);
         var formattedMsg = formatLongText(msg);
-        var html = '<div class="lmc-row ' + cssClass + '"><span class="lmc-time">' + time + ' - </span>' + formattedMsg + '</div>';
+        // Додаємо class="focusable" для пульта ТВ
+        var html = '<div class="lmc-row focusable ' + cssClass + '"><span class="lmc-time">' + time + ' - </span><span class="lmc-prefix">[' + type.toUpperCase() + ']</span> ' + formattedMsg + '</div>';
 
         var $logs = $('#lmc-content-logs');
         if ($logs.children().length > 300) $logs.children().first().remove();
@@ -128,15 +130,15 @@
     function pushNetToUI(method, url, status, responseText) {
         if (!uiReady) return;
         var $net = $('#lmc-content-network');
-        if ($net.length > 150) $net.children().first().remove();
+        if ($net.children().length > 150) $net.children().first().remove();
 
         var time = new Date().toLocaleTimeString('uk-UA', { hour12: false }).substring(0, 5);
         var statusClass = (status >= 200 && status < 300) ? 'lmc-net-200' : 'lmc-net-err';
         var formattedResponse = formatLongText(responseText || 'Немає відповіді');
 
-        var html = '<div class="lmc-network-row">' +
+        var html = '<div class="lmc-network-row focusable">' +
             '<div class="lmc-net-head"><span class="lmc-time">' + time + ' - </span><span class="lmc-net-status ' + statusClass + '">' + status + '</span> ' + 
-            '<strong>' + method + '</strong> <span class="lmc-net-url">' + escapeHtml(url) + '</span></div>' +
+            '<strong style="color:#1de9b6;">' + method + '</strong> <span class="lmc-net-url">' + escapeHtml(url) + '</span></div>' +
             '<div class="lmc-net-response">' + formattedResponse + '</div>' +
             '</div>';
 
@@ -189,12 +191,11 @@
             var key = localStorage.key(i);
             var val = localStorage.getItem(key);
             
-            var html = '<div class="lmc-row lmc-flex-row">' +
-                       '<div style="flex:1; overflow:hidden;"><strong>' + escapeHtml(key) + '</strong>: ' + formatLongText(val) + '</div>' +
-                       '<div class="lmc-del-btn" data-key="' + escapeHtml(key) + '">Видалити</div>' +
+            var html = '<div class="lmc-row lmc-flex-row focusable">' +
+                       '<div style="flex:1; overflow:hidden;"><strong style="color:#1de9b6;">' + escapeHtml(key) + '</strong>: ' + formatLongText(val) + '</div>' +
+                       '<div class="lmc-del-btn focusable" data-key="' + escapeHtml(key) + '">Видалити</div>' +
                        '</div>';
             
-            // Якщо ключ схожий на кеш — кидаємо у вкладку Cache
             if (key.indexOf('cache') > -1 || key.indexOf('hash') > -1 || key.indexOf('history') > -1) {
                 $cache.append(html);
             } else {
@@ -215,28 +216,26 @@
         ];
         
         data.forEach(function(item) {
-            $info.append('<div class="lmc-row"><strong>' + item.k + ':</strong> <span style="color:#aaa;">' + escapeHtml(item.v) + '</span></div>');
+            $info.append('<div class="lmc-row focusable"><strong>' + item.k + ':</strong> <span style="color:#aaa;">' + escapeHtml(item.v) + '</span></div>');
         });
     }
 
     function updateExtensionsTab() {
         var $ext = $('#lmc-content-extensions').empty();
         
-        // Базові завантажені скрипти (DOM)
         $ext.append('<div class="lmc-section-title">Завантажені скрипти (DOM)</div>');
         $('script').each(function() {
             if (this.src) {
-                $ext.append('<div class="lmc-row"><span style="color:#aaa;">' + escapeHtml(this.src) + '</span></div>');
+                $ext.append('<div class="lmc-row focusable"><span style="color:#aaa;">' + escapeHtml(this.src) + '</span></div>');
             }
         });
 
-        // Плагіни Lampa
         if (window.Lampa && Lampa.Storage) {
             $ext.append('<div class="lmc-section-title" style="margin-top:15px;">Встановлені плагіни (Storage)</div>');
             var plugins = Lampa.Storage.get('plugins') || [];
             plugins.forEach(function(p) {
-                var stat = p.status ? '<span style="color:#4caf50;">[ON]</span>' : '<span style="color:#f44336;">[OFF]</span>';
-                $ext.append('<div class="lmc-row">' + stat + ' <strong>' + escapeHtml(p.name || 'Без назви') + '</strong><br><span style="color:#888;">' + escapeHtml(p.url) + '</span></div>');
+                var stat = p.status ? '<span style="color:#1de9b6;">[ON]</span>' : '<span style="color:#f44336;">[OFF]</span>';
+                $ext.append('<div class="lmc-row focusable">' + stat + ' <strong>' + escapeHtml(p.name || 'Без назви') + '</strong><br><span style="color:#888;">' + escapeHtml(p.url) + '</span></div>');
             });
         }
     }
@@ -244,7 +243,6 @@
     // --- ІНТЕРФЕЙС ТА ЛОГІКА ВІДКРИТТЯ/ЗАКРИТТЯ ---
     function openConsole() {
         $('#lampa-mob-console-window').css('display', 'flex');
-        // Перехоплення кнопки Назад
         history.pushState({lmc_open: true}, "Console", null);
     }
 
@@ -252,70 +250,81 @@
         $('#lampa-mob-console-window').hide();
     }
 
-    // Забираємо на себе обробку "Назад", щоб Lampa не реагувала
     window.addEventListener('popstate', function(e) {
         if ($('#lampa-mob-console-window').is(':visible')) {
-            e.stopImmediatePropagation(); // Блокуємо подію для інших скриптів (Lampa)
+            e.stopImmediatePropagation(); 
             closeConsole();
         }
-    }, true); // true = Capture phase (спрацює найпершим)
+    }, true); 
 
     function initUI() {
         if (uiReady) return;
 
         var css = `
-            /* Нова біла іконка без фону */
+            /* Кнопка в хедері */
             .lmc-head-btn { padding: 0 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.8; transition: opacity 0.3s; }
-            .lmc-head-btn:hover { opacity: 1; }
-            .lmc-head-btn svg { width: 22px; height: 22px; stroke: #fff; fill: none; display: block; }
+            .lmc-head-btn:hover, .lmc-head-btn.focus { opacity: 1; outline: 2px solid #1de9b6; background: rgba(29, 233, 182, 0.1); border-radius: 6px; }
+            .lmc-head-btn svg { width: 26px; height: 26px; stroke: #fff; fill: none; display: block; }
 
-            /* Консоль на весь екран, нейтральні кольори */
-            #lampa-mob-console-window { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; background: #14161a; z-index: 9999999; flex-direction: column; font-family: monospace; color: #e0e0e0; }
-            #lampa-mob-console-header { display: flex; justify-content: space-between; padding: 12px 16px; background: #1e2024; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; }
+            /* Консоль на весь екран */
+            #lampa-mob-console-window { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; background: #121212; z-index: 9999999; flex-direction: column; font-family: monospace; color: #e0e0e0; }
+            #lampa-mob-console-header { display: flex; justify-content: space-between; padding: 12px 16px; background: #1e1e1e; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; }
             
-            #lmc-search-bar { padding: 10px 16px; background: #1a1c20; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
-            #lmc-search-input { width: 100%; background: #2a2c31; color: #fff; border: 1px solid transparent; padding: 10px 35px 10px 12px; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px; box-sizing: border-box; }
-            #lmc-search-input:focus { border-color: #555; }
+            #lmc-search-bar { padding: 10px 16px; background: #181818; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; }
+            #lmc-search-input { width: 100%; background: #242424; color: #fff; border: 1px solid transparent; padding: 10px 35px 10px 12px; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px; box-sizing: border-box; }
+            #lmc-search-input:focus, #lmc-search-input.focus { border-color: #1de9b6; background: #2a2a2a; }
             #lmc-search-clear { position: absolute; right: 24px; top: 18px; color: #888; font-size: 18px; cursor: pointer; display: none; font-weight: bold; width: 20px; height: 20px; text-align: center; line-height: 18px; }
 
-            /* Вкладки (Tabs) з лічильниками */
-            #lampa-mob-console-tabs { display: flex; background: #14161a; overflow-x: auto; white-space: nowrap; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+            /* Вкладки */
+            #lampa-mob-console-tabs { display: flex; background: #121212; overflow-x: auto; white-space: nowrap; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
             #lampa-mob-console-tabs::-webkit-scrollbar { display: none; }
-            .lmc-tab { padding: 8px 14px; background: #1e2024; border-radius: 6px; margin-right: 8px; text-align: center; color: #aaa; font-size: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s; user-select: none; }
-            .lmc-tab.active { background: #333; color: #fff; border-color: #555; }
+            .lmc-tab { padding: 8px 14px; background: #1e1e1e; border-radius: 6px; margin-right: 8px; text-align: center; color: #aaa; font-size: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s; user-select: none; }
+            .lmc-tab.active { background: rgba(29, 233, 182, 0.1); color: #1de9b6; border-color: #1de9b6; }
+            .lmc-tab.focus { outline: 2px solid #fff; }
 
-            /* Контент */
-            .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 10px 16px; font-size: 12px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; }
-            .lmc-content.active { display: block; }
-            .lmc-action { padding: 6px 14px; background: #2a2c31; border-radius: 6px; margin-left: 10px; font-size: 13px; cursor: pointer; color: #ddd; }
+            /* Контент та Реверс-сортування */
+            .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 10px 16px; font-size: 12px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; flex-direction: column; }
+            .lmc-content.active { display: flex; }
+            .lmc-content.lmc-reversed { flex-direction: column-reverse; } /* Реверс сортування */
+
+            .lmc-action { padding: 6px 14px; background: #242424; border-radius: 6px; margin-left: 10px; font-size: 13px; cursor: pointer; color: #ddd; }
+            .lmc-action.focus { background: #1de9b6; color: #000; }
             
-            /* Дизайн логів з тонкими рамками */
-            .lmc-row { margin-bottom: 0; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); user-select: none; -webkit-user-select: none; }
+            /* Рядки та Фокус ТБ */
+            .lmc-row { margin-bottom: 0; padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); user-select: none; -webkit-user-select: none; cursor: pointer; transition: background 0.2s; border-radius: 4px; }
+            .lmc-row:hover { background: rgba(255,255,255,0.03); }
+            .lmc-row.focus, .lmc-network-row.focus { outline: 2px solid #1de9b6; background: rgba(29, 233, 182, 0.05); }
+            
             .lmc-time { color: #666; font-size: 11px; }
-            .lmc-warn { color: #ffc107; }
-            .lmc-error { color: #f44336; }
-            .lmc-info { color: #03a9f4; }
+            .lmc-prefix { color: #aaa; font-size: 11px; margin-right: 5px; font-weight: bold; }
+            .lmc-warn .lmc-prefix { color: #ffc107; }
+            .lmc-error .lmc-prefix { color: #f44336; }
+            .lmc-info .lmc-prefix { color: #03a9f4; }
             
-            .lmc-collapsible { overflow: hidden; }
+            /* Згортання */
+            .lmc-collapsible { overflow: hidden; pointer-events: none; }
             .lmc-collapsible.collapsed { max-height: 65px; position: relative; }
-            .lmc-collapsible.collapsed::after { content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 25px; background: linear-gradient(to bottom, rgba(20,22,26,0), rgba(20,22,26,1)); pointer-events: none; }
-            .lmc-more-btn { color: #888; cursor: pointer; font-size: 11px; margin-top: 6px; font-weight: bold; display: inline-block; padding: 4px 8px; background: #1e2024; border-radius: 4px; border: 1px solid #333; }
+            .lmc-collapsible.collapsed::after { content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 25px; background: linear-gradient(to bottom, rgba(18,18,18,0), rgba(18,18,18,1)); }
+            .lmc-more-btn { color: #888; font-size: 11px; margin-top: 6px; font-weight: bold; display: inline-block; padding: 4px 8px; background: #1e1e1e; border-radius: 4px; border: 1px solid #333; pointer-events: none; }
             
-            .lmc-network-row { margin-bottom: 0; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); user-select: none; -webkit-user-select: none; }
-            .lmc-net-head { margin-bottom: 6px; }
+            /* Network */
+            .lmc-network-row { margin-bottom: 0; padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); user-select: none; cursor: pointer; transition: background 0.2s; border-radius: 4px; }
+            .lmc-network-row:hover { background: rgba(255,255,255,0.03); }
+            .lmc-net-head { margin-bottom: 6px; pointer-events: none; }
             .lmc-net-status { font-weight: bold; font-size: 11px; color: #aaa; margin-right: 5px; }
             .lmc-net-200 { color: #4caf50; }
             .lmc-net-err { color: #f44336; }
             .lmc-net-url { color: #aaa; word-break: break-all; margin-left: 6px; }
-            .lmc-net-response { color: #888; font-size: 11px; background: #1a1c20; padding: 8px; border-radius: 6px; border: 1px solid #2a2c31; }
+            .lmc-net-response { color: #888; font-size: 11px; background: #181818; padding: 8px; border-radius: 6px; border: 1px solid #242424; pointer-events: none; }
 
-            /* Елементи для Storage/Cache */
+            /* Storage/Cache */
             .lmc-flex-row { display: flex; justify-content: space-between; align-items: flex-start; }
-            .lmc-del-btn { background: #f44336; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 10px; margin-left: 10px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+            .lmc-del-btn { background: #f44336; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 11px; margin-left: 10px; cursor: pointer; font-weight: bold; text-transform: uppercase; z-index: 2; }
+            .lmc-del-btn.focus { outline: 2px solid #fff; box-shadow: 0 0 10px #f44336; }
             .lmc-section-title { font-weight: bold; color: #fff; padding: 10px 0 5px 0; border-bottom: 1px solid #333; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; }
 
-            /* Toast (Сповіщення) */
-            .lmc-toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #fff; color: #000; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 99999999; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; }
+            /* Toast */
+            .lmc-toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #1de9b6; color: #000; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 99999999; box-shadow: 0 4px 15px rgba(29, 233, 182, 0.4); pointer-events: none; }
         `;
         $('<style>').text(css).appendTo('head');
 
@@ -324,22 +333,22 @@
                 <div id="lampa-mob-console-header">
                     <span style="font-weight:bold; font-size: 18px;">Console</span>
                     <div style="display:flex;">
-                        <div id="lampa-mob-console-clear" class="lmc-action">Очистити</div>
-                        <div id="lampa-mob-console-close" class="lmc-action">Сховати</div>
+                        <div id="lampa-mob-console-clear" class="lmc-action focusable">Очистити</div>
+                        <div id="lampa-mob-console-close" class="lmc-action focusable">Сховати</div>
                     </div>
                 </div>
                 <div id="lmc-search-bar">
-                    <input type="text" id="lmc-search-input" placeholder="Пошук (напр. error або назва)...">
+                    <input type="text" id="lmc-search-input" class="focusable" placeholder="Пошук (напр. error або назва)...">
                     <div id="lmc-search-clear">×</div>
                 </div>
                 <div id="lampa-mob-console-tabs">
-                    <div class="lmc-tab active" data-target="lmc-content-logs">Console - 0</div>
-                    <div class="lmc-tab" data-target="lmc-content-errors">Errors - 0</div>
-                    <div class="lmc-tab" data-target="lmc-content-network">Network - 0</div>
-                    <div class="lmc-tab" data-target="lmc-content-info">Info</div>
-                    <div class="lmc-tab" data-target="lmc-content-extensions">Extensions</div>
-                    <div class="lmc-tab" data-target="lmc-content-cache">Cache</div>
-                    <div class="lmc-tab" data-target="lmc-content-storage">Storage</div>
+                    <div class="lmc-tab focusable active" data-target="lmc-content-logs">Console - 0</div>
+                    <div class="lmc-tab focusable" data-target="lmc-content-errors">Errors - 0</div>
+                    <div class="lmc-tab focusable" data-target="lmc-content-network">Network - 0</div>
+                    <div class="lmc-tab focusable" data-target="lmc-content-info">Info</div>
+                    <div class="lmc-tab focusable" data-target="lmc-content-extensions">Extensions</div>
+                    <div class="lmc-tab focusable" data-target="lmc-content-cache">Cache</div>
+                    <div class="lmc-tab focusable" data-target="lmc-content-storage">Storage</div>
                 </div>
                 <div id="lmc-content-logs" class="lmc-content active"></div>
                 <div id="lmc-content-errors" class="lmc-content"></div>
@@ -360,9 +369,9 @@
 
         function injectHeaderBtn() {
             if ($('#lmc-head-btn-wrap').length) return; 
-            // Біла іконка термінала (без кола)
-            var iconSvg = '<svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="12" y1="19" x2="20" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></line></svg>';
-            var btnHtml = '<div id="lmc-head-btn-wrap" class="head__action lmc-head-btn" title="Console">' + iconSvg + '</div>';
+            // Біла іконка < > 
+            var iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 2 12 8 18"></polyline><polyline points="16 18 22 12 16 6"></polyline></svg>';
+            var btnHtml = '<div id="lmc-head-btn-wrap" class="head__action lmc-head-btn focusable" title="Console">' + iconSvg + '</div>';
             
             var $actions = $('.head__actions');
             if ($actions.length) {
@@ -388,7 +397,6 @@
                 showToast("Використовуйте точкове видалення");
             } else {
                 $('#' + activeTab).empty();
-                // Скидаємо лічильник
                 if (activeTab === 'lmc-content-logs') { counts.logs = 0; updateCounter('log'); }
                 if (activeTab === 'lmc-content-errors') { counts.errors = 0; updateCounter('error'); }
                 if (activeTab === 'lmc-content-network') { counts.network = 0; updateCounter('net'); }
@@ -396,11 +404,20 @@
         });
         
         $('.lmc-tab').on('click', function () {
+            var target = $(this).attr('data-target');
+            
+            // Якщо клік по вже активній вкладці — реверс сортування
+            if ($(this).hasClass('active')) {
+                $('#' + target).toggleClass('lmc-reversed');
+                var isRev = $('#' + target).hasClass('lmc-reversed');
+                showToast(isRev ? "Сортування: Нові зверху" : "Сортування: Старі зверху");
+                return;
+            }
+
             $('.lmc-tab').removeClass('active');
             $('.lmc-content').removeClass('active');
             
             $(this).addClass('active');
-            var target = $(this).attr('data-target');
             $('#' + target).addClass('active');
 
             if (target === 'lmc-content-storage' || target === 'lmc-content-cache') updateStorageAndCache();
@@ -414,52 +431,57 @@
         $('#lmc-search-input').on('input', applySearch);
         $('#lmc-search-clear').on('click', function() { $('#lmc-search-input').val('').trigger('input'); });
 
-        // Розгорнути/Згорнути
-        $(document).on('click', '.lmc-more-btn', function(e) {
-            e.stopPropagation(); // Щоб не спрацювало копіювання
-            var $content = $(this).prev('.lmc-collapsible');
-            if ($content.hasClass('collapsed')) {
-                $content.removeClass('collapsed');
-                $(this).html('Згорнути <span>▲</span>');
-            } else {
-                $content.addClass('collapsed');
-                $(this).html('Розгорнути <span>▼</span>');
+        // Розгортання по КЛІКУ на ВЕСЬ РЯДОК
+        $(document).on('click', '.lmc-row, .lmc-network-row', function(e) {
+            if ($(e.target).hasClass('lmc-del-btn')) return; // Ігноруємо клік по кнопці видалення
+            
+            var $collapsible = $(this).find('.lmc-collapsible');
+            if ($collapsible.length) {
+                var isCollapsed = $collapsible.hasClass('collapsed');
+                $collapsible.toggleClass('collapsed');
+                var $btn = $(this).find('.lmc-more-btn');
+                if (isCollapsed) {
+                    $btn.html('Згорнути <span>▲</span>');
+                } else {
+                    $btn.html('Розгорнути <span>▼</span>');
+                }
+            }
+        });
+
+        // Підтримка ТВ Пульта (кнопка ОК = клік)
+        $(document).on('keydown', '.focusable', function(e) {
+            if (e.keyCode === 13) { // Enter / OK
+                $(this).click();
             }
         });
 
         // Видалення зі Storage / Cache
         $(document).on('click', '.lmc-del-btn', function(e) {
-            e.stopPropagation();
+            e.stopPropagation(); // Щоб не розгортався рядок
             var key = $(this).attr('data-key');
             localStorage.removeItem(key);
             $(this).closest('.lmc-row').remove();
             showToast("Видалено: " + key);
         });
 
-        // --- ДОВГЕ НАТИСКАННЯ ДЛЯ КОПІЮВАННЯ ---
+        // ДОВГЕ НАТИСКАННЯ ДЛЯ КОПІЮВАННЯ
         var pressTimer;
         $(document).on('touchstart mousedown', '.lmc-row, .lmc-network-row', function(e) {
-            if ($(e.target).hasClass('lmc-del-btn') || $(e.target).hasClass('lmc-more-btn')) return;
+            if ($(e.target).hasClass('lmc-del-btn')) return;
             var $row = $(this);
             pressTimer = window.setTimeout(function() {
-                // Беремо чистий текст без кнопок "Розгорнути" чи "Видалити"
                 var clone = $row.clone();
                 clone.find('.lmc-more-btn, .lmc-del-btn').remove();
                 var textToCopy = clone.text().trim();
                 
-                // Створення тимчасового елемента для копіювання
                 var textarea = document.createElement("textarea");
                 textarea.value = textToCopy;
                 document.body.appendChild(textarea);
                 textarea.select();
-                try {
-                    document.execCommand("copy");
-                    showToast("Скопійовано");
-                } catch (err) {
-                    showToast("Помилка копіювання");
-                }
+                try { document.execCommand("copy"); showToast("Скопійовано"); } 
+                catch (err) { showToast("Помилка копіювання"); }
                 document.body.removeChild(textarea);
-            }, 600); // 600 мілісекунд для довгого тапу
+            }, 600);
         }).on('touchend touchmove mouseup mouseleave', function() {
             clearTimeout(pressTimer);
         });
