@@ -228,8 +228,9 @@
         if (uiReady) return;
 
         var css = `
-            .lmc-head-btn { opacity: 0.8; transition: opacity 0.3s; cursor: pointer; }
-            .lmc-head-btn.focus, .lmc-head-btn:hover { opacity: 1; outline: 2px solid #20c997; border-radius: 4px; }
+            /* Без кольорової рамки, тільки легкий фон при фокусі */
+            .lmc-head-btn { opacity: 0.8; transition: all 0.2s; cursor: pointer; }
+            .lmc-head-btn.focus, .lmc-head-btn:hover { opacity: 1; background: rgba(255,255,255,0.1); border-radius: 4px; outline: none !important; }
 
             #lampa-mob-console-window { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; background: #0c0d0f; z-index: 9999999; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #ddd; font-size: 11.5px; }
             #lampa-mob-console-header { display: flex; justify-content: space-between; padding: 10px 14px; background: #1a1c1f; border-bottom: 1px solid rgba(255,255,255,0.03); align-items: center; }
@@ -325,15 +326,11 @@
         function injectHeaderBtn() {
             if ($('#lmc-head-btn-wrap').length) return; 
             
-            // Ідеальна іконка, побудована малюванням з суцільним верхом
-            var iconSvg = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' +
-                          '<path d="M4 8 V18 A2 2 0 0 0 6 20 H18 A2 2 0 0 0 20 18 V8" stroke-width="2" />' +
-                          '<path d="M4 8 H20 V6 A2 2 0 0 0 18 4 H6 A2 2 0 0 0 4 6 Z" fill="currentColor" stroke="currentColor" stroke-width="2"/>' +
-                          '<path d="M8 11 L11 14 L8 17" stroke-width="2" />' +
-                          '<path d="M13 17 H16" stroke-width="2" />' +
+            // Твій SVG з адаптованими стилями під Лампу (currentColor)
+            var iconSvg = '<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">' +
+                          '<path d="M3.5 4.5L6.5 7.5L3.5 10.5M8 10.5H12M1.5 1.5H13.5C14.0523 1.5 14.5 1.94772 14.5 2.5V12.5C14.5 13.0523 14.0523 13.5 13.5 13.5H1.5C0.947716 13.5 0.5 13.0523 0.5 12.5V2.5C0.5 1.94772 0.947715 1.5 1.5 1.5Z"/>' +
                           '</svg>';
             
-            // Використовуємо рідні класи Lampa: head__action та selector
             var btnHtml = '<div id="lmc-head-btn-wrap" class="head__action selector lmc-head-btn" title="Console Tools">' + iconSvg + '</div>';
             
             var $actions = $('.head__actions');
@@ -347,10 +344,17 @@
         setInterval(injectHeaderBtn, 1000);
         injectHeaderBtn();
 
+        function closeConsole() {
+            $('#lampa-mob-console-window').hide();
+            // Повернення фокусу на сторінку Лампи
+            if (window.Lampa && Lampa.Controller) {
+                Lampa.Controller.toggle(Lampa.Activity.active() ? Lampa.Activity.active().component : 'content');
+            }
+        }
+
         function openConsole() {
             $('#lampa-mob-console-window').css('display', 'flex');
             
-            // Реєструємо контролер для пульта ТБ
             if (window.Lampa && Lampa.Controller) {
                 if (!window.lmc_controller_added) {
                     Lampa.Controller.add('lmc_console', {
@@ -362,7 +366,7 @@
                         left: function() { Lampa.Controller.collectionDirection('left', $('#lampa-mob-console-window .selector')); },
                         down: function() { Lampa.Controller.collectionDirection('down', $('#lampa-mob-console-window .selector')); },
                         up: function() { Lampa.Controller.collectionDirection('up', $('#lampa-mob-console-window .selector')); },
-                        back: function() { $('#lampa-mob-console-close').click(); }
+                        back: function() { closeConsole(); }
                     });
                     window.lmc_controller_added = true;
                 }
@@ -371,28 +375,38 @@
         }
 
         $('#lampa-mob-console-close').on('click', function () { 
-            $('#lampa-mob-console-window').hide(); 
-            // Віддаємо фокус назад Лампі
-            if (window.Lampa && Lampa.Controller) {
-                Lampa.Controller.toggle(Lampa.Activity.active() ? Lampa.Activity.active().component : 'content');
-            }
+            closeConsole(); 
         });
+
+        // Свайп "Назад" на телефоні (popstate)
+        window.addEventListener('popstate', function(e) {
+            if ($('#lampa-mob-console-window').is(':visible')) {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                closeConsole(); 
+            }
+        }, true);
 
         // Перехоплення пульта ТБ та фікс Backspace
         window.addEventListener('keydown', function(e) {
             if ($('#lampa-mob-console-window').is(':visible')) {
-                // Якщо ми в полі пошуку, не блокуємо Backspace (8)
                 if (e.keyCode === 8 && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
                     return; 
                 }
                 if (e.keyCode === 27 || e.keyCode === 8 || e.keyCode === 10009 || e.keyCode === 461) {
                     e.stopImmediatePropagation();
                     e.preventDefault();
-                    $('#lampa-mob-console-close').click();
+                    closeConsole();
                 }
             }
         }, true);
         
+        // Перехоплення hover:enter від пульта (клік кнопкою ОК)
+        $(document).on('hover:enter', '.selector', function(e) {
+            $(this).trigger('click');
+            e.stopPropagation();
+        });
+
         $('.lmc-tab').on('click', function () {
             var target = $(this).attr('data-target');
             
