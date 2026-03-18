@@ -37,9 +37,10 @@
         if (type === 'error') { counts.errors++; counts.logs++; }
         if (type === 'net') counts.network++;
 
-        $('.lmc-tab[data-target="lmc-content-logs"]').text('Console - ' + counts.logs);
-        $('.lmc-tab[data-target="lmc-content-errors"]').text('Errors - ' + counts.errors);
-        $('.lmc-tab[data-target="lmc-content-network"]').text('Network - ' + counts.network);
+        // Оновлено формат на дужки
+        $('.lmc-tab[data-target="lmc-content-logs"]').text('Console (' + counts.logs + ')');
+        $('.lmc-tab[data-target="lmc-content-errors"]').text('Errors (' + counts.errors + ')');
+        $('.lmc-tab[data-target="lmc-content-network"]').text('Network (' + counts.network + ')');
     }
 
     function applySearch() {
@@ -62,16 +63,27 @@
     var originalLog = console.log, originalWarn = console.warn, originalError = console.error, originalInfo = console.info;
 
     function getPluginNameFromUrl(url) {
-        if (!url) return 'Unknown Script';
+        if (!url || typeof url !== 'string') return 'Unknown Script';
         var filename = url.substring(url.lastIndexOf('/')+1);
         if (filename.indexOf('?') > -1) filename = filename.substring(0, filename.indexOf('?'));
         return filename || 'Inline Script';
     }
 
+    // ПОКРАЩЕНИЙ ВІДЛОВЛЮВАЧ ПОМИЛОК
     window.addEventListener('error', function(event) {
         var plugin = getPluginNameFromUrl(event.filename);
-        var msg = "Критична помилка в [" + plugin + "]: " + event.message;
-        if (event.filename) msg += "\nФайл: " + event.filename + " (" + event.lineno + ":" + event.colno + ")";
+        var errMsg = event.message;
+        
+        if (!errMsg || errMsg === 'Script error.') {
+            if (event.error && event.error.message) {
+                errMsg = event.error.message;
+            } else {
+                errMsg = '(Можливо CORS/Cross-origin обмеження або порожня помилка)';
+            }
+        }
+        
+        var msg = "Критична помилка в [" + plugin + "]: " + errMsg;
+        if (event.filename) msg += "\nФайл: " + event.filename + (event.lineno ? " (" + event.lineno + ":" + event.colno + ")" : "");
         if (event.error && event.error.stack) msg += "\nСтек:\n" + event.error.stack;
         
         pushLogToUI(msg, 'error');
@@ -79,7 +91,12 @@
     }, true);
 
     window.addEventListener('unhandledrejection', function(event) {
-        var msg = "Необроблений Promise: " + (event.reason && event.reason.stack ? event.reason.stack : event.reason);
+        var reason = event.reason;
+        var errMsg = reason ? (reason.message || (typeof reason === 'object' ? JSON.stringify(reason) : String(reason))) : 'Невідома причина (undefined)';
+        
+        var msg = "Необроблений Promise: " + errMsg;
+        if (reason && reason.stack) msg += "\nСтек:\n" + reason.stack;
+
         pushLogToUI(msg, 'error');
         originalError.apply(console, [msg]);
     });
@@ -235,7 +252,6 @@
             #lampa-mob-console-header { display: flex; justify-content: space-between; padding: 10px 14px; background: #1a1c1f; border-bottom: 1px solid rgba(255,255,255,0.03); align-items: center; }
             
             #lmc-search-bar { padding: 8px 14px; background: #141619; border-bottom: 1px solid rgba(255,255,255,0.03); position: relative; display: flex; align-items: center; }
-            /* Повернуто системний інпут без readonly */
             #lmc-search-input { flex: 1; background: #212429; color: #fff; border: 1px solid transparent; padding: 8px 30px 8px 10px; border-radius: 4px; outline: none; font-family: inherit; font-size: inherit; box-sizing: border-box; }
             #lmc-search-input.focus, #lmc-search-input:focus { border-color: #20c997; background: #2a2e33; }
             #lmc-search-clear { position: absolute; right: 24px; top: 15px; color: #888; font-size: 16px; cursor: pointer; display: none; font-weight: bold; width: 18px; height: 18px; text-align: center; line-height: 16px; }
@@ -246,7 +262,7 @@
             .lmc-tab.active { background: rgba(32, 201, 151, 0.1); color: #20c997; border-color: #20c997; }
             .lmc-tab.focus { outline: 1.5px solid #fff; }
 
-            .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 8px 14px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; flex-direction: column; }
+            .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 8px 14px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; flex-direction: column; scroll-behavior: smooth; }
             .lmc-content.active { display: flex; }
 
             #lampa-mob-console-close { padding: 0 8px; font-size: 26px; line-height: 0.8; cursor: pointer; color: #888; transition: color 0.2s; font-weight: normal; }
@@ -288,6 +304,7 @@
         `;
         $('<style>').text(css).appendTo('head');
 
+        // Оновлений HTML з дужками для стартових значень
         $('body').append(`
             <div id="lampa-mob-console-window">
                 <div id="lampa-mob-console-header">
@@ -299,9 +316,9 @@
                     <div id="lmc-search-clear" class="selector">×</div>
                 </div>
                 <div id="lampa-mob-console-tabs">
-                    <div class="lmc-tab selector active" data-target="lmc-content-logs">Console - 0</div>
-                    <div class="lmc-tab selector" data-target="lmc-content-errors">Errors - 0</div>
-                    <div class="lmc-tab selector" data-target="lmc-content-network">Network - 0</div>
+                    <div class="lmc-tab selector active" data-target="lmc-content-logs">Console (0)</div>
+                    <div class="lmc-tab selector" data-target="lmc-content-errors">Errors (0)</div>
+                    <div class="lmc-tab selector" data-target="lmc-content-network">Network (0)</div>
                     <div class="lmc-tab selector" data-target="lmc-content-info">Info</div>
                     <div class="lmc-tab selector" data-target="lmc-content-extensions">Plugins</div>
                     <div class="lmc-tab selector" data-target="lmc-content-cache">Cache</div>
@@ -429,7 +446,6 @@
             }
         });
 
-        // ГЛОБАЛЬНИЙ перекладач пульта (з фокусом для інпута)
         $('#lampa-mob-console-window').on('hover:enter', '.selector', function(e) {
             $(this).trigger('click');
             if ($(this).is('input')) {
@@ -457,8 +473,14 @@
             }
         }, true); 
 
+        // ВАЖЛИВИЙ ФІКС ДЛЯ КЛАВІАТУРИ: Дозволяємо працювати Backspace (код 8) в полі вводу
         window.addEventListener('keydown', function(e) {
             if ($('#lampa-mob-console-window').is(':visible')) {
+                // Перевіряємо, чи ми зараз знаходимося в полі вводу (input)
+                if (e.keyCode === 8 && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || $(e.target).is('input'))) {
+                    return; // Не перехоплюємо, дозволяємо стерти символ!
+                }
+                
                 if (e.keyCode === 27 || e.keyCode === 8 || e.keyCode === 10009 || e.keyCode === 461) {
                     e.stopImmediatePropagation();
                     e.preventDefault();
@@ -522,6 +544,8 @@
         $('#lmc-search-clear').on('click', function(e) { 
             e.stopPropagation();
             $('#lmc-search-input').val('').trigger('input'); 
+            applySearch();
+            updateControllerFocus();
         });
 
         $(document).on('click', '.lmc-row, .lmc-network-row', function(e) {
