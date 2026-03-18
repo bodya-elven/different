@@ -235,8 +235,8 @@
             #lampa-mob-console-header { display: flex; justify-content: space-between; padding: 10px 14px; background: #1a1c1f; border-bottom: 1px solid rgba(255,255,255,0.03); align-items: center; }
             
             #lmc-search-bar { padding: 8px 14px; background: #141619; border-bottom: 1px solid rgba(255,255,255,0.03); position: relative; display: flex; align-items: center; }
-            /* Input тепер readonly, щоб не викликати системну клавіатуру */
-            #lmc-search-input { flex: 1; background: #212429; color: #fff; border: 1px solid transparent; padding: 8px 30px 8px 10px; border-radius: 4px; outline: none; font-family: inherit; font-size: inherit; box-sizing: border-box; cursor: pointer; }
+            /* Повернуто системний інпут без readonly */
+            #lmc-search-input { flex: 1; background: #212429; color: #fff; border: 1px solid transparent; padding: 8px 30px 8px 10px; border-radius: 4px; outline: none; font-family: inherit; font-size: inherit; box-sizing: border-box; }
             #lmc-search-input.focus, #lmc-search-input:focus { border-color: #20c997; background: #2a2e33; }
             #lmc-search-clear { position: absolute; right: 24px; top: 15px; color: #888; font-size: 16px; cursor: pointer; display: none; font-weight: bold; width: 18px; height: 18px; text-align: center; line-height: 16px; }
 
@@ -295,7 +295,7 @@
                     <div id="lampa-mob-console-close" class="selector" title="Закрити">×</div>
                 </div>
                 <div id="lmc-search-bar">
-                    <input type="text" id="lmc-search-input" class="selector" placeholder="Пошук..." readonly>
+                    <input type="text" id="lmc-search-input" class="selector" placeholder="Пошук...">
                     <div id="lmc-search-clear" class="selector">×</div>
                 </div>
                 <div id="lampa-mob-console-tabs">
@@ -348,16 +348,15 @@
         setInterval(injectHeaderBtn, 1000);
         injectHeaderBtn();
 
-        var lmc_is_programmatic_back = false; // Запобіжник для історії браузера
+        var lmc_is_programmatic_back = false;
 
         function closeConsole(fromHistory) {
             $('#lampa-mob-console-window').hide();
             clearTimeout(window.lmcOpenTimeout);
             
-            // Якщо закрили вручну (не через свайп), чистимо історію браузера
             if (!fromHistory && window.history.state && window.history.state.lmc_open) {
                 lmc_is_programmatic_back = true; 
-                window.history.back(); // Це викличе popstate, але наш запобіжник його заблокує
+                window.history.back(); 
             }
             
             if (window.Lampa && Lampa.Controller && prev_controller && prev_controller !== 'lmc_console') {
@@ -411,8 +410,6 @@
             }, 150);
         }
 
-        // АВТОСКРОЛІНГ (Математичний метод)
-        // Гарантовано прокручує список, коли пульт фокусується на логах
         $(document).on('hover:focus', '#lampa-mob-console-window .selector', function() {
             var $el = $(this);
             var $container = $el.closest('.lmc-content');
@@ -432,8 +429,12 @@
             }
         });
 
+        // ГЛОБАЛЬНИЙ перекладач пульта (з фокусом для інпута)
         $('#lampa-mob-console-window').on('hover:enter', '.selector', function(e) {
             $(this).trigger('click');
+            if ($(this).is('input')) {
+                $(this).focus();
+            }
             e.stopPropagation();
             return false;
         });
@@ -443,11 +444,10 @@
             closeConsole(false); 
         });
 
-        // ПЕРЕХОПЛЕННЯ СИСТЕМНОГО НАЗАД (Свайп)
         window.addEventListener('popstate', function(e) {
             if (lmc_is_programmatic_back) {
                 lmc_is_programmatic_back = false;
-                e.stopImmediatePropagation(); // Блокуємо Лампу!
+                e.stopImmediatePropagation(); 
                 return;
             }
             if ($('#lampa-mob-console-window').is(':visible')) {
@@ -467,30 +467,6 @@
             }
         }, true);
 
-        // ВИКЛИК ЛАМПІВСЬКОЇ КЛАВІАТУРИ
-        $('#lmc-search-input').on('click', function(e) {
-            e.stopPropagation();
-            if (window.Lampa && Lampa.Input) {
-                Lampa.Input.edit({
-                    title: 'Пошук в консолі',
-                    value: $(this).val(),
-                    free: true,
-                    nosave: true
-                }, function (new_val) {
-                    $('#lmc-search-input').val(new_val);
-                    applySearch();
-                    
-                    if (window.Lampa && Lampa.Controller) {
-                        Lampa.Controller.toggle('lmc_console');
-                        setTimeout(function(){
-                            updateControllerFocus();
-                            if (window.Navigator) window.Navigator.focus($('#lmc-search-input')[0]);
-                        }, 50);
-                    }
-                });
-            }
-        });
-
         $('.lmc-tab').on('click', function (e) {
             e.stopPropagation();
             var target = $(this).attr('data-target');
@@ -500,11 +476,9 @@
                 if (target === 'lmc-content-info') {
                     updateInfoTab();
                 } else if (target === 'lmc-content-network') {
-                    // ФІЗИЧНЕ ПЕРЕВЕРТАННЯ МАСИВУ В DOM
                     var $content = $('#' + target);
                     $content.toggleClass('lmc-reversed');
                     
-                    // Відриваємо елементи, перевертаємо і вставляємо назад
                     var children = $content.children('.lmc-network-row').detach().toArray();
                     children.reverse();
                     $content.append(children);
@@ -536,11 +510,18 @@
             }
         });
 
+        $('#lmc-search-input').on('keydown keyup keypress', function(e) { e.stopPropagation(); });
+        
+        $('#lmc-search-input').on('input', function() {
+            applySearch();
+            if (window.Lampa && Lampa.Controller && Lampa.Controller.enabled().name === 'lmc_console') {
+                updateControllerFocus();
+            }
+        });
+        
         $('#lmc-search-clear').on('click', function(e) { 
             e.stopPropagation();
             $('#lmc-search-input').val('').trigger('input'); 
-            applySearch();
-            updateControllerFocus();
         });
 
         $(document).on('click', '.lmc-row, .lmc-network-row', function(e) {
