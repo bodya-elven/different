@@ -10,6 +10,7 @@
     var counts = { logs: 0, errors: 0, network: 0 };
     var startTime = performance.now();
     var prev_controller = 'content'; 
+    window.lmcOpenTimeout = null;
 
     function escapeHtml(unsafe) {
         if (typeof unsafe !== 'string') return String(unsafe);
@@ -244,7 +245,7 @@
             .lmc-tab.active { background: rgba(32, 201, 151, 0.1); color: #20c997; border-color: #20c997; }
             .lmc-tab.focus { outline: 1.5px solid #fff; }
 
-            .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 8px 14px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; flex-direction: column; }
+            .lmc-content { display: none; flex: 1; overflow-y: auto; padding: 8px 14px; word-wrap: break-word; white-space: pre-wrap; overscroll-behavior: contain; padding-bottom: 40px; flex-direction: column; scroll-behavior: smooth; }
             .lmc-content.active { display: flex; }
             .lmc-content.lmc-reversed { flex-direction: column-reverse; }
 
@@ -349,12 +350,13 @@
 
         function closeConsole(fromHistory) {
             $('#lampa-mob-console-window').hide();
+            clearTimeout(window.lmcOpenTimeout); // Скасовуємо таймер, якщо закрили раніше
             
             if (!fromHistory && window.history.state && window.history.state.lmc_open) {
                 window.history.back(); 
             }
             
-            if (window.Lampa && Lampa.Controller && prev_controller) {
+            if (window.Lampa && Lampa.Controller && prev_controller && prev_controller !== 'lmc_console') {
                 Lampa.Controller.toggle(prev_controller);
             }
         }
@@ -362,7 +364,6 @@
         function openConsole() {
             if (window.Lampa && Lampa.Controller) {
                 var activeControl = Lampa.Controller.enabled();
-                // Запобіжник: ніколи не запам'ятовуємо саму консоль як попередню
                 if (activeControl && activeControl.name !== 'lmc_console') {
                     prev_controller = activeControl.name;
                 }
@@ -374,26 +375,37 @@
                 window.history.pushState({lmc_open: true}, "");
             }
             
-            if (window.Lampa && Lampa.Controller) {
-                if (!window.lmc_controller_added) {
-                    Lampa.Controller.add('lmc_console', {
-                        toggle: function() {
-                            // Передаємо ТІЛЬКИ батьківський контейнер, Лампа сама знайде селектори
-                            Lampa.Controller.collectionSet($('#lampa-mob-console-window')[0] || $('#lampa-mob-console-window'));
-                            Lampa.Controller.collectionFocus(false, $('#lampa-mob-console-window'));
-                        },
-                        // Пряме управління через Navigator.move(), як у нативних плагінах
-                        right: function() { window.Navigator.move('right'); },
-                        left:  function() { window.Navigator.move('left'); },
-                        down:  function() { window.Navigator.move('down'); },
-                        up:    function() { window.Navigator.move('up'); },
-                        back:  function() { closeConsole(false); }
-                    });
-                    window.lmc_controller_added = true;
+            // МІКРОЗАТРИМКА (150ms): Чекаємо, поки браузер відмалює координати кнопок
+            clearTimeout(window.lmcOpenTimeout);
+            window.lmcOpenTimeout = setTimeout(function() {
+                if ($('#lampa-mob-console-window').is(':visible') && window.Lampa && Lampa.Controller) {
+                    if (!window.lmc_controller_added) {
+                        Lampa.Controller.add('lmc_console', {
+                            toggle: function() {
+                                Lampa.Controller.collectionSet($('#lampa-mob-console-window')[0]);
+                                Lampa.Controller.collectionFocus(false, $('#lampa-mob-console-window'));
+                            },
+                            right: function() { window.Navigator.move('right'); },
+                            left:  function() { window.Navigator.move('left'); },
+                            down:  function() { window.Navigator.move('down'); },
+                            up:    function() { window.Navigator.move('up'); },
+                            back:  function() { closeConsole(false); }
+                        });
+                        window.lmc_controller_added = true;
+                    }
+                    Lampa.Controller.toggle('lmc_console');
                 }
-                Lampa.Controller.toggle('lmc_console');
-            }
+            }, 150);
         }
+
+        // АВТОСКРОЛІНГ для телевізора: коли елемент отримує фокус пульта
+        $(document).on('hover:focus', '#lampa-mob-console-window .selector', function() {
+            if (this.scrollIntoViewIfNeeded) {
+                this.scrollIntoViewIfNeeded(true);
+            } else {
+                this.scrollIntoView({behavior: "smooth", block: "center"});
+            }
+        });
 
         $('#lampa-mob-console-close').on('click hover:enter', function (e) { 
             e.stopPropagation();
@@ -457,9 +469,11 @@
             
             applySearch();
             
-            // Якщо ми перемкнули вкладку пультом, перезавантажуємо фокус
+            // Якщо змінили вкладку, чекаємо 50мс і перезавантажуємо координати для пульта
             if (window.Lampa && Lampa.Controller && Lampa.Controller.enabled().name === 'lmc_console') {
-                Lampa.Controller.collectionSet($('#lampa-mob-console-window')[0] || $('#lampa-mob-console-window'));
+                setTimeout(function() {
+                    Lampa.Controller.collectionSet($('#lampa-mob-console-window')[0]);
+                }, 50);
             }
         });
 
