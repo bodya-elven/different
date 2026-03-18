@@ -51,7 +51,6 @@
         else $('#lmc-search-clear').hide();
     }
 
-    // ПОВНА ВКЛАДКА INFO
     function updateInfoTab() {
         var $info = $('#lmc-content-info').empty();
         var activeComp = window.Lampa && Lampa.Activity && Lampa.Activity.active() ? Lampa.Activity.active().component : 'None';
@@ -77,12 +76,10 @@
         });
     }
 
-    var originalLog = console.log, originalWarn = console.warn, originalError = console.error, originalInfo = console.info;
+    var originalLog = console.log, originalWarn = console.warn, originalError = console.error;
 
     window.addEventListener('error', function(event) {
-        var msg = "Критична помилка: " + event.message;
-        pushLogToUI(msg, 'error');
-        originalError.apply(console, [msg]);
+        pushLogToUI("Критична помилка: " + event.message, 'error');
     }, true);
 
     function pushLogToUI(msg, type) {
@@ -115,10 +112,9 @@
             var plugins = Lampa.Storage.get('plugins') || [];
             plugins.forEach(function(p) {
                 var stat = p.status ? '<span style="color:#20c997;">[ON]</span>' : '<span style="color:#f44336;">[OFF]</span>';
-                var btnClass = p.status ? 'lmc-plug-off' : 'lmc-plug-on';
                 var html = '<div class="lmc-item-wrap">' +
                            '<div class="lmc-item-text selector">' + stat + ' ' + escapeHtml(p.name || 'Plug') + '</div>' +
-                           '<div class="lmc-plugin-toggle selector ' + btnClass + '" data-url="' + escapeHtml(p.url) + '">Toggle</div>' +
+                           '<div class="lmc-plugin-toggle selector" data-url="' + escapeHtml(p.url) + '">Toggle</div>' +
                            '</div>';
                 $ext.append(html);
             });
@@ -148,8 +144,8 @@
             .lmc-item-wrap { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
             .lmc-item-text { flex: 1; padding: 8px; }
             .lmc-item-text.focus { background: rgba(255,255,255,0.05); }
-            .lmc-del-btn, .lmc-plugin-toggle { padding: 6px 10px; border-radius: 4px; background: #212429; margin-left: 10px; align-self: center; }
-            .lmc-del-btn.focus, .lmc-plugin-toggle.focus { background: #20c997; color: #000; }
+            .lmc-plugin-toggle { padding: 6px 10px; border-radius: 4px; background: #212429; margin-left: 10px; align-self: center; }
+            .lmc-plugin-toggle.focus { background: #20c997; color: #000; }
         `;
         $('<style>').text(css).appendTo('head');
 
@@ -227,7 +223,6 @@
             }
         }
 
-        // КНОПКА В ШАПЦІ (Бронебійний метод)
         setInterval(function() {
             if ($('#lmc-head-btn-wrap').length) return;
             var btn = $('<div id="lmc-head-btn-wrap" class="head__action selector" style="width:40px; text-align:center;">C</div>');
@@ -247,6 +242,7 @@
                 if ($t.attr('data-target') === 'lmc-content-info') updateInfoTab();
                 if ($t.attr('data-target') === 'lmc-content-extensions') updateExtensionsTab();
                 if ($t.attr('data-target').indexOf('storage') > -1) updateStorageAndCache();
+                applySearch();
             }
             if ($t.hasClass('lmc-row') || $t.hasClass('lmc-item-text')) {
                 $t.find('.lmc-collapsible').toggleClass('collapsed');
