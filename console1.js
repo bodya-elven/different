@@ -217,23 +217,40 @@
 
     function updateInfoTab() {
         var $info = $('#lmc-content-info').empty();
+        var lsTotal = 0;
+        for (var x in localStorage) { if (localStorage.hasOwnProperty(x)) lsTotal += ((localStorage[x].length + x.length) * 2); }
+        var lsSize = (lsTotal / 1024).toFixed(2) + ' KB';
+        var activeComp = window.Lampa && Lampa.Activity && Lampa.Activity.active() ? Lampa.Activity.active().component : 'None';
         var ms = performance.now() - startTime;
         var uptime = Math.floor(ms / 1000 / 60) + ' хв ' + Math.floor((ms / 1000) % 60) + ' сек';
         var dpr = window.devicePixelRatio || 1;
+        var screenW = Math.round(window.screen.width * dpr);
+        var screenH = Math.round(window.screen.height * dpr);
 
         var data = [
             { k: 'location', v: window.location.href },
-            { k: 'active component', v: window.Lampa && Lampa.Activity && Lampa.Activity.active() ? Lampa.Activity.active().component : 'None' },
+            { k: 'active component', v: activeComp },
             { k: 'session uptime', v: uptime },
+            { k: 'hash', v: window.Lampa && Lampa.Storage ? Lampa.Storage.get('hash', 'unknown') : 'unknown' },
+            { k: 'build date', v: window.Lampa && Lampa.Manifest && Lampa.Manifest.time ? new Date(Lampa.Manifest.time).toLocaleString() : 'Unknown' },
+            { k: 'version', v: window.Lampa && Lampa.Manifest ? Lampa.Manifest.app_version : 'Unknown' },
             { k: 'platform', v: window.Lampa && Lampa.Platform ? Lampa.Platform.get() : 'Unknown' },
+            { k: 'is PWA', v: window.matchMedia('(display-mode: standalone)').matches ? 'true' : 'false' },
+            { k: 'is touch', v: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) ? 'true' : 'false' },
+            { k: 'is mobile', v: /Mobi|Android/i.test(navigator.userAgent) ? 'true' : 'false' },
             { k: 'is tv', v: window.Lampa && Lampa.Platform ? Lampa.Platform.is('tv') : 'false' },
-            { k: 'user agent', v: navigator.userAgent }
+            { k: 'touch points', v: navigator.maxTouchPoints || 0 },
+            { k: 'user agent', v: navigator.userAgent },
+            { k: 'pixel ratio', v: dpr },
+            { k: 'interface size', v: window.innerWidth + ' / ' + window.innerHeight },
+            { k: 'screen size', v: screenW + ' / ' + screenH }
         ];
         
         data.forEach(function(item) { 
             $info.append('<div class="lmc-row selector"><strong>' + item.k + ':</strong> <span style="color:#aaa;">' + escapeHtml(item.v) + '</span></div>'); 
         });
     }
+
 
     function updateExtensionsTab() {
         var $ext = $('#lmc-content-extensions').empty();
