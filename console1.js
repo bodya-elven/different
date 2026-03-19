@@ -566,9 +566,15 @@
             }
 
             if ($this.attr('id') === 'lmc-search-clear') {
-                $('#lmc-search-input').val('').trigger('input'); 
+                var $input = $('#lmc-search-input');
+                $input.val('').trigger('input'); 
+                $input.focus();
+                if (window.Navigator) {
+                    window.Navigator.focus($input[0]);
+                }
                 return false;
             }
+
 
             if ($this.hasClass('lmc-row') || $this.hasClass('lmc-network-row') || $this.hasClass('lmc-item-text')) {
                 var $collapsible = $this.find('.lmc-collapsible');
@@ -610,7 +616,7 @@
                 version: PLUGIN_VERSION,
                 name: PLUGIN_NAME,
                 description: 'Інструмент для логування, дебагу та відладки додатку',
-                author: '@elven'
+                author: '@bodya_elven'
             };
             Lampa.Manifest.plugins = Object.assign(Lampa.Manifest.plugins || {}, { [PLUGIN_NAME]: manifest });
         }
