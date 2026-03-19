@@ -5,7 +5,7 @@
     if (window.mobileConsoleInitialized) return;
     window.mobileConsoleInitialized = true;
 
-    var PLUGIN_VERSION = '1.0.1';
+    var PLUGIN_VERSION = '1.0.2';
     var PLUGIN_NAME = 'Console';
 
     var logBuffer = [];
@@ -15,13 +15,11 @@
     var startTime = performance.now();
     var prev_controller = 'content'; 
 
-    // Екранування HTML для безпеки
     function escapeHtml(unsafe) {
         if (typeof unsafe !== 'string') return String(unsafe);
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    // Форматування довгого тексту (згортання)
     function formatLongText(text) {
         if (!text) return 'null';
         var str = String(text);
@@ -31,13 +29,11 @@
         return escapeHtml(str);
     }
 
-    // Відкладене оновлення колекції (Debounce), щоб ТВ не зависав при шквалі логів
     var lmcUpdateTimer = null;
     window.lmcUpdateCollection = function() {
         var wd = document.getElementById('lampa-mob-console-window');
         if (!wd || !window.Lampa || !Lampa.Controller) return;
         
-        // Оновлюємо тільки якщо консоль відкрита
         if (Lampa.Controller.enabled().name !== 'lmc_console') return;
 
         clearTimeout(lmcUpdateTimer);
@@ -143,7 +139,6 @@
         var html = '<div class="lmc-row selector ' + cssClass + '"><span class="lmc-time">' + time + ' - </span><span class="lmc-prefix">[' + type.toUpperCase() + ']</span> ' + formattedMsg + '</div>';
 
         var $logs = $('#lmc-content-logs');
-        // Ліміт у 300 логів
         if ($logs.children().length > 300) $logs.children().first().remove();
         $(html).appendTo($logs);
 
@@ -167,7 +162,6 @@
     function pushNetToUI(method, url, status, responseText) {
         if (!uiReady) return;
         var $net = $('#lmc-content-network');
-        // Ліміт у 300 мережевих запитів
         if ($net.children().length > 300) {
             if ($net.hasClass('lmc-reversed')) $net.children().last().remove();
             else $net.children().first().remove();
@@ -223,33 +217,17 @@
 
     function updateInfoTab() {
         var $info = $('#lmc-content-info').empty();
-        var lsTotal = 0;
-        for (var x in localStorage) { if (localStorage.hasOwnProperty(x)) lsTotal += ((localStorage[x].length + x.length) * 2); }
-        var lsSize = (lsTotal / 1024).toFixed(2) + ' KB';
-        var activeComp = window.Lampa && Lampa.Activity && Lampa.Activity.active() ? Lampa.Activity.active().component : 'None';
         var ms = performance.now() - startTime;
         var uptime = Math.floor(ms / 1000 / 60) + ' хв ' + Math.floor((ms / 1000) % 60) + ' сек';
         var dpr = window.devicePixelRatio || 1;
-        var screenW = Math.round(window.screen.width * dpr);
-        var screenH = Math.round(window.screen.height * dpr);
 
         var data = [
             { k: 'location', v: window.location.href },
-            { k: 'active component', v: activeComp },
+            { k: 'active component', v: window.Lampa && Lampa.Activity && Lampa.Activity.active() ? Lampa.Activity.active().component : 'None' },
             { k: 'session uptime', v: uptime },
-            { k: 'hash', v: window.Lampa && Lampa.Storage ? Lampa.Storage.get('hash', 'unknown') : 'unknown' },
-            { k: 'build date', v: window.Lampa && Lampa.Manifest && Lampa.Manifest.time ? new Date(Lampa.Manifest.time).toLocaleString() : 'Unknown' },
-            { k: 'version', v: window.Lampa && Lampa.Manifest ? Lampa.Manifest.app_version : 'Unknown' },
             { k: 'platform', v: window.Lampa && Lampa.Platform ? Lampa.Platform.get() : 'Unknown' },
-            { k: 'is PWA', v: window.matchMedia('(display-mode: standalone)').matches ? 'true' : 'false' },
-            { k: 'is touch', v: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) ? 'true' : 'false' },
-            { k: 'is mobile', v: /Mobi|Android/i.test(navigator.userAgent) ? 'true' : 'false' },
             { k: 'is tv', v: window.Lampa && Lampa.Platform ? Lampa.Platform.is('tv') : 'false' },
-            { k: 'touch points', v: navigator.maxTouchPoints || 0 },
-            { k: 'user agent', v: navigator.userAgent },
-            { k: 'pixel ratio', v: dpr },
-            { k: 'interface size', v: window.innerWidth + ' / ' + window.innerHeight },
-            { k: 'screen size', v: screenW + ' / ' + screenH }
+            { k: 'user agent', v: navigator.userAgent }
         ];
         
         data.forEach(function(item) { 
@@ -259,7 +237,6 @@
 
     function updateExtensionsTab() {
         var $ext = $('#lmc-content-extensions').empty();
-        
         if (window.Lampa && Lampa.Storage) {
             $ext.append('<div class="lmc-section-title">Встановлені плагіни (Storage)</div>');
             var plugins = Lampa.Storage.get('plugins') || [];
@@ -275,31 +252,76 @@
                 $ext.append(html);
             });
         }
-
         $ext.append('<div class="lmc-section-title" style="margin-top:10px;">Завантажені скрипти (DOM)</div>');
         $('script').each(function() { if (this.src) $ext.append('<div class="lmc-row selector"><span class="lmc-plugin-url">' + escapeHtml(this.src) + '</span></div>'); });
     }
 
+    // ЛОГІКА МОДАЛЬНОГО ВІКНА ДЛЯ ТВ
+    function showModal(text) {
+        $('#lmc-modal').remove();
+        var html = '<div id="lmc-modal">' +
+                   '<div id="lmc-modal-close" class="selector">Закрити</div>' +
+                   '<div id="lmc-modal-content" class="selector"></div>' +
+                   '</div>';
+        $('body').append(html);
+        $('#lmc-modal-content').text(text); // Безпечне вставлення тексту
+
+        var prevFocus = window.Navigator.getFocusedElement();
+
+        Lampa.Controller.add('lmc_modal', {
+            toggle: function() {
+                Lampa.Controller.collectionSet(document.getElementById('lmc-modal'));
+                Lampa.Controller.collectionFocus(false, document.getElementById('lmc-modal'));
+            },
+            right: function() { window.Navigator.move('right'); },
+            left:  function() { window.Navigator.move('left'); },
+            down:  function() { 
+                var focus = window.Navigator.getFocusedElement();
+                if (focus && focus.id === 'lmc-modal-content') focus.scrollTop += 120; // Скрол тексту вниз
+                else window.Navigator.move('down');
+            },
+            up:    function() { 
+                var focus = window.Navigator.getFocusedElement();
+                if (focus && focus.id === 'lmc-modal-content') focus.scrollTop -= 120; // Скрол тексту вверх
+                else window.Navigator.move('up');
+            },
+            enter: function() { 
+                var focus = window.Navigator.getFocusedElement();
+                if (focus && focus.id === 'lmc-modal-close') closeModal(prevFocus);
+            },
+            back: function() { closeModal(prevFocus); }
+        });
+
+        Lampa.Controller.toggle('lmc_modal');
+        window.Navigator.focus(document.getElementById('lmc-modal-content'));
+
+        $('#lmc-modal').on('hover:enter click', '#lmc-modal-close', function() { closeModal(prevFocus); });
+    }
+
+    function closeModal(prevFocus) {
+        $('#lmc-modal').remove();
+        Lampa.Controller.toggle('lmc_console');
+        if (prevFocus) {
+            window.Navigator.focus(prevFocus);
+            scrollToFocused(); // Повертаємо екран до рядка
+        }
+    }
+
     function closeConsole() {
         $('#lampa-mob-console-window').hide();
-        
-        // Очищаємо поле пошуку при закритті вікна
         $('#lmc-search-input').val('');
         applySearch();
-
         if (window.Lampa && Lampa.Controller && prev_controller && prev_controller !== 'lmc_console') {
             Lampa.Controller.toggle(prev_controller);
         }
     }
 
-    // Нативний скрол для ТБ та мобільних
     function scrollToFocused() {
         var focus = window.Navigator.getFocusedElement();
         if (!focus) return;
         try {
             focus.scrollIntoView({ 
                 block: 'center', 
-                // 'auto' запобігає "желе" ефекту при швидкому гортанні пультом на Android TV
                 behavior: (window.Lampa && window.Lampa.Platform && Lampa.Platform.is('tv')) ? 'auto' : 'smooth' 
             });
         } catch (e) {
@@ -332,7 +354,6 @@
                     enter: function() { 
                         var focused = window.Navigator.getFocusedElement();
                         if (focused) {
-                            // Виклик нативної системної клавіатури на ТВ/Смартфоні
                             if (focused.id === 'lmc-search-input') focused.focus();
                             else $(focused).trigger('click'); 
                         }
@@ -342,10 +363,7 @@
                 window.lmc_controller_added = true;
             }
             Lampa.Controller.toggle('lmc_console');
-            
-            if (window.Navigator) {
-                window.Navigator.focus(winDom.querySelector('.lmc-tab.active'));
-            }
+            if (window.Navigator) window.Navigator.focus(winDom.querySelector('.lmc-tab.active'));
         }
     }
 
@@ -422,6 +440,13 @@
             .lmc-plug-on { background: rgba(32, 201, 151, 0.1); color: #20c997; border: 1px solid rgba(32, 201, 151, 0.2); }
             .lmc-del-btn.focus, .lmc-plugin-toggle.focus { outline: 1.5px solid #fff; background: rgba(255,255,255,0.1); color: #fff; }
             .lmc-toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #20c997; color: #000; padding: 6px 12px; border-radius: 16px; font-size: 11px; font-weight: bold; z-index: 99999999; box-shadow: 0 4px 15px rgba(32, 201, 151, 0.3); pointer-events: none; }
+            
+            /* Стилі для модального вікна (ТБ версія) */
+            #lmc-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(12,13,15,0.98); z-index: 99999999; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
+            #lmc-modal-close { align-self: flex-end; margin-bottom: 12px; padding: 8px 16px; background: rgba(255,255,255,0.05); color: #888; border-radius: 4px; cursor: pointer; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); }
+            #lmc-modal-close.focus { background: #20c997; color: #000; border-color: #20c997; outline: none; }
+            #lmc-modal-content { flex: 1; overflow-y: auto; color: #ccc; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; background: #16181b; padding: 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); }
+            #lmc-modal-content.focus { border-color: #20c997; outline: 1px solid #20c997; }
         `;
         $('<style>').text(css).appendTo('head');
 
@@ -463,9 +488,8 @@
 
         $('#lampa-mob-console-window').on('hover:focus', '.selector', function() { scrollToFocused(); });
 
-        // Захист введення та безпечний вихід з нативної клавіатури на Android TV
         window.addEventListener('keydown', function(e) {
-            if ($('#lampa-mob-console-window').is(':visible')) {
+            if ($('#lampa-mob-console-window').is(':visible') && $('#lmc-modal').length === 0) {
                 var isInputFocused = document.activeElement && document.activeElement.id === 'lmc-search-input';
                 
                 if (e.keyCode === 8 && isInputFocused) {
@@ -474,7 +498,7 @@
                 
                 if (e.keyCode === 27 || e.keyCode === 10009 || e.keyCode === 461) {
                     if (isInputFocused) {
-                        document.activeElement.blur(); // Ховаємо системну клавіатуру
+                        document.activeElement.blur(); 
                         e.stopPropagation(); e.preventDefault();
                         if (window.Navigator) window.Navigator.focus(document.getElementById('lmc-search-input'));
                         return;
@@ -565,9 +589,11 @@
                 return false;
             }
 
+            // --- ВИПРАВЛЕННЯ ФОКУСУ ДЛЯ ОЧИЩЕННЯ ПОШУКУ ---
             if ($this.attr('id') === 'lmc-search-clear') {
                 var $input = $('#lmc-search-input');
                 $input.val('').trigger('input'); 
+                
                 $input.focus();
                 if (window.Navigator) {
                     window.Navigator.focus($input[0]);
@@ -575,12 +601,18 @@
                 return false;
             }
 
-
+            // --- ТБ АБО МОБІЛЬНИЙ КЛІК ПО ТЕКСТУ ---
             if ($this.hasClass('lmc-row') || $this.hasClass('lmc-network-row') || $this.hasClass('lmc-item-text')) {
                 var $collapsible = $this.find('.lmc-collapsible');
                 if ($collapsible.length) {
-                    $collapsible.toggleClass('collapsed');
-                    scrollToFocused(); 
+                    // Якщо це ТБ (Lampa.Platform.is('tv')) — показуємо модальне вікно
+                    if (window.Lampa && window.Lampa.Platform && Lampa.Platform.is('tv')) {
+                        showModal($collapsible.text());
+                    } else {
+                        // Якщо мобільний — звичайне розгортання
+                        $collapsible.toggleClass('collapsed');
+                        scrollToFocused(); 
+                    }
                 }
                 return false;
             }
@@ -616,7 +648,7 @@
                 version: PLUGIN_VERSION,
                 name: PLUGIN_NAME,
                 description: 'Інструмент для логування, дебагу та відладки додатку',
-                author: '@bodya_elven'
+                author: '@elven'
             };
             Lampa.Manifest.plugins = Object.assign(Lampa.Manifest.plugins || {}, { [PLUGIN_NAME]: manifest });
         }
