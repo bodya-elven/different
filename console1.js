@@ -5,7 +5,7 @@
     if (window.mobileConsoleInitialized) return;
     window.mobileConsoleInitialized = true;
 
-    var PLUGIN_VERSION = '1.0.5';
+    var PLUGIN_VERSION = '1.0.6';
     var PLUGIN_NAME = 'Console';
 
     var logBuffer = [];
@@ -270,6 +270,33 @@
         $('script').each(function() { if (this.src) $ext.append('<div class="lmc-row selector"><span class="lmc-plugin-url">' + escapeHtml(this.src) + '</span></div>'); });
     }
 
+    // ЛОГІКА ПРОГРЕСИВНОГО СКРОЛУ (АКСЕЛЕРАЦІЯ ФОКУСУ)
+    var moveHoldStart = 0;
+    var moveHoldDir = '';
+    var moveLastTime = 0;
+
+    function smartMove(dir) {
+        var now = performance.now();
+        // Якщо напрямок змінився або між кліками більше 300мс — це нове натискання
+        if (moveHoldDir !== dir || now - moveLastTime > 300) {
+            moveHoldStart = now;
+            moveHoldDir = dir;
+        }
+        moveLastTime = now;
+        
+        var duration = now - moveHoldStart;
+        var steps = 1;
+        
+        // Збільшуємо швидкість залежно від часу утримання
+        if (duration > 2000) steps = 3;      // Тримаємо 2 сек — перестрибуємо через 2 елементи
+        else if (duration > 500) steps = 2;  // Тримаємо 0.5 сек — перестрибуємо через 1 елемент
+
+        for (var i = 0; i < steps; i++) {
+            if (window.Navigator) window.Navigator.move(dir);
+        }
+        scrollToFocused();
+    }
+
     // ЛОГІКА МОДАЛЬНОГО ВІКНА ДЛЯ ТВ
     function showModal(text) {
         $('#lmc-modal').remove();
@@ -287,17 +314,17 @@
                 Lampa.Controller.collectionSet(document.getElementById('lmc-modal'));
                 Lampa.Controller.collectionFocus(false, document.getElementById('lmc-modal'));
             },
-            right: function() { window.Navigator.move('right'); },
-            left:  function() { window.Navigator.move('left'); },
+            right: function() { smartMove('right'); },
+            left:  function() { smartMove('left'); },
             down:  function() { 
                 var focus = window.Navigator.getFocusedElement();
                 if (focus && focus.id === 'lmc-modal-content') focus.scrollTop += 120;
-                else window.Navigator.move('down');
+                else smartMove('down');
             },
             up:    function() { 
                 var focus = window.Navigator.getFocusedElement();
                 if (focus && focus.id === 'lmc-modal-content') focus.scrollTop -= 120;
-                else window.Navigator.move('up');
+                else smartMove('up');
             },
             enter: function() { 
                 var focus = window.Navigator.getFocusedElement();
@@ -327,6 +354,11 @@
         applySearch();
         if (window.Lampa && Lampa.Controller && prev_controller && prev_controller !== 'lmc_console') {
             Lampa.Controller.toggle(prev_controller);
+        }
+        // ПОВЕРНЕННЯ ФОКУСУ НА ІКОНКУ КОНСОЛІ
+        var btn = document.getElementById('lmc-head-btn-wrap');
+        if (btn && window.Navigator) {
+            window.Navigator.focus(btn);
         }
     }
 
@@ -361,10 +393,10 @@
                         Lampa.Controller.collectionSet(winDom);
                         Lampa.Controller.collectionFocus(false, winDom);
                     },
-                    right: function() { window.Navigator.move('right'); scrollToFocused(); },
-                    left:  function() { window.Navigator.move('left'); scrollToFocused(); },
-                    down:  function() { window.Navigator.move('down'); scrollToFocused(); },
-                    up:    function() { window.Navigator.move('up'); scrollToFocused(); },
+                    right: function() { smartMove('right'); },
+                    left:  function() { smartMove('left'); },
+                    down:  function() { smartMove('down'); },
+                    up:    function() { smartMove('up'); },
                     enter: function() { 
                         var focused = window.Navigator.getFocusedElement();
                         if (focused) {
@@ -380,7 +412,6 @@
             if (window.Navigator) window.Navigator.focus(winDom.querySelector('.lmc-tab.active'));
         }
     }
-
     function injectHeaderBtn() {
         if ($('#lmc-head-btn-wrap').length) return; 
         var iconSvg = '<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">' +
@@ -397,6 +428,7 @@
             if ($reloadBtn.length) $reloadBtn.before(btn); else $actions.append(btn);
         }
     }
+
     function initUI() {
         if (uiReady) return;
 
@@ -457,7 +489,22 @@
             #lmc-modal-content { flex: 1; overflow-y: auto; color: #ccc; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; background: #16181b; padding: 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); }
             #lmc-modal-content.focus { border-color: #20c997; outline: 1px solid #20c997; }
         `;
-        $('<style>').text(css).appendTo('head');
+
+        // СПЕЦІАЛЬНІ СТИЛІ ТІЛЬКИ ДЛЯ ТЕЛЕВІЗОРІВ (зменшення шрифтів і відступів)
+        var isTV = window.Lampa && window.Lampa.Platform && Lampa.Platform.is('tv');
+        var tvCss = '';
+        if (isTV) {
+            tvCss = `
+                #lampa-mob-console-window { font-size: 11px !important; }
+                .lmc-row { padding: 8px 4px !important; font-size: 11px !important; }
+                .lmc-network-row { padding: 9px 4px !important; font-size: 11px !important; }
+                .lmc-time, .lmc-prefix, .lmc-net-status, .lmc-section-title { font-size: 10px !important; }
+                .lmc-tab { font-size: 10.5px !important; padding: 5px 10px !important; }
+                .lmc-net-response { font-size: 11px !important; }
+            `;
+        }
+        
+        $('<style>').text(css + tvCss).appendTo('head');
 
         $('body').append(`
             <div id="lampa-mob-console-window">
@@ -598,7 +645,6 @@
                 return false;
             }
 
-            // Повернення фокусу на input після стирання
             if ($this.attr('id') === 'lmc-search-clear') {
                 var $input = $('#lmc-search-input');
                 $input.val('').trigger('input'); 
