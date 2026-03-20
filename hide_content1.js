@@ -213,11 +213,8 @@
         var result = {};
         var currentLang = Lampa.Storage.get('language', 'en');
         
-        // Заповнюємо англійською для всіх поширених мов
         langs.forEach(function(l) { result[l] = enText; });
-        // Гарантовано додаємо для поточної мови користувача (навіть якщо її немає в списку)
         result[currentLang] = currentLang === 'uk' ? ukText : enText;
-        // Перезаписуємо українську
         result['uk'] = ukText;
         
         return result;
@@ -269,15 +266,31 @@
         valEl.text(value || '');
     }
 
-    // Налаштування плагіна (Ізольоване меню без милиць)
+    // Налаштування плагіна
     function addSettings() {
-        // Додаємо кнопку лише в розділ "Інтерфейс"
+        // Реєструємо компонент, щоб Лампа згенерувала внутрішній HTML-шаблон та заголовок
+        var exists = Lampa.SettingsApi.get().some(function(c) { return c.component === 'content_hiding'; });
+        if (!exists) {
+            Lampa.SettingsApi.addComponent({ 
+                component: 'content_hiding', 
+                name: Lampa.Lang.translate('content_hiding') 
+            });
+        }
+
+        // ПОВНІСТЮ видаляємо кнопку з головного меню (безслідно з DOM)
+        Lampa.Settings.listener.follow('open', function (e) {
+            if (e.name === 'main' && e.render) {
+                var render = typeof e.render === 'function' ? e.render() : e.render;
+                render.find('[data-component="content_hiding"]').remove();
+            }
+        });
+
+        // Додаємо кнопку-посилання лише в розділ "Інтерфейс"
         Lampa.SettingsApi.addParam({
             component: 'interface',
             param: { name: 'content_hiding_link', type: 'static' },
             field: { name: Lampa.Lang.translate('content_hiding'), description: Lampa.Lang.translate('content_hiding_desc') },
             onRender: function (el) {
-                // Надійна вставка після налаштування "Розмір інтерфейсу"
                 setTimeout(function () {
                     var interfaceSizeItem = $('div[data-name="interface_size"]');
                     if (interfaceSizeItem.length) {
@@ -286,15 +299,15 @@
                 }, 0);
                 
                 el.on('hover:enter', function () {
-                    Lampa.Settings.create('content_hiding'); // Генеруємо нашу сторінку налаштувань
+                    Lampa.Settings.create('content_hiding'); 
                     Lampa.Controller.enabled().controller.back = function () { 
-                        Lampa.Settings.create('interface'); // Повертаємось в Інтерфейс
+                        Lampa.Settings.create('interface'); 
                     };
                 });
             }
         });
 
-        // Наповнюємо наш кастомний компонент 'content_hiding' (Він не з'явиться в головному меню!)
+        // Наповнюємо наш кастомний компонент 'content_hiding'
         ['ru', 'asian', 'in', 'tr', 'ar', 'untranslated'].forEach(function (key) {
             Lampa.SettingsApi.addParam({
                 component: 'content_hiding',
