@@ -700,7 +700,7 @@
                 version: PLUGIN_VERSION,
                 name: PLUGIN_NAME,
                 description: 'Інструмент для логування, дебагу та відладки додатку',
-                author: '@elven'
+                author: '@bodya_elven'
             };
             Lampa.Manifest.plugins = Object.assign(Lampa.Manifest.plugins || {}, { [PLUGIN_NAME]: manifest });
         }
