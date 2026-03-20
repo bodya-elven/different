@@ -8,10 +8,10 @@
 
     function startPlugin() {
         var CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 днів
-        var CACHE_KEY = "title_cache_extra_v2";
+        var CACHE_KEY = "title_cache_extra_v3";
         var titleCache = Lampa.Storage.get(CACHE_KEY) || {};
 
-        // 1. Очищення старого кешу (запобігаємо переповненню LocalStorage)
+        // 1. Очищення старого кешу
         function cleanOldCache() {
             var now = Date.now();
             var keys = Object.keys(titleCache);
@@ -26,47 +26,28 @@
         }
         cleanOldCache();
 
-        // 2. Локалізація текстів плагіна
+        // 2. Локалізація (Для всіх мов крім 'uk' буде використовуватись англійська)
         Lampa.Lang.add({
-            extra_title_menu: {
-                uk: "Додаткова назва",
-                en: "Extra Title",
-                ru: "Дополнительное название"
-            },
-            extra_title_desc: {
-                uk: "Налаштування відображення назви та країни",
-                en: "Settings for displaying title and country",
-                ru: "Настройки отображения названия и страны"
-            },
-            extra_title_mode: {
-                uk: "Режим відображення",
-                en: "Display Mode",
-                ru: "Режим отображения"
-            },
-            extra_title_mode_desc: {
-                uk: "Визначає, яку назву показувати поруч із логотипом",
-                en: "Determines which title to show next to the logo",
-                ru: "Определяет, какое название показывать рядом с логотипом"
-            },
-            extra_title_size: {
-                uk: "Розмір назви",
-                en: "Title Size",
-                ru: "Размер названия"
-            },
-            extra_title_back: {
-                uk: "Назад",
-                en: "Back",
-                ru: "Назад"
-            }
+            extra_title_menu: { uk: "Додаткова назва", en: "Extra Title", ru: "Extra Title" },
+            extra_title_desc: { uk: "Налаштування відображення назви, року та країни", en: "Settings for displaying title, year and country", ru: "Settings for displaying title, year and country" },
+            extra_title_mode: { uk: "Режим відображення", en: "Display Mode", ru: "Display Mode" },
+            extra_title_mode_desc: { uk: "Визначає, яку назву показувати поруч із логотипом", en: "Determines which title to show next to the logo", ru: "Determines which title to show next to the logo" },
+            extra_title_size: { uk: "Розмір назви", en: "Title Size", ru: "Title Size" },
+            extra_title_info: { uk: "Додаткова інформація", en: "Additional Info", ru: "Additional Info" },
+            extra_title_info_country: { uk: "Тільки країна", en: "Only country", ru: "Only country" },
+            extra_title_info_year: { uk: "Тільки рік", en: "Only year", ru: "Only year" },
+            extra_title_info_both: { uk: "Рік та країна", en: "Year and country", ru: "Year and country" },
+            extra_title_back: { uk: "Назад", en: "Back", ru: "Back" }
         });
 
-        // 3. Безпечне додавання стилів (Адаптовано під стиль Applecation)
+        // 3. Стилі (Applecation-стайл + тінь + відступ)
         if ($('#plugin-extra-title-style').length === 0) {
             var style = '<style id="plugin-extra-title-style">' +
-                '.plugin-extra-title { margin-top: 5px; margin-bottom: 5px; width: 100%; position: relative; z-index: 10; text-align: left; }' +
+                '.plugin-extra-title { margin-top: 15px; margin-bottom: 5px; width: 100%; position: relative; z-index: 10; text-align: left; }' +
                 '.plugin-extra-title__body { ' +
                     'font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; ' +
                     'line-height: 1.2; font-weight: 600; letter-spacing: 0.3px; ' +
+                    'text-shadow: 0px 2px 5px rgba(0, 0, 0, 0.6); ' +
                     'display: flex; align-items: baseline; flex-wrap: wrap; justify-content: flex-start; ' +
                 '}' +
                 '@media screen and (orientation: portrait), screen and (max-width: 767px) {' +
@@ -78,6 +59,7 @@
         }
 
         var SETTINGS_COMPONENT = "extra_title_settings";
+        var isUK = Lampa.Storage.get('language') === 'uk';
 
         // Інтеграція в меню налаштувань
         Lampa.Settings.listener.follow("open", function (e) {
@@ -125,8 +107,8 @@
                 name: "extra_title_mode",
                 type: "select",
                 values: {
-                    'smart': 'Smart (Залежно від лого)',
-                    'always_ua': 'Завжди локальна'
+                    'smart': isUK ? 'Залежно від лого' : 'Depending on logo',
+                    'always_ua': isUK ? 'Завжди локальна' : 'Always localized'
                 },
                 default: 'smart'
             },
@@ -136,14 +118,30 @@
         Lampa.SettingsApi.addParam({
             component: SETTINGS_COMPONENT,
             param: {
+                name: "extra_title_info",
+                type: "select",
+                values: {
+                    'both': Lampa.Lang.translate('extra_title_info_both'),
+                    'year': Lampa.Lang.translate('extra_title_info_year'),
+                    'country': Lampa.Lang.translate('extra_title_info_country')
+                },
+                default: 'both'
+            },
+            field: { name: Lampa.Lang.translate('extra_title_info'), description: "" }
+        });
+
+        Lampa.SettingsApi.addParam({
+            component: SETTINGS_COMPONENT,
+            param: {
                 name: "extra_title_size",
                 type: "select",
                 values: {
-                    'xs': 'Дуже мала',
-                    's': 'Мала',
-                    'm': 'Нормальна',
-                    'l': 'Велика',
-                    'xl': 'Дуже велика'
+                    'xs': isUK ? '1.0 (Дуже мала)' : '1.0 (Very small)',
+                    's': isUK ? '1.2 (Мала)' : '1.2 (Small)',
+                    'm': isUK ? '1.4 (Нормальна)' : '1.4 (Normal)',
+                    'l': isUK ? '1.6 (Велика)' : '1.6 (Large)',
+                    'xl': isUK ? '1.8 (Дуже велика)' : '1.8 (Very large)',
+                    'xxl': isUK ? '2.0 (Максимальна)' : '2.0 (Max)'
                 },
                 default: 'm'
             },
@@ -171,18 +169,20 @@
         function getCountryUA(iso) {
             if (!iso) return '';
             var code = iso.toLowerCase().trim();
+            // Якщо мова не українська - виводимо оригінальний код або переклад лампи
+            if (!isUK) return Lampa.Lang.translate(code) || iso;
             return countryNames[code] || Lampa.Lang.translate(code) || iso; 
         }
 
         // Рендер з перевіркою контексту активності
-        function renderTitle(ukTitle, enTitle, hasLogo, country, activityRender) {
-            // Переконуємось, що DOM-елемент досі існує
+        function renderTitle(ukTitle, enTitle, hasLogo, year, country, activityRender) {
             if (!activityRender || !activityRender.parent().length) return;
 
             $(".plugin-extra-title", activityRender).remove();
 
             var mode = Lampa.Storage.get('extra_title_mode', 'smart');
             var sizeKey = Lampa.Storage.get('extra_title_size', 'm');
+            var infoMode = Lampa.Storage.get('extra_title_info', 'both');
 
             var displayTitle = (mode === 'smart' && hasLogo) ? enTitle : ukTitle;
             if (!displayTitle || displayTitle === "undefined") displayTitle = "";
@@ -191,17 +191,32 @@
                 'xs': { title: '1.0em', info: '0.8em' },
                 's':  { title: '1.2em', info: '0.9em' },
                 'm':  { title: '1.4em', info: '1.0em' },
-                'l':  { title: '1.7em', info: '1.1em' },
-                'xl': { title: '2.0em', info: '1.2em' }
+                'l':  { title: '1.6em', info: '1.1em' },
+                'xl': { title: '1.8em', info: '1.2em' },
+                'xxl':{ title: '2.0em', info: '1.3em' }
             };
             var currentSize = sizes[sizeKey] || sizes['m'];
 
-            var secondaryInfo = (country && country !== "undefined") ? country : '';
+            // Формуємо додаткову інформацію: Рік • Країна
+            var infoParts = [];
+            if ((infoMode === 'year' || infoMode === 'both') && year && year !== "undefined") {
+                infoParts.push(year);
+            }
+            if ((infoMode === 'country' || infoMode === 'both') && country && country !== "undefined") {
+                infoParts.push(country);
+            }
+            var secondaryInfo = infoParts.join(' • ');
+
+            var infoSpan = '';
+            if (secondaryInfo) {
+                var separator = displayTitle ? ' • ' : '';
+                infoSpan = '<span style="font-size: ' + currentSize.info + '; color: #fff; opacity: 0.65; margin-left: 8px;">' + separator + secondaryInfo + '</span>';
+            }
 
             var html = '<div class="plugin-extra-title">' +
                 '<div class="plugin-extra-title__body">' +
                     '<span style="font-size: ' + currentSize.title + '; color: #fff; opacity: 0.85;">' + displayTitle + '</span>' + 
-                    '<span style="font-size: ' + currentSize.info + '; color: #fff; opacity: 0.55; margin-left: 8px;">' + secondaryInfo + '</span>' +
+                    infoSpan +
                 '</div>' +
            '</div>';
 
@@ -215,7 +230,7 @@
             var now = Date.now();
 
             if (cached && (now - cached.timestamp < CACHE_TTL)) {
-                renderTitle(cached.ukTitle, cached.enTitle, cached.hasLogo, cached.country, activityRender);
+                renderTitle(cached.ukTitle, cached.enTitle, cached.hasLogo, cached.year, cached.country, activityRender);
                 return;
             }
 
@@ -243,28 +258,31 @@
                     }
                 }
 
+                var dateStr = data.release_date || data.first_air_date || "";
+                var year = dateStr ? dateStr.split("-")[0] : "";
+                
                 var countryList = (data.production_countries || []).map(function (c) {
                     return getCountryUA(c.iso_3166_1);
                 });
-                var countryString = countryList.join(" / ");
+                var countryString = countryList.join(", "); // Країни через кому
 
                 titleCache[card.id] = {
                     ukTitle: ukTitle || "",
                     enTitle: enTitle || "",
                     hasLogo: hasUkrainianLogo,
+                    year: year || "",
                     country: countryString || "",
                     timestamp: now
                 };
                 Lampa.Storage.set(CACHE_KEY, titleCache);
 
-                renderTitle(ukTitle, enTitle, hasUkrainianLogo, countryString, activityRender);
+                renderTitle(ukTitle, enTitle, hasUkrainianLogo, year, countryString, activityRender);
             }).fail(function() {
                 var fallbackTitle = card.title || card.name || card.original_title || "";
-                renderTitle(fallbackTitle, fallbackTitle, false, "", activityRender);
+                renderTitle(fallbackTitle, fallbackTitle, false, "", "", activityRender);
             });
         }
 
-        // 4. Безпечний запуск рендеру лише коли сторінка відкрита
         if (!window.extra_title_plugin_loaded) {
             window.extra_title_plugin_loaded = true;
             Lampa.Listener.follow("full", function (e) {
