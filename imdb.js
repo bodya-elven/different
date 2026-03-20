@@ -142,9 +142,6 @@
     "  --lmp-text-offset: 0px;" +
     "  --lmp-rate-spacing: 0px;" +
     "  --lmp-bg-opacity: 0;" +
-    "  --lmp-icon-c1: #ffffff;" +
-    "  --lmp-icon-c2: #ffffff;" +
-    "  --lmp-icon-deg: 90deg;" +
     "}" +
     ".loading-dots-container { display: inline-flex; align-items: center; font-size: 0.85em; color: #ccc; padding: 0.6em 1em; border-radius: 0.5em; margin-right: 0.5em; margin-bottom: 0.4em; }" +
     ".loading-dots__text { margin-right: 1em; }" +
@@ -153,15 +150,10 @@
     ".loading-dots__dot:nth-child(2) { animation-delay: -0.16s; }" +
     "@keyframes loading-dots-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.6; } 40% { transform: translateY(-0.5em); opacity: 1; } }" +
     
-    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; background: rgba(0, 0, 0, var(--lmp-bg-opacity)); isolation: isolate; }" +
-    
-    ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; position: relative; height: calc(22px + var(--lmp-logo-offset)); width: auto; background: transparent; }" +
+    ".lmp-custom-rate { display: inline-flex !important; align-items: center; justify-content: center; gap: 0.3em; padding: 0.2em 0.4em; border-radius: 0.4em; transition: background 0.2s, border 0.2s, box-shadow 0.2s; margin-right: calc(0.25em + var(--lmp-rate-spacing)) !important; margin-bottom: calc(0.2em + (var(--lmp-rate-spacing) / 2)) !important; border: 1px solid transparent; background: rgba(0, 0, 0, var(--lmp-bg-opacity)); }" +
+    ".lmp-custom-rate .source--name { display: flex !important; align-items: center; justify-content: center; margin: 0; position: relative; height: calc(22px + var(--lmp-logo-offset)); width: auto; }" +
     ".lmp-custom-rate .source--name img { display: block !important; position: relative; z-index: 1; object-fit: contain; height: 100% !important; filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); }" +
     
-    ".source--logo-colored { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; background: linear-gradient(var(--lmp-icon-deg), var(--lmp-icon-c1), var(--lmp-icon-c2)); mix-blend-mode: multiply; pointer-events: none; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; mask-size: contain; mask-repeat: no-repeat; mask-position: center; }" +
-    
-    "body.lmp-enh--mono .source--name img { filter: none !important; }" + 
-
     ".lmp-custom-rate .rate--text-block { display: flex; align-items: baseline; text-shadow: 0 0 5px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); z-index: 1; }" +
     ".lmp-custom-rate .rate--value { font-weight: bold; line-height: 1; font-size: calc(1.1em + var(--lmp-text-offset)); transition: color 0.2s; }" +
     ".lmp-custom-rate .rate--votes { font-size: calc(0.6em + (var(--lmp-text-offset) / 2)); opacity: 0.8; margin-left: 0.25em; line-height: 1; }" +
@@ -189,7 +181,6 @@
     ".menu-edit-list .selector { background: transparent !important; transition: background 0.2s ease; outline: none; border-radius: 6px; }" +
     ".menu-edit-list .selector.focus, .menu-edit-list .selector:hover { background: rgba(255, 255, 255, 0.15) !important; }" +
     
-    /* === СТИЛІ ДЛЯ ПОСТЕРІВ OMDB (видалено контур рамки) === */
     "body.omdb-plugin-active .card__vote { display: none !important; opacity: 0 !important; visibility: hidden !important; }" + 
     ".omdb-custom-rate { position: absolute; right: 0.4em; bottom: 0.4em; background: rgba(0,0,0,0.75); color: #fff; padding: 0.2em 0.5em; border-radius: 1em; display: flex; align-items: center; z-index: 10; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1; pointer-events: none; border: none; transition: box-shadow 0.2s; }" +
     ".omdb-custom-rate span { font-weight: bold; font-size: 1em; }" +
@@ -208,7 +199,6 @@
   */
   var RATING_CACHE_KEY = 'lmp_enh_rating_cache';
 
-  /* ОНОВЛЕНО defaults: Порожній color2 для суцільного кольору */
   var RCFG_DEFAULT = {
     ratings_mdblist_key: '',
     ratings_cache_days: '3',
@@ -218,14 +208,12 @@
     ratings_text_scale_val: 's_0',
     ratings_spacing_val: 's_0',
     ratings_bw_logos: false,
-    ratings_icon_color1: '#ffffff',
-    ratings_icon_color2: '',
-    ratings_icon_deg: '90deg',
     ratings_bg_opacity: 'v_0',
     ratings_colorize_all: true,
     ratings_rate_border: false,
     ratings_glow_border: false
   };
+
 
   var currentRatingsData = null;
 
@@ -382,10 +370,6 @@
     var cfg = getCfg();
     var elementsToInsert = [];
 
-    var hasC1 = cfg.iconColor1 && cfg.iconColor1.toLowerCase() !== '#ffffff';
-    var hasC2 = cfg.iconColor2 && cfg.iconColor2.toLowerCase() !== '#ffffff';
-    var isColored = cfg.bwLogos && (hasC1 || hasC2);
-
     cfg.sourcesConfig.forEach(function(src) {
       if (!src.enabled || !data[src.id]) return;
       var itemData = data[src.id];
@@ -419,13 +403,9 @@
       else if (cfg.textPosition === 'bottom') dirClass = 'lmp-dir-bottom';
       else dirClass = 'lmp-dir-left';
 
-      /* ОНОВЛЕНО: Додавання шару маски, якщо увімкнено фарбування */
-      var coloredLayer = isColored ? '<div class="source--logo-colored" style="-webkit-mask-image: url(' + iconUrl + '); mask-image: url(' + iconUrl + ');"></div>' : '';
-
       var cont = $(
         '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + ' ' + glowClass + '">' +
             '<div class="source--name" title="' + src.name + '">' + 
-                coloredLayer + /* Вставляємо шар маски */
                 '<img src="' + iconUrl + '" alt="' + src.name + '">' + 
             '</div>' +
             '<div class="rate--text-block">' + 
@@ -442,6 +422,7 @@
         rateLine.prepend(elementsToInsert);
     }
   }
+
 
   function fetchAdditionalRatings(card) {
     var render = Lampa.Activity.active().activity.render();
@@ -753,7 +734,7 @@
     { id: 'mal', name: 'MyAnimeList', enabled: true }
   ];
 
-  function getCfg() {
+   function getCfg() {
     var parseIntDef = function(key, def) { var v = parseInt(Lampa.Storage.get(key, def), 10); return isNaN(v) ? def : v; };
     var parseFloatDef = function(key, def) { var v = parseFloat(Lampa.Storage.get(key, def)); return isNaN(v) ? def : v; };
     
@@ -770,7 +751,7 @@
     }
 
     var fullSourcesConfig = savedConfig.map(function(s) { return { id: s.id, name: s.name, enabled: s.enabled }; });
-    var scaleMap = { 's_m2': -2, 's_m1': -1, 's_0': 0, 's_p1': 1, 's_p2': 2, 's_p3': 3, 's_p4': 4 };
+    var scaleMap = { 's_m3': -3, 's_m2': -2, 's_m1': -1, 's_0': 0, 's_p1': 1, 's_p2': 2, 's_p3': 3, 's_p4': 4 };
     
     var logoRaw = Lampa.Storage.get('ratings_logo_scale_val', 's_0');
     var textRaw = Lampa.Storage.get('ratings_text_scale_val', 's_0');
@@ -788,12 +769,9 @@
       textPosition: Lampa.Storage.get('ratings_text_position', RCFG_DEFAULT.ratings_text_position),
       logoOffset: (logoInput * 2) + 'px',
       textOffset: (textInput * 2) + 'px',
-      rateSpacing: (spaceInput * 4) + 'px',
+      rateSpacing: ((spaceInput * 4) - 8) + 'px', /* ВИПРАВЛЕНО: зсув базового значення на -8px */
       showVotes: !!Lampa.Storage.field('ratings_show_votes', RCFG_DEFAULT.ratings_show_votes),
       bwLogos: !!Lampa.Storage.field('ratings_bw_logos', RCFG_DEFAULT.ratings_bw_logos),
-      iconColor1: Lampa.Storage.get('ratings_icon_color1', RCFG_DEFAULT.ratings_icon_color1),
-      iconColor2: Lampa.Storage.get('ratings_icon_color2', RCFG_DEFAULT.ratings_icon_color2),
-      iconDeg: Lampa.Storage.get('ratings_icon_deg', RCFG_DEFAULT.ratings_icon_deg),
       bgOpacity: rawBgOpacity,
       colorizeAll: !!Lampa.Storage.field('ratings_colorize_all', RCFG_DEFAULT.ratings_colorize_all),
       rateBorder: !!Lampa.Storage.field('ratings_rate_border', RCFG_DEFAULT.ratings_rate_border),
@@ -816,11 +794,6 @@
     s.setProperty('--lmp-text-offset', cfg.textOffset);
     s.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
     s.setProperty('--lmp-bg-opacity', cfg.bgOpacity);
-    s.setProperty('--lmp-icon-c1', cfg.iconColor1);
-    
-    /* ВИПРАВЛЕНО: Якщо Колір 2 порожній, використовуємо Колір 1 (виходить суцільний колір) */
-    s.setProperty('--lmp-icon-c2', (cfg.iconColor2 && cfg.iconColor2.trim() !== '') ? cfg.iconColor2 : cfg.iconColor1);
-    s.setProperty('--lmp-icon-deg', cfg.iconDeg);
     
     cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
     cfg.rateBorder ? document.body.classList.add('lmp-enh--rate-border') : document.body.classList.remove('lmp-enh--rate-border');
@@ -887,19 +860,13 @@
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_position', type: 'select', values: { 'left': 'Зліва', 'right': 'Справа', 'top': 'Зверху', 'bottom': 'Знизу' }, "default": 'right' }, field: { name: 'Розташування оцінки', description: 'Розміщення оцінки відносно логотипу' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_show_votes', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_show_votes }, field: { name: 'Кількість голосів', description: 'Показувати кількість тих, хто проголосував' } });
 
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_logo_scale_val', type: 'select', values: { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2', 's_p3': '3', 's_p4': '4' }, "default": 's_0' }, field: { name: 'Розмір логотипів', description: '' } });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_logo_scale_val', type: 'select', values: { 's_m3': '-3', 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2', 's_p3': '3' }, "default": 's_0' }, field: { name: 'Розмір логотипів', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_text_scale_val', type: 'select', values: { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2' }, "default": 's_0' }, field: { name: 'Розмір оцінки', description: '' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_spacing_val', type: 'select', values: { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2' }, "default": 's_0' }, field: { name: 'Відступи між рейтингами', description: '' } });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_spacing_val', type: 'select', values: { 's_m2': '-2', 's_m1': '-1', 's_0': '0', 's_p1': '1', 's_p2': '2', 's_p3': '3', 's_p4': '4' }, "default": 's_0' }, field: { name: 'Відступи між рейтингами', description: '' } });
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_bw_logos }, field: { name: 'Ч/Б логотипи', description: 'Підміна на чорно-білі іконки' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_color1', type: 'input', values: '', "default": '#ffffff' }, field: { name: 'Колір іконок 1 (HEX)', description: 'Основний колір для Ч/Б іконок (наприклад, #ff0000)' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_color2', type: 'input', values: '', "default": '' }, field: { name: 'Колір іконок 2 (HEX)', description: 'Другий колір для градієнта (залиште порожнім, якщо не потрібен)' } });
-    
-    /* ВИПРАВЛЕНО: Прибрано радіальний градієнт із налаштувань */
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_icon_deg', type: 'select', values: { '90deg': 'Зліва направо', '180deg': 'Зверху вниз', '45deg': 'Діагональ 45°', '135deg': 'Діагональ 135°' }, "default": '90deg' }, field: { name: 'Кут градієнта', description: '' } });
-
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": RCFG_DEFAULT.ratings_colorize_all }, field: { name: 'Кольорові оцінки рейтингів', description: '' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bg_opacity', type: 'select', values: { 'v_0': '0%', 'v_0.2': '20%', 'v_0.3': '30%', 'v_0.4': '40%', 'v_0.5': '50%', 'v_0.6': '60%', 'v_0.8': '80%', 'v_1': '100%' }, "default": 'v_0' }, field: { name: 'Темний фон плитки', description: '' } });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bg_opacity', type: 'select', values: { 'v_0': '0%', 'v_0.1': '10%', 'v_0.2': '20%', 'v_0.3': '30%', 'v_0.4': '40%', 'v_0.5': '50%', 'v_0.6': '60%', 'v_0.8': '80%', 'v_1': '100%' }, "default": 'v_0' }, field: { name: 'Темний фон плитки', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_rate_border', type: 'trigger', values: '', "default": false }, field: { name: 'Рамка плиток рейтингів', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_glow_border', type: 'trigger', values: '', "default": false }, field: { name: 'Кольорове світіння', description: '' } });
     
@@ -930,6 +897,7 @@
         }
     });
   }
+
 
   function initRatingsPluginUI() {
     addSettingsSection();
