@@ -517,23 +517,9 @@
       return null;
   }
 
-  var omdbKeyIndex = 1;
+  // ОНОВЛЕНО: Тепер тільки один ключ (читаємо старе значення, щоб не вводити заново)
   function getOmdbApiKey() {
-      var key1 = (Lampa.Storage.get('omdb_api_key_1') || '').trim();
-      var key2 = (Lampa.Storage.get('omdb_api_key_2') || '').trim();
-      var key3 = (Lampa.Storage.get('omdb_api_key_3') || '').trim();
-      
-      if (omdbKeyIndex === 1 && key1) return key1;
-      if (omdbKeyIndex === 1 && !key1 && key2) return key2;
-      if (omdbKeyIndex === 1 && !key1 && !key2 && key3) return key3;
-      if (omdbKeyIndex === 2 && key2) return key2;
-      if (omdbKeyIndex === 2 && !key2 && key3) return key3;
-      if (omdbKeyIndex === 2 && !key2 && !key3 && key1) return key1;
-      if (omdbKeyIndex === 3 && key3) return key3;
-      if (omdbKeyIndex === 3 && !key3 && key1) return key1;
-      if (omdbKeyIndex === 3 && !key3 && !key1 && key2) return key2;
-      
-      return null;
+      return (Lampa.Storage.get('omdb_api_key_1') || '').trim();
   }
 
   function getTmdbUrl(type, id) {
@@ -597,7 +583,7 @@
                           if (res.Response === "True" && res.imdbRating && res.imdbRating !== "N/A") {
                               saveOmdbCache(task.ratingKey, res.imdbRating);
                           } else if (res.Response === "False" && res.Error && res.Error.indexOf("limit") > -1) {
-                              omdbKeyIndex = omdbKeyIndex === 1 ? 2 : (omdbKeyIndex === 2 ? 3 : 1);
+                              // ОНОВЛЕНО: Прибрано логіку перемикання ключів
                               setRetryState(task.ratingKey);
                           } else { saveOmdbCache(task.ratingKey, "N/A"); }
                       } catch (e) { setRetryState(task.ratingKey); }
@@ -716,7 +702,6 @@
       });
       setTimeout(pollOmdbCards, 500);
   }
-
   /*
   |==========================================================================
   | ЧАСТИНА 4: НАЛАШТУВАННЯ ТА ІНІЦІАЛІЗАЦІЯ
@@ -910,12 +895,14 @@
 
     Lampa.SettingsApi.addComponent({ component: 'omdb_ratings', name: 'Рейтинг на постері', icon: '' });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_ratings_back', type: 'static' }, field: { name: 'Назад', description: '' }, onRender: function(item) { item.on('hover:enter click', function() { Lampa.Settings.create('lmp_ratings'); }); } });
+    
+    // ОНОВЛЕНО: Перенесено і перейменовано OMDb ключ
+    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key', description: '' } });
+    
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'Рейтинг на постері', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb', 'none': 'Без рейтингу' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_size', type: 'select', values: { '0': '0', '1': '1', '2': '2', '3': '3', '4': '4' }, "default": '0' }, field: { name: 'Розмір рейтингу', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_glow', type: 'trigger', values: '', "default": false }, field: { name: 'Кольорове світіння', description: '' } });
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_1', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 1', description: '' } });
-    Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key_2', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key 2', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_cache_days', type: 'input', values: '', "default": '7' }, field: { name: 'Термін зберігання кешу (OMDb)', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { type: 'button', name: 'omdb_clear_cache_btn' }, field: { name: 'Очистити кеш постерів', description: '' }, onChange: function() { localStorage.removeItem('omdb_ratings_cache'); lmpToast('Кеш постерів очищено'); } });
 
