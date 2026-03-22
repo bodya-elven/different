@@ -205,7 +205,6 @@
     "body.omdb-enh--glow .omdb-glow-orange { box-shadow: 0 0 8px rgba(245,158,11,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-red { box-shadow: 0 0 8px rgba(239,68,68,0.6) !important; }" +
     "</style>";
-
   /*
   |==========================================================================
   | БАЗОВІ ФУНКЦІЇ ТА АПІ MDBLIST
@@ -228,7 +227,6 @@
     ratings_rate_border: false,
     ratings_glow_border: false
   };
-
 
   var currentRatingsData = null;
 
@@ -393,13 +391,12 @@
 
       var iconUrl;
       
-      // Логіка підбору іконки
       if (useWide) {
           iconUrl = ICONS_WIDE[src.id] || (ICONS_WIDE_URL + src.id + '-wide.png');
           if (src.id === 'rottentomatoes') {
               iconUrl = itemData.fresh ? ICONS_WIDE.rotten_good : ICONS_WIDE.rotten_bad;
           } else if (src.id === 'popcorn') {
-              iconUrl = ICONS_WIDE.popcorn; // Завжди одне лого для Попкорна (широке)
+              iconUrl = ICONS_WIDE.popcorn; 
           }
       } else {
           iconUrl = (cfg.bwLogos && ICONS_BW[src.id]) ? ICONS_BW[src.id] : ICONS[src.id];
@@ -410,7 +407,6 @@
               iconUrl = cfg.bwLogos ? ICONS_BW.popcorn_bad : ICONS.popcorn_bad;
           }
       }
-
 
       var colorClass = '';
       var glowClass = '';
@@ -449,8 +445,6 @@
         rateLine.prepend(elementsToInsert);
     }
   }
-
-
 
   function fetchAdditionalRatings(card) {
     var render = Lampa.Activity.active().activity.render();
@@ -545,7 +539,6 @@
       return null;
   }
 
-  // ОНОВЛЕНО: Тепер тільки один ключ (читаємо старе значення, щоб не вводити заново)
   function getOmdbApiKey() {
       return (Lampa.Storage.get('omdb_api_key_1') || '').trim();
   }
@@ -611,7 +604,6 @@
                           if (res.Response === "True" && res.imdbRating && res.imdbRating !== "N/A") {
                               saveOmdbCache(task.ratingKey, res.imdbRating);
                           } else if (res.Response === "False" && res.Error && res.Error.indexOf("limit") > -1) {
-                              // ОНОВЛЕНО: Прибрано логіку перемикання ключів
                               setRetryState(task.ratingKey);
                           } else { saveOmdbCache(task.ratingKey, "N/A"); }
                       } catch (e) { setRetryState(task.ratingKey); }
@@ -794,6 +786,72 @@
     };
   }
 
+  function refreshConfigFromStorage() {
+    var cfg = getCfg();
+    LMP_ENH_CONFIG.apiKeys.mdblist = cfg.mdblistKey || '';
+    cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
+    return cfg;
+  }
+
+  function applyStylesToAll() {
+    var cfg = getCfg();
+    var s = document.documentElement.style;
+    s.setProperty('--lmp-logo-offset', cfg.logoOffset);
+    s.setProperty('--lmp-text-offset', cfg.textOffset);
+    s.setProperty('--lmp-rate-spacing', cfg.rateSpacing);
+    s.setProperty('--lmp-bg-opacity', cfg.bgOpacity);
+    
+    cfg.bwLogos ? document.body.classList.add('lmp-enh--mono') : document.body.classList.remove('lmp-enh--mono');
+    cfg.rateBorder ? document.body.classList.add('lmp-enh--rate-border') : document.body.classList.remove('lmp-enh--rate-border');
+    cfg.glowBorder ? document.body.classList.add('lmp-enh--glow') : document.body.classList.remove('lmp-enh--glow');
+  }
+
+  function openSourcesEditor() {
+    var cfg = getCfg();
+    var currentOrder = JSON.parse(JSON.stringify(cfg.sourcesConfig));
+    var listContainer = $('<div class="menu-edit-list" style="padding-bottom:10px;"></div>');
+    var svgUp = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12L11 3L20 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
+    var svgDown = '<svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2L11 11L20 2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
+    var svgCheck = '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.89111" y="1.78369" width="21.793" height="21.793" rx="3.5" stroke="currentColor" stroke-width="3"/><path d="M7.44873 12.9658L10.8179 16.3349L18.1269 9.02588" stroke="currentColor" stroke-width="3" class="dot" stroke-linecap="round"/></svg>';
+
+    function updateArrowsState() {
+      var items = listContainer.find('.source-item');
+      items.each(function(idx) {
+        $(this).find('.move-up').css('opacity', idx === 0 ? '0.2' : '1');
+        $(this).find('.move-down').css('opacity', idx === items.length - 1 ? '0.2' : '1');
+      });
+    }
+
+    currentOrder.forEach(function(src) {
+      var itemSort = $('<div class="source-item" data-id="' + src.id + '" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">' +
+          '<div class="source-name" style="font-size:16px; opacity: ' + (src.enabled ? '1' : '0.4') + ';">' + src.name + '</div>' +
+          '<div style="display:flex; gap:10px; align-items:center;">' +
+            '<div class="move-up selector" style="padding:6px 12px; border-radius:6px;">' + svgUp + '</div>' +
+            '<div class="move-down selector" style="padding:6px 12px; border-radius:6px;">' + svgDown + '</div>' +
+            '<div class="toggle selector" style="padding:4px; border-radius:6px; margin-left:8px;">' + svgCheck + '</div>' +
+          '</div></div>');
+      itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0);
+      itemSort.find('.move-up').on('hover:enter', function() { var p = itemSort.prev(); if(p.length){ itemSort.insertBefore(p); updateArrowsState(); }});
+      itemSort.find('.move-down').on('hover:enter', function() { var n = itemSort.next(); if(n.length){ itemSort.insertAfter(n); updateArrowsState(); }});
+      itemSort.find('.toggle').on('hover:enter', function() { src.enabled = !src.enabled; itemSort.find('.source-name').css('opacity', src.enabled ? '1' : '0.4'); itemSort.find('.dot').attr('opacity', src.enabled ? 1 : 0); });
+      listContainer.append(itemSort);
+    });
+    updateArrowsState();
+
+    Lampa.Modal.open({ title: 'Сортування та видимість', html: listContainer, size: 'small', scroll_to_center: true, onBack: function() {
+        var finalOrder = [];
+        listContainer.find('.source-item').each(function() {
+          var id = $(this).attr('data-id');
+          var s = currentOrder.find(function(x) { return x.id === id; });
+          if (s) finalOrder.push({ id: s.id, name: s.name, enabled: s.enabled });
+        });
+        Lampa.Storage.set('ratings_sources_config', finalOrder);
+        Lampa.Modal.close(); Lampa.Controller.toggle('settings_component');
+        setTimeout(function() { if (currentRatingsData) { insertRatings(currentRatingsData); applyStylesToAll(); } }, 150);
+      }
+    });
+  }
+
   function addSettingsSection() {
     if (window.lmp_ratings_add_param_ready) return;
     window.lmp_ratings_add_param_ready = true;
@@ -824,6 +882,7 @@
                 $('.settings-param:contains("Ч/Б логотипи")').find('.toggle').removeClass('active');
                 $('.settings-param:contains("Рамка плиток рейтингів")').find('.toggle').removeClass('active');
                 $('.settings-param:contains("Кольорове світіння рамки")').find('.toggle').removeClass('active');
+                lmpRatingsClearCache(); 
             } else {
                 lmpRatingsClearCache();
             }
