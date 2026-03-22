@@ -882,9 +882,6 @@
                 $('.settings-param:contains("Ч/Б логотипи")').find('.toggle').removeClass('active');
                 $('.settings-param:contains("Рамка плиток рейтингів")').find('.toggle').removeClass('active');
                 $('.settings-param:contains("Кольорове світіння рамки")').find('.toggle').removeClass('active');
-                lmpRatingsClearCache(); 
-            } else {
-                lmpRatingsClearCache();
             }
             updateMutualExclusions();
         }
