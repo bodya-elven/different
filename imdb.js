@@ -106,6 +106,7 @@
 
   var ICONS_BASE_URL = 'https://bodya-elven.github.io/different/icons/';
   var ICONS_BW_URL = 'https://bodya-elven.github.io/different/icons/bw/';
+  var ICONS_WIDE_URL = 'https://bodya-elven.github.io/different/icons/wide/';
 
   var ICONS = {
     imdb: ICONS_BASE_URL + 'imdb.svg',
@@ -134,6 +135,19 @@
     popcorn_bad: ICONS_BW_URL + 'popcorn-bad-bw.png',
     mdblist: ICONS_BW_URL + 'mdblist-bw.png',
     mal: ICONS_BW_URL + 'mal-bw.png'
+  };
+
+  var ICONS_WIDE = {
+    imdb: ICONS_WIDE_URL + 'imdb-wide.png',
+    tmdb: ICONS_WIDE_URL + 'tmdb-wide.png',
+    trakt: ICONS_WIDE_URL + 'trakt-wide.png',
+    letterboxd: ICONS_WIDE_URL + 'letterboxd-wide.png',
+    metacritic: ICONS_WIDE_URL + 'metacritic-wide.png',
+    rotten_good: ICONS_WIDE_URL + 'rt-wide.png',
+    rotten_bad: ICONS_WIDE_URL + 'rt-bad-wide.png',
+    popcorn: ICONS_WIDE_URL + 'popcorn-wide.png',
+    mdblist: ICONS_WIDE_URL + 'mdblist-wide.png',
+    mal: ICONS_WIDE_URL + 'mal-wide.png'
   };
 
   var pluginStyles = "<style>" +
