@@ -8,7 +8,7 @@
 
     function startPlugin() {
         var CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 днів
-        var CACHE_KEY = "title_cache_extra_v4";
+        var CACHE_KEY = "title_cache_extra_v6";
         var titleCache = Lampa.Storage.get(CACHE_KEY) || {};
 
         // 1. Очищення старого кешу
@@ -26,21 +26,19 @@
         }
         cleanOldCache();
 
-        // 2. Локалізація (Для всіх мов крім 'uk' буде використовуватись англійська)
+        // 2. Локалізація (Тільки українська, для всіх інших - англійська)
         Lampa.Lang.add({
-            extra_title_menu: { uk: "Додаткова назва", en: "Extra Title", ru: "Extra Title" },
-            extra_title_desc: { uk: "Налаштування відображення назви, року та країни", en: "Settings for displaying title, year and country", ru: "Settings for displaying title, year and country" },
-            extra_title_mode: { uk: "Режим відображення", en: "Display Mode", ru: "Display Mode" },
-            extra_title_mode_desc: { uk: "Визначає, яку назву показувати поруч із логотипом", en: "Determines which title to show next to the logo", ru: "Determines which title to show next to the logo" },
-            extra_title_size: { uk: "Розмір назви", en: "Title Size", ru: "Title Size" },
-            extra_title_info: { uk: "Додаткова інформація", en: "Additional Info", ru: "Additional Info" },
-            extra_title_info_country: { uk: "Тільки країна", en: "Only country", ru: "Only country" },
-            extra_title_info_year: { uk: "Тільки рік", en: "Only year", ru: "Only year" },
-            extra_title_info_both: { uk: "Рік та країна", en: "Year and country", ru: "Year and country" },
-            extra_title_back: { uk: "Назад", en: "Back", ru: "Back" }
+            extra_title_menu: { uk: "Додаткова назва", en: "Extra Title" },
+            extra_title_desc: { uk: "Налаштування відображення назви, року та країни", en: "Settings for displaying title, year and country" },
+            extra_title_mode: { uk: "Режим відображення", en: "Display Mode" },
+            extra_title_size: { uk: "Розмір назви", en: "Title Size" },
+            extra_title_info: { uk: "Додаткова інформація", en: "Additional Info" },
+            extra_title_info_country: { uk: "Тільки країна", en: "Only country" },
+            extra_title_info_year: { uk: "Тільки рік", en: "Only year" },
+            extra_title_info_both: { uk: "Рік та країна", en: "Year and country" }
         });
 
-        // 3. Стилі (Зменшено відступ до 10px, налаштовано шрифти)
+        // 3. Стилі (Applecation-стайл)
         if ($('#plugin-extra-title-style').length === 0) {
             var style = '<style id="plugin-extra-title-style">' +
                 '.plugin-extra-title { margin-top: 10px; margin-bottom: 5px; width: 100%; position: relative; z-index: 10; text-align: left; }' +
@@ -76,6 +74,7 @@
             }
         });
 
+        // Створення кнопки в розділі "Інтерфейс" з підміною логіки повернення
         Lampa.SettingsApi.addParam({
             component: "interface",
             param: { name: "extra_title_entry", type: "static" },
@@ -92,17 +91,6 @@
 
         Lampa.SettingsApi.addParam({
             component: SETTINGS_COMPONENT,
-            param: { name: "extra_title_back", type: "static" },
-            field: { name: Lampa.Lang.translate('extra_title_back'), description: "" },
-            onRender: function (item) {
-                item.on("hover:enter", function () {
-                    Lampa.Settings.create("interface");
-                });
-            }
-        });
-
-        Lampa.SettingsApi.addParam({
-            component: SETTINGS_COMPONENT,
             param: {
                 name: "extra_title_mode",
                 type: "select",
@@ -112,7 +100,7 @@
                 },
                 default: 'smart'
             },
-            field: { name: Lampa.Lang.translate('extra_title_mode'), description: Lampa.Lang.translate('extra_title_mode_desc') }
+            field: { name: Lampa.Lang.translate('extra_title_mode'), description: "" }
         });
 
         Lampa.SettingsApi.addParam({
@@ -136,12 +124,12 @@
                 name: "extra_title_size",
                 type: "select",
                 values: {
-                    'xs': isUK ? '1.0 (Дуже мала)' : '1.0 (Very small)',
-                    's': isUK ? '1.2 (Мала)' : '1.2 (Small)',
-                    'm': isUK ? '1.4 (Нормальна)' : '1.4 (Normal)',
-                    'l': isUK ? '1.6 (Велика)' : '1.6 (Large)',
-                    'xl': isUK ? '1.8 (Дуже велика)' : '1.8 (Very large)',
-                    'xxl': isUK ? '2.0 (Максимальна)' : '2.0 (Max)'
+                    'xs': isUK ? 'Дуже малий' : 'Very small',
+                    's': isUK ? 'Малий' : 'Small',
+                    'm': isUK ? 'Нормальний' : 'Normal',
+                    'l': isUK ? 'Великий' : 'Large',
+                    'xl': isUK ? 'Дуже великий' : 'Very large',
+                    'xxl': isUK ? 'Максимальний' : 'Max'
                 },
                 default: 'm'
             },
@@ -194,7 +182,6 @@
             };
             var currentSize = sizes[sizeKey] || sizes['m'];
 
-            // Формуємо додаткову інформацію (з тонкою крапкою між роком і країною)
             var infoParts = [];
             if ((infoMode === 'year' || infoMode === 'both') && year && year !== "undefined") {
                 infoParts.push(year);
@@ -206,9 +193,7 @@
 
             var infoSpan = '';
             if (secondaryInfo) {
-                // Витончений роздільник між назвою та інфо
                 var separator = displayTitle ? ' &nbsp;&middot;&nbsp; ' : '';
-                // 100% непрозорість (opacity: 1) та звичайний шрифт (font-weight: 400)
                 infoSpan = '<span style="font-size: ' + currentSize.info + '; color: #fff; font-weight: 400; margin-left: 4px;">' + separator + secondaryInfo + '</span>';
             }
 
@@ -240,7 +225,7 @@
                 var hasUkrainianLogo = false;
                 if (data.images && data.images.logos) {
                     hasUkrainianLogo = data.images.logos.some(function (l) {
-                        return l.iso_639_1 === "uk" || l.iso_639_1 === "ru";
+                        return l.iso_639_1 === "uk"; // Повернуто сувору перевірку виключно на українське лого
                     });
                 }
 
