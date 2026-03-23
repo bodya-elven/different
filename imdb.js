@@ -150,18 +150,6 @@
     mal: ICONS_WIDE_URL + 'mal-wide.webp'
   };
 
-   var ICONS_WIDE_NB = {
-    imdb: ICONS_WIDE_NB_URL + 'imdb-wide-nb.webp',
-    tmdb: ICONS_WIDE_NB_URL + 'tmdb-wide-nb.webp',
-    trakt: ICONS_WIDE_NB_URL + 'trakt-wide-nb.webp',
-    letterboxd: ICONS_WIDE_NB_URL + 'letterboxd-wide-nb.webp',
-    metacritic: ICONS_WIDE_NB_URL + 'metacritic-wide-nb.webp',
-    rotten_good: ICONS_WIDE_NB_URL + 'rt-wide-nb.webp',
-    rotten_bad: ICONS_WIDE_NB_URL + 'rt-bad-wide-nb.webp',
-    popcorn: ICONS_WIDE_NB_URL + 'popcorn-wide-nb.webp',
-    mdblist: ICONS_WIDE_NB_URL + 'mdblist-wide-nb.webp',
-    mal: ICONS_WIDE_NB_URL + 'mal-wide-nb.webp'
-  };
   
   var pluginStyles = "<style>" +
     ":root{" +
