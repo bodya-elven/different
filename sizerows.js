@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    // Головна функція плагіна
+    // Основна функція плагіна
     function startPlugin() {
         window.fix_size_plugin = true;
 
@@ -19,7 +19,7 @@
                 }
             });
 
-            // Параметр для розміру шрифту (8-15, дефолт 10)
+            // Параметр для розміру шрифту (8-15, за замовчуванням 10)
             Lampa.SettingsApi.addParam({
                 component: 'interface',
                 param: {
@@ -43,21 +43,21 @@
                 onChange: updateStyles
             });
 
-            // Параметр для відступів між рядами (-1 до 1, дефолт 0.2)
+            // Параметр для відступів між рядами (-1.5 до 1, за замовчуванням 0)
             Lampa.SettingsApi.addParam({
                 component: 'interface',
                 param: {
                     name: 'interface_row_spacing',
                     type: 'select',
                     values: {
-                        '-1': '-1',
+                        '-1.5': '-1.5',
+                        '-1.0': '-1.0',
                         '-0.5': '-0.5',
-                        '-0.2': '-0.2',
-                        '0.2': '0.2',
+                        '0': '0',
                         '0.5': '0.5',
-                        '1': '1'
+                        '1.0': '1.0'
                     },
-                    "default": '0.2'
+                    "default": '0'
                 },
                 field: {
                     name: Lampa.Lang.translate('settings_interface_row_spacing')
@@ -65,7 +65,7 @@
                 onChange: updateStyles
             });
 
-            // Позиціювання пунктів у меню налаштувань
+            // Позиціювання елементів у налаштуваннях
             Lampa.Settings.listener.follow('open', function (e) {
                 if (e.name === 'interface') {
                     var body = e.body;
@@ -78,7 +78,7 @@
                 }
             });
 
-            // Оновлення та застосування CSS стилів
+            // Застосування CSS стилів
             function updateStyles() {
                 var css_id = 'fix_size_css';
                 var css_el = $('style#' + css_id);
@@ -88,12 +88,13 @@
                     css_el.appendTo('head');
                 }
 
-                // Отримання значення зі сховища з перевіркою на порожнечу
+                // Зчитування значення відступу з пам'яті (сувора перевірка на null/undefined)
                 var storage_spacing = Lampa.Storage.field('interface_row_spacing');
-                var spacing_factor = (storage_spacing !== null && typeof storage_spacing !== 'undefined') ? storage_spacing : '0.2';
+                var offset = (storage_spacing !== null && typeof storage_spacing !== 'undefined') ? parseFloat(storage_spacing) : 0;
                 
-                // Розрахунок відступу (базовий множник 1.5em)
-                var final_margin = parseFloat(spacing_factor) * 1.5;
+                // Стандартний відступ у Lampa зазвичай 1.5em. Додаємо до нього обране зміщення.
+                var final_margin = 1.5 + offset;
+                if (final_margin < 0) final_margin = 0; // Запобігаємо від'ємним відступам у CSS
 
                 var styles = '\
                     .card--category { width: 16em !important; }\
@@ -105,7 +106,7 @@
                 Lampa.Layer.update();
             }
 
-            // Модифікація системного методу екрану
+            // Модифікація системного методу для коректного масштабування
             var platform_screen = Lampa.Platform.screen;
             Lampa.Platform.screen = function (need) {
                 if (need === 'tv') {
@@ -120,7 +121,7 @@
                 return platform_screen(need);
             };
 
-            // Перехоплення оновлення шарів для встановлення розміру шрифту
+            // Примусове встановленняfontSize для всього інтерфейсу
             var layer_update = Lampa.Layer.update;
             Lampa.Layer.update = function (where) {
                 var storage_size = Lampa.Storage.field('interface_size_fixed');
@@ -129,7 +130,7 @@
                 layer_update(where);
             };
 
-            // Слухач зміни розміру вікна
+            // Перерахунок при зміні розмірів вікна
             var timer;
             $(window).on('resize', function () {
                 clearTimeout(timer);
@@ -141,7 +142,7 @@
             updateStyles();
         }
 
-        // Перевірка готовності додатка
+        // Запуск після готовності додатка
         if (window.appready) addPlugin();
         else {
             Lampa.Listener.follow('app', function (e) {
@@ -150,11 +151,11 @@
         }
     }
 
-    // Запуск плагіна та метадані
+    // Метадані та перевірка на дублікати
     if (!window.fix_size_plugin) {
         var manifest = {
             type: 'other',
-            version: '1.3.1',
+            version: '1.4.0',
             name: 'Fixed size and row spacing',
             author: '@bodya_elven'
         };
