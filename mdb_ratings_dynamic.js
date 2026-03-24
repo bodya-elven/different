@@ -208,6 +208,12 @@
     "body.omdb-enh--glow .omdb-glow-blue { box-shadow: 0 0 8px rgba(96,165,250,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-orange { box-shadow: 0 0 8px rgba(245,158,11,0.6) !important; }" +
     "body.omdb-enh--glow .omdb-glow-red { box-shadow: 0 0 8px rgba(239,68,68,0.6) !important; }" +
+        /* CSS для динамічних кольорів */
+    ".mdb-dynamic-color-wrapper { display: inline-block; position: relative; background-color: var(--mdb-icon-color, #ffffff); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; width: 100%; height: 100%; transition: background-color 0.4s ease; }" +
+    ".mdb-color-multiply .mdb-dynamic-color-wrapper { filter: drop-shadow(0px 0px 3px rgba(0,0,0,0.6)); }" +
+    ".mdb-color-multiply .mdb-dynamic-icon { mix-blend-mode: multiply; filter: none; opacity: 1; display: block; width: 100%; height: 100%; }" +
+    ".mdb-color-invert .mdb-dynamic-color-wrapper { filter: drop-shadow(0px 0px 3px rgba(255,255,255,0.4)); }" +
+    ".mdb-color-invert .mdb-dynamic-icon { mix-blend-mode: screen; filter: invert(1); opacity: 1; display: block; width: 100%; height: 100%; }" +
     "</style>";
   /*
   |==========================================================================
@@ -388,6 +394,7 @@
     var elementsToInsert = [];
 
     var useWide = cfg.wideLogos;
+    var useDynamic = cfg.bwLogos && Lampa.Storage.get('ratings_dynamic_colors', false);
 
     cfg.sourcesConfig.forEach(function(src) {
       if (!src.enabled || !data[src.id]) return;
@@ -430,10 +437,18 @@
       else if (cfg.textPosition === 'bottom') dirClass = 'lmp-dir-bottom';
       else dirClass = 'lmp-dir-left';
 
+      /* НОВИЙ БЛОК: Створення HTML для іконки (Варіант А) */
+      var iconHtml = '<img src="' + iconUrl + '" alt="' + src.name + '">';
+      if (useDynamic && !useWide) {
+          iconHtml = '<div class="mdb-dynamic-color-wrapper" style="-webkit-mask-image: url(' + iconUrl + ');">' +
+                        '<img src="' + iconUrl + '" alt="' + src.name + '" class="mdb-dynamic-icon">' +
+                     '</div>';
+      }
+
       var cont = $(
         '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + ' ' + glowClass + '">' +
             '<div class="source--name" title="' + src.name + '">' + 
-                '<img src="' + iconUrl + '" alt="' + src.name + '">' + 
+                iconHtml + 
             '</div>' +
             '<div class="rate--text-block">' + 
                 '<span class="rate--value ' + colorClass + '">' + itemData.display + '</span>' + 
@@ -446,6 +461,10 @@
     });
 
     if (elementsToInsert.length > 0) {
+        if (useDynamic) {
+            // Встановлюємо початковий стан (білий фон, який імітує звичайну ч/б іконку)
+            rateLine.addClass('mdb-color-multiply').css('--mdb-icon-color', '#ffffff');
+        }
         rateLine.prepend(elementsToInsert);
     }
   }
@@ -1194,6 +1213,7 @@ function applyDynamicColorToIcon($iconElement, colorData) {
 }
 
     /* Головний тригер перефарбовування (з мікрозатримкою для відмальовки) */
+/* Головний тригер перефарбовування (Варіант А: CSS-змінні). author: @bodya_elven */
 function triggerDynamicColors(card) {
     var isBwIconsEnabled = Lampa.Storage.get('ratings_bw_logos', false);
     var isDynamicColorsEnabled = Lampa.Storage.get('ratings_dynamic_colors', false);
@@ -1205,26 +1225,34 @@ function triggerDynamicColors(card) {
         tmdbApiKey = '4ef0d7355d9ffb5151e987764708ce96';
     }
 
-    // Даємо браузеру 100 мілісекунд, щоб він гарантовано додав іконки в HTML
-    setTimeout(function() {
-        var cachedColor = getCachedLogoColor(card);
-        
-        if (cachedColor) {
-            // Миттєве застосування з кешу (але іконки вже існують)
-            $('.lmp-custom-rate .source--name img').each(function() {
-                applyDynamicColorToIcon($(this), cachedColor);
-            });
-        } else {
-            // Якщо в кеші немає - робимо запит і плавно фарбуємо
-            fetchLogoColor(card, tmdbApiKey).then(function(colorData) {
-                if (colorData) {
-                    $('.lmp-custom-rate .source--name img').each(function() {
-                        applyDynamicColorToIcon($(this), colorData);
-                    });
-                }
-            });
+    function applyColor(colorData) {
+        var render = Lampa.Activity.active().activity.render();
+        if (!render) return;
+        var rateLine = getPrimaryRateLine(render);
+        if (!rateLine.length) return;
+
+        if (colorData) {
+            var rgb = 'rgb(' + colorData.r + ',' + colorData.g + ',' + colorData.b + ')';
+            
+            // Змінюємо CSS-змінну, і всі іконки миттєво/плавно перефарбовуються!
+            rateLine.css('--mdb-icon-color', rgb);
+
+            // Перевіряємо, чи потрібна інверсія для екстремально темних лого
+            if (colorData.brightness < 60) {
+                rateLine.removeClass('mdb-color-multiply').addClass('mdb-color-invert');
+            } else {
+                rateLine.removeClass('mdb-color-invert').addClass('mdb-color-multiply');
+            }
         }
-    }, 100);
+    }
+
+    var cachedColor = getCachedLogoColor(card);
+    
+    if (cachedColor) {
+        applyColor(cachedColor); // Застосувати миттєво з кешу
+    } else {
+        fetchLogoColor(card, tmdbApiKey).then(applyColor); // Або після підвантаження
+    }
 }
 
 
