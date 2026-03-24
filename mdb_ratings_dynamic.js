@@ -394,7 +394,6 @@
     var elementsToInsert = [];
 
     var useWide = cfg.wideLogos;
-    var useDynamic = cfg.bwLogos && Lampa.Storage.get('ratings_dynamic_colors', false);
 
     cfg.sourcesConfig.forEach(function(src) {
       if (!src.enabled || !data[src.id]) return;
@@ -437,18 +436,10 @@
       else if (cfg.textPosition === 'bottom') dirClass = 'lmp-dir-bottom';
       else dirClass = 'lmp-dir-left';
 
-      /* НОВИЙ БЛОК: Створення HTML для іконки (Варіант А) */
-      var iconHtml = '<img src="' + iconUrl + '" alt="' + src.name + '">';
-      if (useDynamic && !useWide) {
-          iconHtml = '<div class="mdb-dynamic-color-wrapper" style="-webkit-mask-image: url(' + iconUrl + ');">' +
-                        '<img src="' + iconUrl + '" alt="' + src.name + '" class="mdb-dynamic-icon">' +
-                     '</div>';
-      }
-
       var cont = $(
         '<div class="lmp-custom-rate lmp-rate-' + src.id + ' ' + dirClass + ' ' + glowClass + '">' +
             '<div class="source--name" title="' + src.name + '">' + 
-                iconHtml + 
+                '<img src="' + iconUrl + '" alt="' + src.name + '">' + 
             '</div>' +
             '<div class="rate--text-block">' + 
                 '<span class="rate--value ' + colorClass + '">' + itemData.display + '</span>' + 
@@ -461,13 +452,10 @@
     });
 
     if (elementsToInsert.length > 0) {
-        if (useDynamic) {
-            // Встановлюємо початковий стан (білий фон, який імітує звичайну ч/б іконку)
-            rateLine.addClass('mdb-color-multiply').css('--mdb-icon-color', '#ffffff');
-        }
         rateLine.prepend(elementsToInsert);
     }
   }
+
 
   function fetchAdditionalRatings(card) {
     var render = Lampa.Activity.active().activity.render();
@@ -1085,7 +1073,7 @@ function cleanLogoColorCache() {
     } catch (e) {}
 }
 
-/* Синхронне отримання кольору з кешу */
+unction /* Синхронне отримання кольору з кешу. author: @bodya_elven */
 function getCachedLogoColor(card) {
     var type = card.name ? 'tv' : 'movie';
     var id = card.id;
@@ -1100,7 +1088,7 @@ function getCachedLogoColor(card) {
     return null;
 }
 
-/* Отримання домінантного кольору логотипу з TMDB */
+/* Отримання домінантного кольору логотипу з TMDB (Без проксі) */
 function fetchLogoColor(card, apiKey) {
     return new Promise(function(resolve) {
         var type = card.name ? 'tv' : 'movie';
@@ -1128,7 +1116,13 @@ function fetchLogoColor(card, apiKey) {
                 canvas.height = img.height;
                 ctx.drawImage(img, 0, 0);
 
-                var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                var imgData;
+                try {
+                    imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                } catch (e) {
+                    return resolve(null); // Якщо ТБ блокує Canvas, просто виходимо
+                }
+
                 var r = 0, g = 0, b = 0, count = 0;
                 var isWhiteText = true;
 
@@ -1170,13 +1164,19 @@ function fetchLogoColor(card, apiKey) {
     });
 }
 
-/* Застосування динамічного кольору до іконки */
+/* Застосування динамічного кольору до іконки (Метод JS Wrap) */
 function applyDynamicColorToIcon($iconElement, colorData) {
     if (!colorData || !$iconElement.length || $iconElement.parent().hasClass('mdb-dynamic-color-wrapper')) return;
 
     var rgb = 'rgb(' + colorData.r + ',' + colorData.g + ',' + colorData.b + ')';
     var iconSrc = $iconElement.attr('src') || $iconElement.css('background-image').replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '');
     
+    // Захист від старого кешу
+    var brightness = colorData.brightness;
+    if (brightness === undefined) {
+        brightness = (colorData.r * 299 + colorData.g * 587 + colorData.b * 114) / 1000;
+    }
+
     var $wrapper = $('<div class="mdb-dynamic-color-wrapper"></div>');
     $wrapper.css({
         'display': 'inline-block',
@@ -1191,7 +1191,7 @@ function applyDynamicColorToIcon($iconElement, colorData) {
         'height': $iconElement.height() + 'px'
     });
 
-    if (colorData.brightness < 60) {
+    if (brightness < 80) {
         // Екстремально темні/чорні кольори (Чорні деталі -> білі)
         $wrapper.css('filter', 'drop-shadow(0px 0px 3px rgba(255,255,255,0.4))');
         $iconElement.css({
@@ -1212,8 +1212,7 @@ function applyDynamicColorToIcon($iconElement, colorData) {
     $iconElement.wrap($wrapper);
 }
 
-    /* Головний тригер перефарбовування (з мікрозатримкою для відмальовки) */
-/* Головний тригер перефарбовування (Варіант А: CSS-змінні). author: @bodya_elven */
+/* Головний тригер з мікрозатримкою (Щоб іконки встигли відмалюватися) */
 function triggerDynamicColors(card) {
     var isBwIconsEnabled = Lampa.Storage.get('ratings_bw_logos', false);
     var isDynamicColorsEnabled = Lampa.Storage.get('ratings_dynamic_colors', false);
@@ -1225,36 +1224,24 @@ function triggerDynamicColors(card) {
         tmdbApiKey = '4ef0d7355d9ffb5151e987764708ce96';
     }
 
-    function applyColor(colorData) {
-        var render = Lampa.Activity.active().activity.render();
-        if (!render) return;
-        var rateLine = getPrimaryRateLine(render);
-        if (!rateLine.length) return;
-
-        if (colorData) {
-            var rgb = 'rgb(' + colorData.r + ',' + colorData.g + ',' + colorData.b + ')';
-            
-            // Змінюємо CSS-змінну, і всі іконки миттєво/плавно перефарбовуються!
-            rateLine.css('--mdb-icon-color', rgb);
-
-            // Перевіряємо, чи потрібна інверсія для екстремально темних лого
-            if (colorData.brightness < 60) {
-                rateLine.removeClass('mdb-color-multiply').addClass('mdb-color-invert');
-            } else {
-                rateLine.removeClass('mdb-color-invert').addClass('mdb-color-multiply');
-            }
+    setTimeout(function() {
+        var cachedColor = getCachedLogoColor(card);
+        
+        if (cachedColor) {
+            $('.lmp-custom-rate .source--name img').each(function() {
+                applyDynamicColorToIcon($(this), cachedColor);
+            });
+        } else {
+            fetchLogoColor(card, tmdbApiKey).then(function(colorData) {
+                if (colorData) {
+                    $('.lmp-custom-rate .source--name img').each(function() {
+                        applyDynamicColorToIcon($(this), colorData);
+                    });
+                }
+            });
         }
-    }
-
-    var cachedColor = getCachedLogoColor(card);
-    
-    if (cachedColor) {
-        applyColor(cachedColor); // Застосувати миттєво з кешу
-    } else {
-        fetchLogoColor(card, tmdbApiKey).then(applyColor); // Або після підвантаження
-    }
+    }, 150); // Затримка 150мс для стабільного пошуку іконок у DOM
 }
-
 
   function startPlugin() {
     window.combined_ratings_plugin = true;
