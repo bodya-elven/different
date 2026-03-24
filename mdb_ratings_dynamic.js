@@ -1193,7 +1193,7 @@ function applyDynamicColorToIcon($iconElement, colorData) {
     $iconElement.wrap($wrapper);
 }
 
-/* Головний тригер перефарбовування */
+    /* Головний тригер перефарбовування (з мікрозатримкою для відмальовки) */
 function triggerDynamicColors(card) {
     var isBwIconsEnabled = Lampa.Storage.get('ratings_bw_logos', false);
     var isDynamicColorsEnabled = Lampa.Storage.get('ratings_dynamic_colors', false);
@@ -1205,25 +1205,27 @@ function triggerDynamicColors(card) {
         tmdbApiKey = '4ef0d7355d9ffb5151e987764708ce96';
     }
 
-    var cachedColor = getCachedLogoColor(card);
-    
-    if (cachedColor) {
-        // Миттєве застосування з кешу без затримок
-        $('.lmp-custom-rate .source--name img').each(function() {
-            applyDynamicColorToIcon($(this), cachedColor);
-        });
-    } else {
-        // Якщо в кеші немає - робимо запит і плавно фарбуємо
-        fetchLogoColor(card, tmdbApiKey).then(function(colorData) {
-            if (colorData) {
-                $('.lmp-custom-rate .source--name img').each(function() {
-                    applyDynamicColorToIcon($(this), colorData);
-                });
-            }
-        });
-    }
+    // Даємо браузеру 100 мілісекунд, щоб він гарантовано додав іконки в HTML
+    setTimeout(function() {
+        var cachedColor = getCachedLogoColor(card);
+        
+        if (cachedColor) {
+            // Миттєве застосування з кешу (але іконки вже існують)
+            $('.lmp-custom-rate .source--name img').each(function() {
+                applyDynamicColorToIcon($(this), cachedColor);
+            });
+        } else {
+            // Якщо в кеші немає - робимо запит і плавно фарбуємо
+            fetchLogoColor(card, tmdbApiKey).then(function(colorData) {
+                if (colorData) {
+                    $('.lmp-custom-rate .source--name img').each(function() {
+                        applyDynamicColorToIcon($(this), colorData);
+                    });
+                }
+            });
+        }
+    }, 100);
 }
-
 
 
   function startPlugin() {
