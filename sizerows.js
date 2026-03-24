@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    // Основна функція плагіна
+    // Головна функція плагіна
     function startPlugin() {
         window.fix_size_plugin = true;
 
@@ -43,24 +43,19 @@
                 onChange: updateStyles
             });
 
-            // Параметр для відступів між рядами (0-1.0, дефолт 0.2)
+            // Параметр для відступів між рядами (-1 до 1, дефолт 0.2)
             Lampa.SettingsApi.addParam({
                 component: 'interface',
                 param: {
                     name: 'interface_row_spacing',
                     type: 'select',
                     values: {
-                        '0': '0',
-                        '0.05': '0.05',
-                        '0.1': '0.1',
-                        '0.15': '0.15',
+                        '-1': '-1',
+                        '-0.5': '-0.5',
+                        '-0.2': '-0.2',
                         '0.2': '0.2',
-                        '0.3': '0.3',
-                        '0.4': '0.4',
                         '0.5': '0.5',
-                        '0.6': '0.6',
-                        '0.8': '0.8',
-                        '1.0': '1.0'
+                        '1': '1'
                     },
                     "default": '0.2'
                 },
@@ -93,11 +88,11 @@
                     css_el.appendTo('head');
                 }
 
-                // Виправлена перевірка значення (щоб '0' не скидався на дефолт)
+                // Отримання значення зі сховища з перевіркою на порожнечу
                 var storage_spacing = Lampa.Storage.field('interface_row_spacing');
                 var spacing_factor = (storage_spacing !== null && typeof storage_spacing !== 'undefined') ? storage_spacing : '0.2';
                 
-                // Розрахунок відступу (стандарт Lampa ~1.5em)
+                // Розрахунок відступу (базовий множник 1.5em)
                 var final_margin = parseFloat(spacing_factor) * 1.5;
 
                 var styles = '\
@@ -110,7 +105,7 @@
                 Lampa.Layer.update();
             }
 
-            // Модифікація системного методу для ігнорування ТВ-масштабування
+            // Модифікація системного методу екрану
             var platform_screen = Lampa.Platform.screen;
             Lampa.Platform.screen = function (need) {
                 if (need === 'tv') {
@@ -134,7 +129,7 @@
                 layer_update(where);
             };
 
-            // Слухач зміни розміру вікна браузера
+            // Слухач зміни розміру вікна
             var timer;
             $(window).on('resize', function () {
                 clearTimeout(timer);
@@ -146,7 +141,7 @@
             updateStyles();
         }
 
-        // Очікування завантаження основного ядра Lampa
+        // Перевірка готовності додатка
         if (window.appready) addPlugin();
         else {
             Lampa.Listener.follow('app', function (e) {
@@ -155,11 +150,11 @@
         }
     }
 
-    // Запуск та опис маніфесту
+    // Запуск плагіна та метадані
     if (!window.fix_size_plugin) {
         var manifest = {
             type: 'other',
-            version: '1.3.0',
+            version: '1.3.1',
             name: 'Fixed size and row spacing',
             author: '@bodya_elven'
         };
