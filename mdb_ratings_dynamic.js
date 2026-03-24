@@ -1204,23 +1204,28 @@ function applyDynamicColorToIcon($iconElement, colorData) {
                     } catch (err) {}
                 }
 
-                /* Блок ініціалізації динамічних кольорів для ч/б іконок */
-                var isBwIconsEnabled = Lampa.Storage.get('ratings_bw_logos', false);
-                var isDynamicColorsEnabled = Lampa.Storage.get('ratings_dynamic_colors', false);
+    /* Блок ініціалізації динамічних кольорів для ч/б іконок */
+var isBwIconsEnabled = Lampa.Storage.get('ratings_bw_logos', false);
+var isDynamicColorsEnabled = Lampa.Storage.get('ratings_dynamic_colors', false);
 
-                if (isBwIconsEnabled && isDynamicColorsEnabled) {
-                    cleanLogoColorCache(); 
-                    
-                    var tmdbApiKey = Lampa.Storage.get('tmdb_api_key', '4ef0d7355d9ffb5151e987764708ce96'); 
-                    
-                    fetchLogoColor(card, tmdbApiKey).then(function(colorData) {
-                        if (colorData) {
-                            $('.lmp-custom-rate .source--name img').each(function() {
-                                applyDynamicColorToIcon($(this), colorData);
-                            });
-                        }
-                    });
-                }
+if (isBwIconsEnabled && isDynamicColorsEnabled) {
+    cleanLogoColorCache(); 
+    
+    // Беремо ключ і відсікаємо невалідний
+    var tmdbApiKey = Lampa.Storage.get('tmdb_api_key', ''); 
+    if (!tmdbApiKey || tmdbApiKey.trim() === '' || tmdbApiKey.trim() === 'c87a543116135a4120443155bf680876') {
+        tmdbApiKey = '4ef0d7355d9ffb5151e987764708ce96';
+    }
+    
+    fetchLogoColor(card, tmdbApiKey).then(function(colorData) {
+        if (colorData) {
+            $('.lmp-custom-rate .source--name img').each(function() {
+                applyDynamicColorToIcon($(this), colorData);
+            });
+        }
+    });
+}
+
 
             }, 1000); 
         }, 500);
