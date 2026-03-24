@@ -1,16 +1,8 @@
+*/author: '@bodya_elven'
+
 (function() {
   'use strict';
- /* Реєстрація маніфесту плагіна */
-  if (!window.mdb_ratings_plugin_manifest) {
-      window.mdb_ratings_plugin_manifest = true;
-      
-      var manifest = {
-          type: 'other',
-          version: '3.0.0',
-          name: 'MDb Ratings',
-          description: 'Розширені рейтинги (MDBList, OMDb)',
-          author: '@bodya_elven'
-      };
+
   /*
   |==========================================================================
   | localStorage shim & Promise & Fetch Polyfills
