@@ -50,6 +50,8 @@
                     name: 'interface_row_spacing',
                     type: 'select',
                     values: {
+                        '-2.5': '-2.5',
+                        '-2.0': '-2.0',
                         '-1.5': '-1.5',
                         '-1.0': '-1.0',
                         '-0.5': '-0.5',
@@ -152,7 +154,7 @@
     if (!window.fix_size_plugin) {
         var manifest = {
             type: 'other',
-            version: '1.5.0',
+            version: '1.6.0',
             name: 'Fixed size and row spacing',
             author: '@bodya_elven'
         };
