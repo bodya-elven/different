@@ -1164,7 +1164,7 @@ function fetchLogoColor(card, apiKey) {
     });
 }
 
-/* Застосування динамічного кольору до іконки */
+/* Застосування динамічного кольору до іконки (Єдиний стиль + напівпрозора тінь) */
 function applyDynamicColorToIcon($iconElement, colorData) {
     if (!colorData || !$iconElement.length || $iconElement.closest('.mdb-dynamic-shadow-wrapper').length) return;
 
@@ -1176,6 +1176,12 @@ function applyDynamicColorToIcon($iconElement, colorData) {
         brightness = (colorData.r * 299 + colorData.g * 587 + colorData.b * 114) / 1000;
     }
 
+    // Якщо логотип чорний або дуже темно-сірий (< 20) — примусово робимо іконку білою
+    if (brightness < 20) {
+        rgb = 'rgb(255, 255, 255)';
+    }
+
+    // 1. ВНУТРІШНІЙ БЛОК (Маска-трафарет і колір)
     var $maskWrapper = $('<div class="mdb-dynamic-color-wrapper"></div>');
     $maskWrapper.css({
         'display': 'block',
@@ -1189,34 +1195,31 @@ function applyDynamicColorToIcon($iconElement, colorData) {
         'transition': 'background-color 0.4s ease'
     });
 
+    // 2. ЗОВНІШНІЙ БЛОК (Контейнер для тіні)
     var $shadowWrapper = $('<div class="mdb-dynamic-shadow-wrapper"></div>');
     $shadowWrapper.css({
         'display': 'inline-block',
         'width': $iconElement.width() + 'px',
         'height': $iconElement.height() + 'px',
-        'position': 'relative'
+        'position': 'relative',
+        // Єдина, легка, напівпрозора контурна тінь для всіх іконок (прозорість 0.4)
+        'filter': 'drop-shadow(1px 1px 0px rgba(0,0,0,0.4))' 
     });
 
-    if (brightness < 80) {
+    // Більше ніяких інверсій. Просто зберігаємо чорні деталі іконки як є
+    $iconElement.css({
+        'mix-blend-mode': 'multiply',
+        'filter': 'none',
+        'opacity': '1', 
+        'display': 'block', 
+        'width': '100%', 
+        'height': '100%'
+    });
 
-        $shadowWrapper.css('filter', 'drop-shadow(1px 1px 0px rgba(255,255,255,0.4))'); 
-        $iconElement.css({
-            'mix-blend-mode': 'screen',
-            'filter': 'invert(1)',
-            'opacity': '1', 'display': 'block', 'width': '100%', 'height': '100%'
-        });
-    } else {
-
-        $shadowWrapper.css('filter', 'drop-shadow(1px 1px 0px rgba(0,0,0,0.7))');
-        $iconElement.css({
-            'mix-blend-mode': 'multiply',
-            'filter': 'none',
-            'opacity': '1', 'display': 'block', 'width': '100%', 'height': '100%'
-        });
-    }
-
+    // Обгортаємо іконку
     $iconElement.wrap($shadowWrapper).wrap($maskWrapper);
 }
+
 
 function triggerDynamicColors(card) {
     var isBwIconsEnabled = Lampa.Storage.get('ratings_bw_logos', false);
