@@ -916,7 +916,7 @@
     });
 
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": false }, field: { name: 'Білі логотипи', description: 'Підміна на білі іконки' } });
-    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_dynamic_colors', type: 'trigger', values: '', "default": false }, field: { name: 'Динамічний колір іконок', description: 'Перефарбовує іконки у домінантний колір логотипу' } });
+    Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_dynamic_colors', type: 'trigger', values: '', "default": false }, field: { name: 'Динамічний колір іконок', description: 'Перефарбовує іконки у домінантний колір логотипу. Працює з увімкненими білими іконками' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_colorize_all', type: 'trigger', values: '', "default": true }, field: { name: 'Кольорові оцінки рейтингів', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bg_opacity', type: 'select', values: { 'v_0': '0%', 'v_0.1': '10%', 'v_0.2': '20%', 'v_0.3': '30%', 'v_0.4': '40%', 'v_0.5': '50%', 'v_0.6': '60%', 'v_0.8': '80%', 'v_1': '100%' }, "default": 'v_0' }, field: { name: 'Темний фон плитки', description: '' } });
     
@@ -1088,7 +1088,7 @@ function getCachedLogoColor(card) {
     return null;
 }
 
-/* Отримання домінантного кольору логотипу з TMDB */
+/* Отримання домінантного кольору логотипу з кластеризацією. author: @bodya_elven */
 function fetchLogoColor(card, apiKey) {
     return new Promise(function(resolve) {
         var type = card.name ? 'tv' : 'movie';
@@ -1123,30 +1123,87 @@ function fetchLogoColor(card, apiKey) {
                     return resolve(null);
                 }
 
-                var r = 0, g = 0, b = 0, count = 0;
-                var isWhiteText = true;
+                var buckets = {};
+                var totalPixels = 0;
+                var wCount = 0, wR = 0, wG = 0, wB = 0;
+                var bCount = 0, bR = 0, bG = 0, bB = 0;
 
+                // КРОК 1: Сортуємо пікселі по "кошиках"
                 for (var i = 0; i < imgData.length; i += 16) {
-                    if (imgData[i + 3] > 50) { 
-                        r += imgData[i];
-                        g += imgData[i + 1];
-                        b += imgData[i + 2];
-                        count++;
-                        if (imgData[i] < 240 || imgData[i+1] < 240 || imgData[i+2] < 240) {
-                            isWhiteText = false;
-                        }
+                    var a = imgData[i + 3];
+                    if (a < 50) continue; // Пропускаємо прозоре
+
+                    var r = imgData[i];
+                    var g = imgData[i + 1];
+                    var b = imgData[i + 2];
+                    totalPixels++;
+
+                    var isWhite = r > 240 && g > 240 && b > 240;
+                    var isBlack = r < 25 && g < 25 && b < 25;
+
+                    if (isWhite) {
+                        wCount++; wR += r; wG += g; wB += b;
+                    } else if (isBlack) {
+                        bCount++; bR += r; bG += g; bB += b;
+                    } else {
+                        // Для градієнтів: групуємо схожі відтінки (з кроком 32 одиниці)
+                        var step = 32;
+                        var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
+                        
+                        if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
+                        buckets[key].count++;
+                        buckets[key].r += r;
+                        buckets[key].g += g;
+                        buckets[key].b += b;
                     }
                 }
 
-                if (count === 0 || isWhiteText) return resolve(null);
+                if (totalPixels === 0) return resolve(null);
 
-                r = Math.floor(r / count);
-                g = Math.floor(g / count);
-                b = Math.floor(b / count);
+                // КРОК 2: Застосовуємо твої правила (<10% та >50%)
+                var validBuckets = [];
+                
+                // Перевіряємо кольори: беремо тільки ті, яких більше 10%
+                for (var k in buckets) {
+                    if ((buckets[k].count / totalPixels) * 100 >= 10) {
+                        validBuckets.push(buckets[k]);
+                    }
+                }
 
-                var brightness = (r * 299 + g * 587 + b * 114) / 1000;
-                var colorData = { r: r, g: g, b: b, brightness: brightness };
+                // Перевіряємо білий та чорний: беремо ТІЛЬКИ якщо їх від 10% до 35%
+                var wPercent = (wCount / totalPixels) * 100;
+                var bPercent = (bCount / totalPixels) * 100;
 
+                if (wPercent >= 10 && wPercent <= 35) validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
+                if (bPercent >= 10 && bPercent <= 35) validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
+
+                // КРОК 3: Запасний план для екстремальних градієнтів ("веселки")
+                // Якщо після чистки всі кошики зникли, беремо той колір, якого було найбільше, ігноруючи правило 10%
+                if (validBuckets.length === 0) {
+                    var maxBkt = null;
+                    for (var key in buckets) {
+                        if (!maxBkt || buckets[key].count > maxBkt.count) maxBkt = buckets[key];
+                    }
+                    if (maxBkt) validBuckets.push(maxBkt);
+                    else if (wCount > bCount) validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
+                    else validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
+                }
+
+                // КРОК 4: Вибираємо переможця (найбільший кошик з тих, що вижили)
+                validBuckets.sort(function(a, b) { return b.count - a.count; });
+                var best = validBuckets[0];
+
+                if (!best || best.count === 0) return resolve(null);
+
+                // Рахуємо чистий середній колір тільки з цього переможного кошика
+                var finalR = Math.floor(best.r / best.count);
+                var finalG = Math.floor(best.g / best.count);
+                var finalB = Math.floor(best.b / best.count);
+
+                var brightness = (finalR * 299 + finalG * 587 + finalB * 114) / 1000;
+                var colorData = { r: finalR, g: finalG, b: finalB, brightness: brightness };
+
+                // Кешуємо результат
                 try {
                     var cache = JSON.parse(localStorage.getItem(storageKey) || '{}');
                     cache[cacheKey] = {
@@ -1163,6 +1220,7 @@ function fetchLogoColor(card, apiKey) {
         }).catch(function() { resolve(null); });
     });
 }
+
 
 /* Застосування динамічного кольору до іконки (Єдиний стиль + напівпрозора тінь) */
 function applyDynamicColorToIcon($iconElement, colorData) {
