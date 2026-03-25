@@ -153,6 +153,18 @@
     mal: ICONS_WIDE_URL + 'mal-wide.webp'
   };
 
+var ICONS_WIDE_NB = {
+    imdb: ICONS_WIDE_URL + 'imdb-wide-nb.webp',
+    tmdb: ICONS_WIDE_URL + 'tmdb-wide-nb.webp',
+    trakt: ICONS_WIDE_URL + 'trakt-wide-nb.webp',
+    letterboxd: ICONS_WIDE_URL + 'letterboxd-wide-nb.webp',
+    metacritic: ICONS_WIDE_URL + 'metacritic-wide-nb.webp',
+    rotten_good: ICONS_WIDE_URL + 'rt-wide-nb.webp',
+    rotten_bad: ICONS_WIDE_URL + 'rt-bad-wide-nb.webp',
+    popcorn: ICONS_WIDE_URL + 'popcorn-wide-nb.webp',
+    mdblist: ICONS_WIDE_URL + 'mdblist-wide-nb.webp',
+    mal: ICONS_WIDE_URL + 'mal-wide-nb.webp'
+};
   
   var pluginStyles = "<style>" +
     ":root{" +
@@ -914,6 +926,11 @@
             updateMutualExclusions();
         }
     });
+Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: 'ratings_wide_nb',
+    field: { name: 'Широкі лого без рамки', description: 'Прибирає рамку в широких логотипах', type: 'trigger', default: false
+    },
+    onChange: function () {}
+});
 
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_bw_logos', type: 'trigger', values: '', "default": false }, field: { name: 'Білі логотипи', description: 'Підміна на білі іконки' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_dynamic_colors', type: 'trigger', values: '', "default": false }, field: { name: 'Динамічний колір іконок', description: 'Перефарбовує іконки у домінантний колір логотипу. Працює з увімкненими білими іконками' } });
@@ -955,17 +972,29 @@
         var isWide = Lampa.Storage.get('ratings_wide_logos', false);
         var isBorder = Lampa.Storage.get('ratings_rate_border', false);
         
-        var $bwItem = $('.settings-param:contains("Ч/Б логотипи")');
+        // Зверни увагу: тут вже змінено на "Білі логотипи"
+        var $bwItem = $('.settings-param:contains("Білі логотипи")'); 
         var $borderItem = $('.settings-param:contains("Рамка плиток рейтингів")');
         var $glowItem = $('.settings-param:contains("Кольорове світіння рамки")');
+        // Додаємо наш новий пункт
+        var $wideNbItem = $('.settings-param:contains("Широкі лого без рамки")');
 
         if (isWide) {
+            // Якщо Широкі лого ввімкнені, блокуємо несумісні налаштування
             $bwItem.css({ opacity: 0.5, 'pointer-events': 'none' });
             $borderItem.css({ opacity: 0.5, 'pointer-events': 'none' });
             $glowItem.css({ opacity: 0.5, 'pointer-events': 'none' });
+            
+            // А новий пункт "Без рамки", навпаки, робимо активним
+            $wideNbItem.css({ opacity: 1, 'pointer-events': 'auto' });
         } else {
+            // Якщо Широкі лого вимкнені, повертаємо все як було
             $bwItem.css({ opacity: 1, 'pointer-events': 'auto' });
             $borderItem.css({ opacity: 1, 'pointer-events': 'auto' });
+            
+            // Новий пункт "Без рамки" блокуємо (бо основні широкі лого вимкнені)
+            $wideNbItem.css({ opacity: 0.5, 'pointer-events': 'none' });
+
             if (isBorder) {
                 $glowItem.css({ opacity: 1, 'pointer-events': 'auto' });
             } else {
@@ -973,12 +1002,12 @@
             }
         }
     }
+
     
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { name: 'ratings_cache_days', type: 'input', values: '', "default": '3' }, field: { name: 'Термін зберігання кешу (MDBList)', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'lmp_ratings', param: { type: 'button', name: 'lmp_clear_cache_btn' }, field: { name: 'Очистити весь кеш рейтингів', description: '' }, onChange: function() { lmpRatingsClearCache(); } });
 
     Lampa.SettingsApi.addComponent({ component: 'omdb_ratings', name: 'Рейтинг на постері', icon: '' });
-    // Кнопку "Назад" тут ВИДАЛЕНО
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_api_key', type: 'input', values: '', "default": '' }, field: { name: 'OMDb API key', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_status', type: 'trigger', values: '', "default": true }, field: { name: 'Рейтинг на постері', description: '' } });
     Lampa.SettingsApi.addParam({ component: 'omdb_ratings', param: { name: 'omdb_poster_source', type: 'select', values: { 'imdb': 'IMDb', 'tmdb': 'TMDb', 'none': 'Без рейтингу' }, "default": 'imdb' }, field: { name: 'Джерело рейтингу', description: '' } });
