@@ -407,6 +407,8 @@ var ICONS_WIDE_NB = {
 
     var useWide = cfg.wideLogos;
 
+    var useWideNb = Lampa.Storage.get('ratings_wide_nb', false);
+
     cfg.sourcesConfig.forEach(function(src) {
       if (!src.enabled || !data[src.id]) return;
       var itemData = data[src.id];
@@ -414,13 +416,26 @@ var ICONS_WIDE_NB = {
       var iconUrl;
       
       if (useWide) {
-          iconUrl = ICONS_WIDE[src.id] || (ICONS_WIDE_URL + src.id + '-wide.png');
-          if (src.id === 'rottentomatoes') {
-              iconUrl = itemData.fresh ? ICONS_WIDE.rotten_good : ICONS_WIDE.rotten_bad;
-          } else if (src.id === 'popcorn') {
-              iconUrl = ICONS_WIDE.popcorn; 
+          if (useWideNb) {
+
+              // Якщо немає в словнику ICONS_WIDE_NB, підставляємо суфікс -wide-nb.webp
+              iconUrl = ICONS_WIDE_NB[src.id] || (ICONS_WIDE_URL + src.id + '-wide-nb.webp');
+              if (src.id === 'rottentomatoes') {
+                  iconUrl = itemData.fresh ? ICONS_WIDE_NB.rotten_good : ICONS_WIDE_NB.rotten_bad;
+              } else if (src.id === 'popcorn') {
+                  iconUrl = ICONS_WIDE_NB.popcorn; 
+              }
+          } else {
+
+              iconUrl = ICONS_WIDE[src.id] || (ICONS_WIDE_URL + src.id + '-wide.png');
+              if (src.id === 'rottentomatoes') {
+                  iconUrl = itemData.fresh ? ICONS_WIDE.rotten_good : ICONS_WIDE.rotten_bad;
+              } else if (src.id === 'popcorn') {
+                  iconUrl = ICONS_WIDE.popcorn; 
+              }
           }
       } else {
+
           iconUrl = (cfg.bwLogos && ICONS_BW[src.id]) ? ICONS_BW[src.id] : ICONS[src.id];
           if (src.id === 'rottentomatoes') {
               iconUrl = cfg.bwLogos ? (itemData.fresh ? ICONS_BW.rotten_good : ICONS_BW.rotten_bad) 
