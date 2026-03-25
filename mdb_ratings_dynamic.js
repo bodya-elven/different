@@ -1135,7 +1135,7 @@ function getCachedLogoColor(card) {
     return null;
 }
 
-/* Отримання домінантного кольору логотипу з кластеризацією. author: @bodya_elven */
+/* Отримання домінантного кольору логотипу з кластеризацією */
 function fetchLogoColor(card, apiKey) {
     return new Promise(function(resolve) {
         var type = card.name ? 'tv' : 'movie';
@@ -1269,9 +1269,10 @@ function fetchLogoColor(card, apiKey) {
 }
 
 
-/* Застосування динамічного кольору до іконки (Єдиний стиль + напівпрозора тінь) */
-function applyDynamicColorToIcon($iconElement, colorData) {
-    if (!colorData || !$iconElement.length || $iconElement.closest('.mdb-dynamic-shadow-wrapper').length) return;
+/* Застосування динамічного кольору до іконки (Універсальна) */
+// Додали третій параметр isWide
+function applyDynamicColorToIcon($iconElement, colorData, isWide) {
+    if (!colorData || !$iconElement.length || $iconElement.closest('.mdb-dynamic-shadow-wrapper').length || $iconElement.closest('.mdb-wide-color-wrapper').length) return;
 
     var rgb = 'rgb(' + colorData.r + ',' + colorData.g + ',' + colorData.b + ')';
     var iconSrc = $iconElement.attr('src') || $iconElement.css('background-image').replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '');
@@ -1281,56 +1282,75 @@ function applyDynamicColorToIcon($iconElement, colorData) {
         brightness = (colorData.r * 299 + colorData.g * 587 + colorData.b * 114) / 1000;
     }
 
-    // Якщо логотип чорний або дуже темно-сірий (< 20) — примусово робимо іконку білою
+    // Захист від чорного: працює ЗАВЖДИ, і для квадратних, і для широких
     if (brightness < 20) {
         rgb = 'rgb(255, 255, 255)';
     }
 
-    // 1. ВНУТРІШНІЙ БЛОК (Маска-трафарет і колір)
-    var $maskWrapper = $('<div class="mdb-dynamic-color-wrapper"></div>');
-    $maskWrapper.css({
-        'display': 'block',
-        'width': '100%',
-        'height': '100%',
-        'background-color': rgb,
-        '-webkit-mask-image': 'url(' + iconSrc + ')',
-        '-webkit-mask-size': 'contain',
-        '-webkit-mask-repeat': 'no-repeat',
-        '-webkit-mask-position': 'center',
-        'transition': 'background-color 0.4s ease'
-    });
+    if (isWide) {
+        // --- ЛОГІКА ДЛЯ ШИРОКИХ ЛОГО (Суцільна заливка по формі маски) ---
+        var $wideWrapper = $('<div class="mdb-wide-color-wrapper"></div>');
+        $wideWrapper.css({
+            'display': 'inline-block',
+            'width': $iconElement.width() + 'px',
+            'height': $iconElement.height() + 'px',
+            'background-color': rgb,
+            '-webkit-mask-image': 'url(' + iconSrc + ')',
+            '-webkit-mask-size': 'contain',
+            '-webkit-mask-repeat': 'no-repeat',
+            '-webkit-mask-position': 'center',
+            'transition': 'background-color 0.4s ease'
+        });
 
-    // 2. ЗОВНІШНІЙ БЛОК (Контейнер для тіні)
-    var $shadowWrapper = $('<div class="mdb-dynamic-shadow-wrapper"></div>');
-    $shadowWrapper.css({
-        'display': 'inline-block',
-        'width': $iconElement.width() + 'px',
-        'height': $iconElement.height() + 'px',
-        'position': 'relative',
-        // Єдина, легка, напівпрозора контурна тінь для всіх іконок (прозорість 0.4)
-        'filter': 'drop-shadow(1px 1px 0px rgba(0,0,0,0.4))' 
-    });
+        // Ховаємо саму оригінальну картинку, залишаємо тільки кольоровий трафарет
+        $iconElement.css('opacity', '0');
+        $iconElement.wrap($wideWrapper);
 
-    // Більше ніяких інверсій. Просто зберігаємо чорні деталі іконки як є
-    $iconElement.css({
-        'mix-blend-mode': 'multiply',
-        'filter': 'none',
-        'opacity': '1', 
-        'display': 'block', 
-        'width': '100%', 
-        'height': '100%'
-    });
+    } else {
+        // --- ЛОГІКА ДЛЯ КВАДРАТНИХ ІКОНОК (Зі збереженням чорних деталей та тінню) ---
+        var $maskWrapper = $('<div class="mdb-dynamic-color-wrapper"></div>');
+        $maskWrapper.css({
+            'display': 'block',
+            'width': '100%',
+            'height': '100%',
+            'background-color': rgb,
+            '-webkit-mask-image': 'url(' + iconSrc + ')',
+            '-webkit-mask-size': 'contain',
+            '-webkit-mask-repeat': 'no-repeat',
+            '-webkit-mask-position': 'center',
+            'transition': 'background-color 0.4s ease'
+        });
 
-    // Обгортаємо іконку
-    $iconElement.wrap($shadowWrapper).wrap($maskWrapper);
+        var $shadowWrapper = $('<div class="mdb-dynamic-shadow-wrapper"></div>');
+        $shadowWrapper.css({
+            'display': 'inline-block',
+            'width': $iconElement.width() + 'px',
+            'height': $iconElement.height() + 'px',
+            'position': 'relative',
+            'filter': 'drop-shadow(1px 1px 0px rgba(0,0,0,0.4))' 
+        });
+
+        $iconElement.css({
+            'mix-blend-mode': 'multiply',
+            'filter': 'none',
+            'opacity': '1', 
+            'display': 'block', 
+            'width': '100%', 
+            'height': '100%'
+        });
+
+        $iconElement.wrap($shadowWrapper).wrap($maskWrapper);
+    }
 }
 
 
 function triggerDynamicColors(card) {
     var isBwIconsEnabled = Lampa.Storage.get('ratings_bw_logos', false);
+    var isWideLogosEnabled = Lampa.Storage.get('ratings_wide_logos', false); // Додали перевірку широких лого
     var isDynamicColorsEnabled = Lampa.Storage.get('ratings_dynamic_colors', false);
 
-    if (!isBwIconsEnabled || !isDynamicColorsEnabled) return;
+    // Якщо динамічні кольори вимкнені, АБО якщо одночасно вимкнені і білі, і широкі логотипи — виходимо
+    if (!isDynamicColorsEnabled || (!isBwIconsEnabled && !isWideLogosEnabled)) return;
 
     var tmdbApiKey = Lampa.Storage.get('tmdb_api_key', ''); 
     if (!tmdbApiKey || tmdbApiKey.trim() === '' || tmdbApiKey.trim() === 'c87a543116135a4120443155bf680876') {
@@ -1342,13 +1362,15 @@ function triggerDynamicColors(card) {
         
         if (cachedColor) {
             $('.lmp-custom-rate .source--name img').each(function() {
-                applyDynamicColorToIcon($(this), cachedColor);
+                // Передаємо третій параметр isWideLogosEnabled
+                applyDynamicColorToIcon($(this), cachedColor, isWideLogosEnabled);
             });
         } else {
             fetchLogoColor(card, tmdbApiKey).then(function(colorData) {
                 if (colorData) {
                     $('.lmp-custom-rate .source--name img').each(function() {
-                        applyDynamicColorToIcon($(this), colorData);
+                        // Передаємо третій параметр isWideLogosEnabled
+                        applyDynamicColorToIcon($(this), colorData, isWideLogosEnabled);
                     });
                 }
             });
