@@ -387,7 +387,7 @@
         Lampa.SettingsApi.addParam({
             component: "cardify",
             param: { name: "cardify_show_rating", type: "trigger", default: true },
-            field: { name: "Показывать рейтинг" }
+            field: { name: "Показувати рейтинг" }
         });
 
         // Контроль прозорості хедера
