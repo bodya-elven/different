@@ -223,13 +223,26 @@
         $('#cardify-mobile-styles').remove();
         var style = `
         <style id="cardify-mobile-styles">
-        /* Прозорість верхнього меню */
+        /* --- ПРОЗОРІСТЬ ВЕРХНЬОГО МЕНЮ (TV, PC, Mobile) --- */
         body.cardify-transparent-header .head,
-        body.cardify-transparent-header .head__bg {
+        body.cardify-transparent-header .head.head--active {
             background: transparent !important;
             background-color: transparent !important;
             box-shadow: none !important;
             border: none !important;
+        }
+
+        /* Видаляємо фізичний шар фону хедера та темний градієнт самої картки Lampa */
+        body.cardify-transparent-header .head__bg,
+        body.cardify-transparent-header .full-start__bg {
+            display: none !important;
+            background: transparent !important;
+            opacity: 0 !important;
+        }
+
+        /* Робимо прозорим головний контейнер */
+        body.cardify-transparent-header .activity[data-component="full"] .activity__body {
+            background: transparent !important;
         }
 
         .cardify{-webkit-transition:all .3s;-o-transition:all .3s;-moz-transition:all .3s;transition:all .3s}
