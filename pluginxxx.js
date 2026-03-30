@@ -487,7 +487,6 @@
             pornhub: {
                 title: 'Pornhub',
                 domain: 'https://www.pornhub.com',
-                ph_sorts: [{title:"Новые",val:"cm"},{title:"Популярные",val:"mv"},{title:"Лучшие",val:"tr"},{title:"Горячие",val:"ht"}],
                 getHomeUrl: function() { return this.domain + '/video'; },
                 getSearchUrl: function(query) { return this.domain + '/video/search?search=' + encodeURIComponent(query); },
                 getUrl: function(object, page) {
@@ -497,37 +496,35 @@
                 },
                 getFilters: function(doc, currentUrl) {
                     var items = [], activeTitle = 'Сортування';
-                    var uMatch = currentUrl.match(/c=([^&]+)/), currentC = uMatch ? uMatch[1] : '';
-                    var oMatch = currentUrl.match(/o=([^&]+)/), currentO = oMatch ? oMatch[1] : '';
-                    var actualSortTitle = 'Новые';
                     
-                    for (var st = 0; st < this.ph_sorts.length; st++) { 
-                        if (this.ph_sorts[st].val === currentO || (currentO === '' && this.ph_sorts[st].val === 'cm')) actualSortTitle = this.ph_sorts[st].title; 
-                    }
+                    // 1. Шукаємо контейнер з фільтрами на сторінці
+                    var filterContainer = doc.querySelector('.subFilterList, #subFilterListVideos, .filterList');
                     
-                    for (var st2 = 0; st2 < this.ph_sorts.length; st2++) {
-                        if (this.ph_sorts[st2].title === actualSortTitle) continue;
-                        var nUrl = this.domain + '/video', params = [];
-                        if (currentC) params.push('c=' + currentC);
-                        if (this.ph_sorts[st2].val) params.push('o=' + this.ph_sorts[st2].val);
-                        if (params.length > 0) nUrl += '?' + params.join('&');
-                        items.push({ title: this.ph_sorts[st2].title, url: nUrl });
-                    }
-                    
-                    var subFilters = doc.querySelector('.subFilterList, #subFilterListVideos');
-                    if (subFilters) {
-                        var linksP = subFilters.querySelectorAll('li a');
-                        for (var l = 0; l < linksP.length; l++) {
-                            var hp = linksP[l].getAttribute('href');
-                            if (hp && hp.indexOf('javascript') === -1) {
-                                // Виправлено баг зшивання посилання
-                                if (hp.indexOf('http') !== 0) hp = this.domain + '/' + hp.replace(/^\//, '');
-                                items.push({ title: (linksP[l].textContent || '').trim(), url: hp });
+                    if (filterContainer) {
+                        // 2. Намагаємося знайти активний пункт (зазвичай має клас 'active' або 'selected')
+                        var activeEl = filterContainer.querySelector('li.active, li.selected');
+                        if (activeEl) {
+                            activeTitle = (activeEl.textContent || '').trim();
+                        }
+                        
+                        // 3. Збираємо всі посилання на інші варіанти сортування
+                        var links = filterContainer.querySelectorAll('li a');
+                        for (var i = 0; i < links.length; i++) {
+                            var a = links[i];
+                            var href = a.getAttribute('href');
+                            var title = (a.textContent || '').trim();
+                            
+                            // Додаємо в список лише ті, що не є активними зараз і мають назву
+                            if (href && href.indexOf('javascript') === -1 && title && title !== activeTitle) {
+                                if (href.indexOf('http') !== 0) href = this.domain + '/' + href.replace(/^\//, '');
+                                items.push({ title: title, url: href });
                             }
                         }
                     }
-                    return { subtitle: actualSortTitle, items: items };
+                    
+                    return { subtitle: activeTitle, items: items };
                 },
+
                 getNavItems: function() {
                     return [
                         { title: '🗄️ Категорії', action: 'nav', url: this.domain + '/categories', is_categories: true },
