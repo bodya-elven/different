@@ -520,7 +520,8 @@
                         for (var l = 0; l < linksP.length; l++) {
                             var hp = linksP[l].getAttribute('href');
                             if (hp && hp.indexOf('javascript') === -1) {
-                                if (hp.indexOf('http') !== 0) hp = this.domain + (hp.startsWith('/') ? '' : '/') + hp.replace(/^\//, '');
+                                // Виправлено баг зшивання посилання
+                                if (hp.indexOf('http') !== 0) hp = this.domain + '/' + hp.replace(/^\//, '');
                                 items.push({ title: (linksP[l].textContent || '').trim(), url: hp });
                             }
                         }
@@ -529,7 +530,6 @@
                 },
                 getNavItems: function() {
                     return [
-                        // Тепер категорії завантажуються як повноцінна сторінка з плитками, як в Porno365
                         { title: '🗄️ Категорії', action: 'nav', url: this.domain + '/categories', is_categories: true },
                         { title: '👸 Моделі', action: 'nav', url: this.domain + '/pornstars', is_models: true },
                         { title: '🎬 Студії', action: 'nav', url: this.domain + '/channels', is_studios: true }
@@ -540,15 +540,14 @@
                     var results = [];
                     
                     if (targetPath.indexOf('/categories') !== -1 || object.is_categories) {
-                        // Новий парсер для сторінки категорій
                         var cEls = doc.querySelectorAll('li.catPic');
                         for (var c = 0; c < cEls.length; c++) {
                             var elC = cEls[c], linkC = elC.querySelector('a'), imgC = elC.querySelector('img'), strongTitle = elC.querySelector('.categoryTitleWrapper strong');
                             if (linkC && imgC) {
-                                // Витягуємо чисту назву з тегу strong або очищаємо alt від " Porn Category"
                                 var nameC = strongTitle ? (strongTitle.textContent || '').trim() : (imgC.getAttribute('alt') || '').replace(' Porn Category', '').trim();
                                 var urlC = linkC.getAttribute('href'); 
-                                if (urlC && urlC.indexOf('http') !== 0) urlC = this.domain + (urlC.startsWith('/') ? '' : '/') + urlC.replace(/^\//, '');
+                                // ВИПРАВЛЕНО: Правильне додавання слеша, щоб не було злипання домену та шляху
+                                if (urlC && urlC.indexOf('http') !== 0) urlC = this.domain + '/' + urlC.replace(/^\//, '');
                                 
                                 var imgSrc = imgC.getAttribute('data-path') || imgC.getAttribute('src') || ''; 
                                 if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
@@ -563,7 +562,7 @@
                             var elM = mEls[m], linkM = elM.querySelector(isStudios ? 'a' : 'a.pornstarLink, a'), imgM = elM.querySelector(isStudios ? 'img' : 'img.pornstarThumb, img'), titleM = elM.querySelector(isStudios ? '.title a, .title' : '.performerCardName, .pornstarName, .title');
                             if (linkM && imgM) {
                                 var nameM = titleM ? (titleM.textContent || '').trim() : (imgM.getAttribute('alt') || (isStudios ? 'Studio' : 'Model')), urlM = linkM.getAttribute('href');
-                                if (urlM && urlM.indexOf('http') !== 0) urlM = this.domain + (urlM.startsWith('/') ? '' : '/') + urlM.replace(/^\//, '');
+                                if (urlM && urlM.indexOf('http') !== 0) urlM = this.domain + '/' + urlM.replace(/^\//, '');
                                 var imgSrcM = imgM.getAttribute('data-thumb_url') || imgM.getAttribute('src') || ''; if (imgSrcM && imgSrcM.indexOf('//') === 0) imgSrcM = 'https:' + imgSrcM;
                                 if (nameM) results.push({ name: window.pluginx_formatTitle(nameM, '', '☰'), url: urlM, picture: imgSrcM, img: imgSrcM, is_grid: true, is_models_grid: !isStudios, is_studios_noimg: isStudios });
                             }
@@ -576,7 +575,7 @@
                             if (linkV && imgV) {
                                 var nameV = imgV.getAttribute('title') || imgV.getAttribute('alt') || (linkV.textContent || '').trim(), urlV = linkV.getAttribute('href');
                                 if (urlV && urlV.indexOf('javascript') === -1) {
-                                    if (urlV.indexOf('http') !== 0) urlV = this.domain + (urlV.startsWith('/') ? '' : '/') + urlV.replace(/^\//, '');
+                                    if (urlV.indexOf('http') !== 0) urlV = this.domain + '/' + urlV.replace(/^\//, '');
                                     var imgSrcV = imgV.getAttribute('data-mediumthumb') || imgV.getAttribute('data-thumb_url') || imgV.getAttribute('src') || ''; if (imgSrcV && imgSrcV.indexOf('//') === 0) imgSrcV = 'https:' + imgSrcV;
                                     var pUrl = imgV.getAttribute('data-mediabook') || ''; if (pUrl && pUrl.indexOf('//') === 0) pUrl = 'https:' + pUrl;
                                     var timeText = timeV ? (timeV.textContent || '').trim() : '';
@@ -598,12 +597,10 @@
                                 for(var k=0; k<defs.length; k++) {
                                     var qTitle = defs[k].quality || 'MP4';
                                     if (typeof qTitle === 'number' || !isNaN(qTitle)) qTitle += 'p';
-                                    str.push({ 
-                                        title: qTitle, 
-                                        url: defs[k].videoUrl.replace(/\\/g, ''), 
-                                        // Оновлені заголовки для нового домену
-                                        headers: { 'Referer': 'https://www.pornhub.com/', 'Origin': 'https://www.pornhub.com' } 
-                                    });
+                                    
+                                    // ВИПРАВЛЕННЯ ВІДТВОРЕННЯ: Додаємо |Referer= прямо в рядок URL
+                                    var finalUrl = defs[k].videoUrl.replace(/\\/g, '') + '|Referer=https://www.pornhub.com/';
+                                    str.push({ title: qTitle, url: finalUrl });
                                 }
                             }
                         } catch(e) {}
@@ -620,29 +617,25 @@
                                 defs.sort(function(a, b) { return (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0); });
                                 for(var k=0; k<defs.length; k++) {
                                     var qTitle = defs[k].quality || 'MP4'; if (typeof qTitle === 'number' || !isNaN(qTitle)) qTitle += 'p';
-                                    phStreams.push({ title: qTitle, url: defs[k].videoUrl.replace(/\\/g, '') });
+                                    var finalUrl = defs[k].videoUrl.replace(/\\/g, '') + '|Referer=https://www.pornhub.com/';
+                                    phStreams.push({ title: qTitle, url: finalUrl });
                                 }
                             }
                         } catch(e) {}
                     }
                     if (phStreams.length > 1) {
-                        menu.push({ 
-                            title: 'Відтворити в ' + phStreams[1].title, 
-                            action: 'play_direct', 
-                            url: phStreams[1].url, 
-                            headers: { 'Referer': 'https://www.pornhub.com/', 'Origin': 'https://www.pornhub.com' } 
-                        });
+                        menu.push({ title: 'Відтворити в ' + phStreams[1].title, action: 'play_direct', url: phStreams[1].url });
                     }
                     var phModels = doc.querySelectorAll('.pornstarsWrapper .pstar-list-btn');
-                    for (var p = 0; p < phModels.length; p++) menu.push({ title: (phModels[p].textContent || '').trim(), action: 'direct', url: this.domain + phModels[p].getAttribute('href') });
+                    for (var p = 0; p < phModels.length; p++) menu.push({ title: (phModels[p].textContent || '').trim(), action: 'direct', url: this.domain + '/' + phModels[p].getAttribute('href').replace(/^\//, '') });
                     menu.push({ title: 'Схожі відео', action: 'sim', url: element.url });
                     return menu;
                 }
             },
+
             // =========================================================================
-
-
-            // Блок Porndish
+            // АДАПТЕР: PORNDISH
+            // =========================================================================
             porndish: {
                 title: 'Porndish',
                 domain: 'https://www.porndish.com',
@@ -670,7 +663,7 @@
                             var href = el.getAttribute('href');
                             if (!title || title.toLowerCase().indexOf('ai') !== -1 || title.toLowerCase().indexOf('extra') !== -1) continue;
                             if (href && title && added.indexOf(href) === -1 && href.indexOf('javascript') === -1) {
-                                var vUrl = href.startsWith('http') ? href : this.domain + (href.startsWith('/') ? '' : '/') + href;
+                                var vUrl = href.startsWith('http') ? href : this.domain + '/' + href.replace(/^\//, '');
                                 results.push({ name: title, url: vUrl, picture: '', img: '', is_grid: true });
                                 added.push(href);
                             }
@@ -681,7 +674,7 @@
                             var elV = elements[v], linkV = elV.querySelector('.entry-title a') || elV.querySelector('a.g1-frame'), titleV = elV.querySelector('.entry-title a'), imgV = elV.querySelector('img'), timeV = elV.querySelector('.mace-video-duration');
                             if (linkV) {
                                 var urlV = linkV.getAttribute('href');
-                                if (urlV && urlV.indexOf('http') !== 0) urlV = this.domain + (urlV.startsWith('/') ? '' : '/') + urlV.replace(/^\//, '');
+                                if (urlV && urlV.indexOf('http') !== 0) urlV = this.domain + '/' + urlV.replace(/^\//, '');
                                 var nameV = titleV ? (titleV.textContent || '').trim() : (imgV ? imgV.getAttribute('alt') : (linkV.textContent || '').trim()), timeText = timeV ? (timeV.textContent || '').trim() : '';
                                 if (nameV && urlV) results.push({ name: window.pluginx_formatTitle(nameV, timeText, '▶'), url: urlV, picture: '', img: '', is_porndish_list: true });
                             }
@@ -703,8 +696,11 @@
                                 try {
                                     var jd = JSON.parse(jTxt);
                                     if (jd && jd.streaming_url) {
-                                        // Запускаємо відтворення напряму в обхід загальної функції, як було в оригіналі
-                                        var pData = { title: element.name, url: jd.streaming_url };
+                                        // ВИПРАВЛЕННЯ ВІДТВОРЕННЯ: Системний синтаксис Lampa |Referer=
+                                        var streamUrl = jd.streaming_url + '|Referer=https://' + dynamicDomain + '/';
+                                        var pData = { title: element.name, url: streamUrl };
+                                        
+                                        // Для Porndish запускаємо напряму в обхід стандратної функції (як було раніше)
                                         Lampa.Player.play(pData);
                                         Lampa.Player.playlist([pData]);
                                     } else {
@@ -714,7 +710,7 @@
                                 } catch(e){ Lampa.Noty.show('Помилка JSON ' + dynamicDomain); onError(); }
                             }, function() { Lampa.Noty.show('Помилка мережі ' + dynamicDomain); onError(); }, vidaraHeaders);
                             
-                            return; // Жорсткий вихід, оскільки ми викликали асинхронний запит
+                            return;
                         }
                     }
                     Lampa.Noty.show('Не знайдено підтримуваного плеєра');
@@ -724,6 +720,7 @@
                     return [ { title: 'Схожі відео', action: 'sim', url: element.url } ];
                 }
             },
+
 
             // Блок YouPerv
             youperv: {
