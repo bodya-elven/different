@@ -495,28 +495,31 @@
                     return target;
                 },
                 getFilters: function(doc, currentUrl) {
-                    var items = [], activeTitle = 'Сортування';
+                    var items = [], activeTitle = '';
                     
-                    // Шукаємо посилання в усіх можливих контейнерах фільтрів PH
-                    var filterLinks = doc.querySelectorAll('.subFilterList li a, #subFilterListVideos li a, .filterList li a, .video_filter_tabs li a');
+                    // Шукаємо всі елементи списку у фільтрах
+                    var filterItems = doc.querySelectorAll('.subFilterList li, #subFilterListVideos li, .filterList li, .video_filter_tabs li');
                     
-                    filterLinks.forEach(function(a) {
-                        var href = a.getAttribute('href');
-                        var title = (a.textContent || '').trim();
-                        var li = a.parentElement;
+                    filterItems.forEach(function(li) {
+                        var a = li.querySelector('a');
+                        // Витягуємо чистий текст (назву сортування)
+                        var title = (li.textContent || '').trim();
                         
-                        if (href && href.indexOf('javascript') === -1 && title) {
-                            // Зшиваємо посилання
-                            if (href.indexOf('http') !== 0) href = 'https://www.pornhub.com/' + href.replace(/^\//, '');
-                            
-                            // Якщо елемент активний — це наш заголовок
-                            if (li.classList.contains('active') || li.classList.contains('selected') || a.classList.contains('active')) {
-                                activeTitle = title;
-                            } else {
+                        // Перевіряємо, чи є цей пункт активним
+                        if (li.classList.contains('active') || li.classList.contains('selected')) {
+                            if (title) activeTitle = title;
+                        } else if (a) {
+                            // Якщо це не активний пункт, а посилання — додаємо в список вибору
+                            var href = a.getAttribute('href');
+                            if (href && href.indexOf('javascript') === -1 && title) {
+                                if (href.indexOf('http') !== 0) href = 'https://www.pornhub.com/' + href.replace(/^\//, '');
                                 items.push({ title: title, url: href });
                             }
                         }
                     });
+
+                    // Якщо активний пункт не знайдено в DOM, пишемо загальне "Сортування"
+                    if (!activeTitle) activeTitle = 'Сортування';
                     
                     return { subtitle: activeTitle, items: items };
                 },
