@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.1.0',
+        version: '2.1.1',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -578,18 +578,36 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 if (nameC) results.push({ name: nameC, url: urlC, picture: imgSrc, img: imgSrc, is_grid: true });
                             }
                         }
-                    } else if ((targetPath === '/pornstars' || targetPath === '/channels') && object.is_models !== false) {
-                        var isStudios = targetPath === '/channels', sel = isStudios ? '.channelsList li, .channelsUL li' : '#pornstarListSection li, .pornstarIndexContainer li, .modelIndexContainer li';
+                    } else if (targetPath.indexOf('/pornstars') !== -1 || targetPath.indexOf('/model') !== -1 || targetPath.indexOf('/channels') !== -1 || object.is_models || object.is_studios) {
+                        var isStudios = targetPath.indexOf('/channels') !== -1 || object.is_studios;
+                        var sel = isStudios ? '.channelsList li, .channelsUL li' : '#pornstarListSection li, ul.pornstarList li, .pornstarIndexContainer li, .modelIndexContainer li';
                         var mEls = doc.querySelectorAll(sel);
+                        
                         for (var m = 0; m < mEls.length; m++) {
-                            var elM = mEls[m], linkM = elM.querySelector(isStudios ? 'a' : 'a.pornstarLink, a'), imgM = elM.querySelector(isStudios ? 'img' : 'img.pornstarThumb, img'), titleM = elM.querySelector(isStudios ? '.title a, .title' : '.performerCardName, .pornstarName, .title');
+                            var elM = mEls[m];
+                            var linkM = elM.querySelector('a.pornstarLink, a.js-popUnder, a');
+                            var imgM = elM.querySelector('img.pornstarThumb, img');
+                            
                             if (linkM && imgM) {
-                                var nameM = titleM ? (titleM.textContent || '').trim() : (imgM.getAttribute('alt') || (isStudios ? 'Studio' : 'Model')), urlM = linkM.getAttribute('href');
+                                var urlM = linkM.getAttribute('href');
                                 if (urlM && urlM.indexOf('http') !== 0) urlM = this.domain + '/' + urlM.replace(/^\//, '');
-                                var imgSrcM = imgM.getAttribute('data-thumb_url') || imgM.getAttribute('src') || ''; if (imgSrcM && imgSrcM.indexOf('//') === 0) imgSrcM = 'https:' + imgSrcM;
-                                if (nameM) results.push({ name: window.pluginx_formatTitle(nameM, '', '☰'), url: urlM, picture: imgSrcM, img: imgSrcM, is_grid: true, is_models: !isStudios, is_noimg: isStudios });
+                                
+                                var imgSrcM = imgM.getAttribute('data-thumb_url') || imgM.getAttribute('src') || ''; 
+                                if (imgSrcM && imgSrcM.indexOf('//') === 0) imgSrcM = 'https:' + imgSrcM;
+                                
+                                var rawName = imgM.getAttribute('alt') || '';
+                                if (!rawName) {
+                                    var titleM = elM.querySelector('.performerCardName, .pornstarName, .title');
+                                    rawName = titleM ? (titleM.textContent || '').trim() : (isStudios ? 'Studio' : 'Model');
+                                }
+                                
+                                var countDiv = elM.querySelector('.videos.performerCount');
+                                var countText = countDiv ? (countDiv.textContent || '').trim() : '';
+
+                                if (rawName) results.push({ name: window.pluginx_formatTitle(rawName, countText, '☰'), url: urlM, picture: imgSrcM, img: imgSrcM, is_grid: true, is_models: !isStudios, is_noimg: isStudios });
                             }
                         }
+
                     } else {
                         var vEls = doc.querySelectorAll('li.videoblock, li.pcVideoListItem');
                         for (var v = 0; v < vEls.length; v++) {
