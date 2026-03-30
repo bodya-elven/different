@@ -7,10 +7,36 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.0.3',
+        version: '2.1.0',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
+
+    // Глобальна функція для авто-повтору завантаження картинок
+    window.pluginx_handleImageRetry = function(img) {
+        var maxRetries = 3; // Максимальна кількість спроб
+        var retryCount = parseInt(img.getAttribute('data-retry-count')) || 0;
+        var originalSrc = img.getAttribute('data-src-original');
+        
+        if (!originalSrc || retryCount >= maxRetries) {
+            img.onerror = null; // Зупиняємо спроби
+            return;
+        }
+        
+        retryCount++;
+        img.setAttribute('data-retry-count', retryCount);
+        
+        // Додаємо анти-кеш хвіст
+        var separator = originalSrc.indexOf('?') === -1 ? '?' : '&';
+        var newSrc = originalSrc + separator + 'retry_ph=' + retryCount;
+        var delay = 1000 * Math.pow(2, retryCount - 1); // Експоненціальна затримка: 1с, 2с, 4с
+        
+        setTimeout(function() {
+            img.src = newSrc; // Завантажуємо знову
+        }, delay);
+    };
+    
+    
 
     function startPlugin() {
         if (window.pluginx_ready) return;
@@ -157,7 +183,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             if (linkM && nameM) {
                                 var vUrlM = linkM.getAttribute('href');
                                 if (vUrlM && vUrlM.indexOf('http') !== 0) vUrlM = this.domain + vUrlM;
-                                results.push({ name: window.pluginx_formatTitle((nameM.textContent || '').trim(), countM ? (countM.textContent || '').trim() : '', '☰'), url: vUrlM, picture: imgM ? imgM.getAttribute('src') : '', img: imgM ? imgM.getAttribute('src') : '', is_grid: true, is_models_grid: true });
+                                results.push({ name: window.pluginx_formatTitle((nameM.textContent || '').trim(), countM ? (countM.textContent || '').trim() : '', '☰'), url: vUrlM, picture: imgM ? imgM.getAttribute('src') : '', img: imgM ? imgM.getAttribute('src') : '', is_grid: true, is_models: true });
                             }
                         }
                     } else {
@@ -289,7 +315,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 var count = countM ? (countM.textContent || '').trim() : '', imgSrc = imgM.getAttribute('data-src') || imgM.getAttribute('src') || '';
                                 if (imgSrc && imgSrc.indexOf('/') === 0) imgSrc = this.domain + imgSrc;
                                 var urlM = linkM.getAttribute('href'); if (urlM && urlM.indexOf('http') !== 0) urlM = this.domain + (urlM.startsWith('/') ? '' : '/') + urlM.replace(/^\//, '');
-                                results.push({ name: window.pluginx_formatTitle(nameM, count, '☰'), url: urlM, picture: imgSrc, img: imgSrc, is_grid: true, is_models_grid: true });
+                                results.push({ name: window.pluginx_formatTitle(nameM, count, '☰'), url: urlM, picture: imgSrc, img: imgSrc, is_grid: true, is_models: true });
                             }
                         }
                     } else {
@@ -422,7 +448,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             if (!rawName) { var titleM = elM.querySelector('.title, .name, h5'); if (titleM) rawName = (titleM.textContent || '').trim(); else rawName = 'Model'; }
                             var countM = elM.querySelector('.videos'), count = countM ? (countM.textContent || '').trim() : '', urlM = linkM.getAttribute('href');
                             if (urlM && urlM.indexOf('http') !== 0) urlM = this.domain + urlM;
-                            if (rawName) results.push({ name: window.pluginx_formatTitle(rawName, count, '☰'), url: urlM, picture: imgSrc, img: imgSrc, is_grid: true, is_models_grid: true });
+                            if (rawName) results.push({ name: window.pluginx_formatTitle(rawName, count, '☰'), url: urlM, picture: imgSrc, img: imgSrc, is_grid: true, is_models: true });
                         }
                     } else if (isSitesList) {
                         var container = doc.querySelector('#list_content_sources_sponsors_list_items');
@@ -436,7 +462,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                     if (spanH && rawNameH !== (spanH.textContent || '').trim()) rawNameH = rawNameH.replace((spanH.textContent || '').trim(), '').trim();
                                     if (!rawNameH) rawNameH = (linkH.textContent || '').trim();
                                     if (urlH.indexOf('http') !== 0) urlH = this.domain + urlH;
-                                    if (rawNameH && !results.some(function(r) { return r.url === urlH; })) results.push({ name: rawNameH, url: urlH, picture: '', img: '', is_studios_noimg: true, is_grid: true });
+                                    if (rawNameH && !results.some(function(r) { return r.url === urlH; })) results.push({ name: rawNameH, url: urlH, picture: '', img: '', is_noimg: true, is_grid: true });
                                 }
                             }
                         }
@@ -561,7 +587,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 var nameM = titleM ? (titleM.textContent || '').trim() : (imgM.getAttribute('alt') || (isStudios ? 'Studio' : 'Model')), urlM = linkM.getAttribute('href');
                                 if (urlM && urlM.indexOf('http') !== 0) urlM = this.domain + '/' + urlM.replace(/^\//, '');
                                 var imgSrcM = imgM.getAttribute('data-thumb_url') || imgM.getAttribute('src') || ''; if (imgSrcM && imgSrcM.indexOf('//') === 0) imgSrcM = 'https:' + imgSrcM;
-                                if (nameM) results.push({ name: window.pluginx_formatTitle(nameM, '', '☰'), url: urlM, picture: imgSrcM, img: imgSrcM, is_grid: true, is_models_grid: !isStudios, is_studios_noimg: isStudios });
+                                if (nameM) results.push({ name: window.pluginx_formatTitle(nameM, '', '☰'), url: urlM, picture: imgSrcM, img: imgSrcM, is_grid: true, is_models: !isStudios, is_noimg: isStudios });
                             }
                         }
                     } else {
@@ -675,7 +701,7 @@ if (imgSrcV && imgSrcV.indexOf('//') === 0) imgSrcV = 'https:' + imgSrcV;
                                 var urlV = linkV.getAttribute('href');
                                 if (urlV && urlV.indexOf('http') !== 0) urlV = this.domain + '/' + urlV.replace(/^\//, '');
                                 var nameV = titleV ? (titleV.textContent || '').trim() : (imgV ? imgV.getAttribute('alt') : (linkV.textContent || '').trim()), timeText = timeV ? (timeV.textContent || '').trim() : '';
-                                if (nameV && urlV) results.push({ name: window.pluginx_formatTitle(nameV, timeText, '▶'), url: urlV, picture: '', img: '', is_porndish_list: true });
+                                if (nameV && urlV) results.push({ name: window.pluginx_formatTitle(nameV, timeText, '▶'), url: urlV, picture: '', img: '', is_noimg_main: true });
                             }
                         }
                     }
@@ -859,7 +885,7 @@ if (imgSrcV && imgSrcV.indexOf('//') === 0) imgSrcV = 'https:' + imgSrcV;
                             if (img && img.indexOf('//') === 0) img = 'https:' + img; else if (img && img.indexOf('/') === 0) img = this.domain + img;
                             if (href && title && added.indexOf(href) === -1 && href.indexOf('javascript') === -1) {
                                 var vUrl = href.startsWith('http') ? href : this.domain + (href.startsWith('/') ? '' : '/') + href;
-                                results.push({ name: title, url: vUrl, picture: img, img: img, is_grid: true, is_pornmz_grid: true });
+                                results.push({ name: title, url: vUrl, picture: img, img: img, is_grid: true });
                                 added.push(href);
                             }
                         }
@@ -875,7 +901,7 @@ if (imgSrcV && imgSrcV.indexOf('//') === 0) imgSrcV = 'https:' + imgSrcV;
                                 var nameV = titleSpan ? (titleSpan.textContent || '').replace(/\d+[KM]*$/, '').trim() : linkV.getAttribute('title') || '';
                                 if (!nameV && elV.querySelector('img')) nameV = elV.querySelector('img').getAttribute('alt') || '';
                                 var timeEl = elV.querySelector('.duration, .time'), time = timeEl ? (timeEl.textContent || '').trim() : '';
-                                if (nameV && urlV) results.push({ name: window.pluginx_formatTitle(nameV, time, '▶'), url: urlV, picture: imgV, img: imgV, is_pornmz_grid: false });
+                                if (nameV && urlV) results.push({ name: window.pluginx_formatTitle(nameV, time, '▶'), url: urlV, picture: imgV, img: imgV });
                             }
                         }
                     }
@@ -948,7 +974,7 @@ if (imgSrcV && imgSrcV.indexOf('//') === 0) imgSrcV = 'https:' + imgSrcV;
                     if (bmarks.length > 0) {
                         _this.build({ results: bmarks, collection: true, total_pages: 1, page: 1 });
                         var rendered = _this.render(); rendered.addClass('main-grid');
-                        if (bmarks[0].is_porndish_list) rendered.addClass('noimg-main-grid'); else if (bmarks[0].is_studios_noimg) rendered.addClass('noimg-grid'); else if (bmarks[0].is_models_grid) rendered.addClass('models-grid'); else if (bmarks[0].is_grid) rendered.addClass('categories-grid');
+                        if (bmarks[0].is_noimg_main) rendered.addClass('noimg-main-grid'); else if (bmarks[0].is_noimg) rendered.addClass('noimg-grid'); else if (bmarks[0].is_models) rendered.addClass('models-grid'); else if (bmarks[0].is_grid) rendered.addClass('categories-grid');
 
                     } else _this.empty(); return;
                 }
@@ -965,7 +991,7 @@ if (imgSrcV && imgSrcV.indexOf('//') === 0) imgSrcV = 'https:' + imgSrcV;
                     if (res.length > 0) {
                         _this.build({ results: res, collection: true, total_pages: 1000, page: object.page || 1 });
                         var rendered = _this.render(); rendered.addClass('main-grid');
-                        if (res[0].is_porndish_list) rendered.addClass('noimg-main-grid'); else if (res[0].is_studios_noimg) rendered.addClass('noimg-grid'); else if (res[0].is_models_grid) rendered.addClass('models-grid'); else if (res[0].is_grid) rendered.addClass('categories-grid');
+                        if (res[0].is_noimg_main) rendered.addClass('noimg-main-grid'); else if (res[0].is_noimg) rendered.addClass('noimg-grid'); else if (res[0].is_models) rendered.addClass('models-grid'); else if (res[0].is_grid) rendered.addClass('categories-grid');
 
                     } else _this.empty(); 
                 }, this.empty.bind(this));
@@ -1037,6 +1063,15 @@ if (imgSrcV && imgSrcV.indexOf('//') === 0) imgSrcV = 'https:' + imgSrcV;
             };
 
             comp.cardRender = function (card, element, events) {
+                            // Зберігаємо початкове посилання і вішаємо радар помилок
+                var imgEl = card.find('.card__img')[0];
+                if (imgEl && element.picture) {
+                    imgEl.setAttribute('data-src-original', element.picture);
+                    imgEl.onerror = function() {
+                        if (typeof window.pluginx_handleImageRetry === 'function') window.pluginx_handleImageRetry(this);
+                    };
+                }
+                
                 events.onEnter = function () {
                     window.pluginx_hidePreview();
                     var targetSite = currentSite;
