@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.1.9',
+        version: '2.2.0',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
