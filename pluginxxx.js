@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.1.5',
+        version: '2.1.6',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -595,6 +595,10 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                                 if (rawName && urlM) {
                                     if (urlM.indexOf('http') !== 0) urlM = this.domain + (urlM.charAt(0) === '/' ? '' : '/') + urlM;
+                                    
+                                    // МАГІЯ: Примусово додаємо /videos до посилання на модель
+                                    if (urlM.indexOf('/videos') === -1) urlM = urlM.replace(/\/$/, '') + '/videos';
+
                                     var imgSrcM = imgM.getAttribute('data-thumb_url') || imgM.getAttribute('src') || ''; 
                                     if (imgSrcM && imgSrcM.indexOf('//') === 0) imgSrcM = 'https:' + imgSrcM;
                                     
@@ -648,22 +652,29 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     }
                   
 
-                    // 4. Відео (Логіка CloudStream + Тривалість)
+                    // 4. Відео (всі інші сторінки, включно з профілями моделей /videos)
                     else {
-                        var vEls = doc.querySelectorAll('div.gridWrapper li.pcVideoListItem');
+                        // Розширений селектор: беремо відео з головної (pcVideoListItem) та з профілів моделей (ul.videoList li)
+                        var vEls = doc.querySelectorAll('div.gridWrapper li.pcVideoListItem, #mostRecentVideosSection li, .videoBox, ul.videoList li');
                         for (var v = 0; v < vEls.length; v++) {
                             var el = vEls[v];
+                            
+                            // Захист від пустих карток або рекламних блоків
+                            if (el.className.indexOf('marker-next-videos') !== -1) continue;
+                            
                             var img = el.querySelector('img');
-                            var a = el.querySelector('a');
-                            var timeEl = el.querySelector('var.duration, .duration');
+                            // На сторінці моделі краще брати посилання з thumbnailTitle або js-videoPreview
+                            var a = el.querySelector('a.thumbnailTitle, a.js-videoPreview, a');
+                            // Тривалість може лежати в span.time
+                            var timeEl = el.querySelector('var.duration, .duration .time, .duration');
                             
                             if (img && a) {
-                                var title = img.getAttribute('alt') || img.getAttribute('title');
+                                var title = img.getAttribute('alt') || img.getAttribute('title') || (a.textContent || '').trim();
                                 var href = a.getAttribute('href');
-                                var posterUrl = img.getAttribute('src');
+                                var posterUrl = img.getAttribute('src') || img.getAttribute('data-mediumthumb');
                                 var timeText = timeEl ? (timeEl.textContent || '').trim() : '';
                                 
-                                if (title && href) {
+                                if (title && href && href.indexOf('javascript') === -1 && href.indexOf('viewkey=') !== -1) {
                                     if (href.indexOf('http') !== 0) href = this.domain + (href.charAt(0) === '/' ? '' : '/') + href;
                                     if (posterUrl && posterUrl.indexOf('//') === 0) posterUrl = 'https:' + posterUrl;
                                     
@@ -677,6 +688,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             }
                         }
                     }
+
                     return results;
                 },
                 
