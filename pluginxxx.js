@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.2.5',
+        version: '2.2.6',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -733,6 +733,106 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     return menu;
                 }
             },
+
+
+            // =========================================================================
+            // АДАПТЕР: AllPornStream (через внутрішнє JSON API)
+            // =========================================================================
+            allpornstream: {
+                title: 'AllPornStream',
+                domain: 'https://allpornstream.com',
+                
+                // Звертаємося напряму до бази даних, а не до HTML-сторінок
+                getHomeUrl: function() { return this.domain + '/api/posts'; },
+                getSearchUrl: function(query) { return this.domain + '/api/posts?search=' + encodeURIComponent(query); },
+                
+                getUrl: function(object, page) {
+                    var target = object.url || (this.domain + '/api/posts');
+                    // Додаємо пагінацію для API
+                    var sep = target.indexOf('?') === -1 ? '?' : '&';
+                    return target + sep + 'page=' + page;
+                },
+                
+                getFilters: function(doc, currentUrl) {
+                    // API зазвичай не віддає фільтрів у зручному вигляді, 
+                    // тому поки залишаємо без сортування
+                    return null;
+                },
+                
+                getNavItems: function() {
+                    // Беремо список студій прямо з коду Cloudstream
+                    return [
+                        { title: '🎥 Всі відео', action: 'nav', url: this.domain + '/api/posts' },
+                        { title: '🎬 Blacked', action: 'nav', url: this.domain + '/api/posts?studio=Blacked' },
+                        { title: '🎬 Tushy', action: 'nav', url: this.domain + '/api/posts?studio=Tushy' },
+                        { title: '🎬 Brazzers Exxtra', action: 'nav', url: this.domain + '/api/posts?studio=BrazzersExxtra' },
+                        { title: '🎬 SisLovesMe', action: 'nav', url: this.domain + '/api/posts?studio=SisLovesMe' },
+                        { title: '🎬 PropertySex', action: 'nav', url: this.domain + '/api/posts?studio=PropertySex' },
+                        { title: '🎬 Vixen / Slayed', action: 'nav', url: this.domain + '/api/posts?studio=Slayed' }
+                    ];
+                },
+                
+                // Зверни увагу: Лампа зазвичай передає HTML у 'doc'. Але якщо ми отримали JSON, 
+                // нам треба дістати чистий текст (через 4-й параметр html_text або textContent)
+                parse: function(doc, currentUrl, object, html_text) {
+                    var results = [];
+                    var rawData = html_text || (doc.body ? doc.body.textContent : '') || doc.text();
+                    
+                    try {
+                        // Магія: замість парсингу HTML ми просто читаємо JSON
+                        var json = JSON.parse(rawData);
+                        
+                        // Парсинг каталогу / пошуку (масив posts)
+                        if (json && json.posts && Array.isArray(json.posts)) {
+                            for (var i = 0; i < json.posts.length; i++) {
+                                var item = json.posts[i];
+                                
+                                // Шукаємо першу картинку, що починається на http (як у Cloudstream)
+                                var poster = '';
+                                if (item.image_details && item.image_details.length > 0) {
+                                    for (var p = 0; p < item.image_details.length; p++) {
+                                        if (item.image_details[p].indexOf('http') === 0) {
+                                            poster = item.image_details[p];
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                // Формуємо посилання на сторінку конкретного відео (API)
+                                // Cloudstream використовує id або slug.
+                                var videoId = item.id || item.slug;
+                                var videoUrl = this.domain + '/api/post?id=' + videoId;
+
+                                if (item.video_title && videoId) {
+                                    results.push({
+                                        name: item.video_title,
+                                        url: videoUrl,
+                                        picture: poster,
+                                        img: poster
+                                    });
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.log('AllPornStream Parse Error: Це не JSON або сторінка заблокована', e);
+                    }
+                    
+                    return results;
+                },
+                
+                getStreams: function(htmlText, doc, element, startPlayback, onError) {
+                    // Поки ставимо заглушку. Наступним кроком ми розберемо JSON відео, 
+                    // дістанемо звідти посилання на streamtape/bigwarp і напишемо плеєр.
+                    onError();
+                },
+                
+                getMenu: function(doc, htmlText, element) {
+                    return [
+                        { title: '🔥 Схожі відео', action: 'sim', url: element.url }
+                    ];
+                }
+            },
+
 
 
             // =========================================================================
