@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.2.0',
+        version: '2.2.1',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -528,9 +528,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 
                 getFilters: function(doc, currentUrl) {
                     var items = [], activeTitle = '';
-                    
-                    // ДОДАНО: .filterListItem li (це клас сортування на десктопній сторінці моделі)
-                    var filterItems = doc.querySelectorAll('.subFilterList li, #subFilterListVideos li, .filterList li, .video_filter_tabs li, .filterListItem li');
+                    // .filterListItem li — це саме той клас із твого десктопного коду
+                    var filterItems = doc.querySelectorAll('.subFilterList li, #subFilterListVideos li, .filterListItem li');
                     
                     filterItems.forEach(function(li) {
                         var a = li.querySelector('a');
@@ -579,9 +578,10 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             }
                         }
                     } 
-                    // 2. Моделі (тільки списки, жорстко відкидаємо профілі)
+                    // 2. Моделі (тільки списки акторок)
                     else if ((targetPath.indexOf('/pornstars') !== -1 || object.is_models) && targetPath.indexOf('/model/') === -1 && targetPath.indexOf('/pornstar/') === -1) {
-                        var mEls = doc.querySelectorAll('.performerCard, ul.pornstarList li');
+                        // Селектор за твоїм кодом: li.performerCard
+                        var mEls = doc.querySelectorAll('li.performerCard, .performerCard');
                         for (var m = 0; m < mEls.length; m++) {
                             var elM = mEls[m];
                             var linkM = elM.querySelector('a');
@@ -589,22 +589,24 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             
                             if (linkM && imgM) {
                                 var urlM = linkM.getAttribute('href');
-                                var rawName = imgM.getAttribute('alt');
                                 
-                                if (!rawName) {
-                                    var titleM = elM.querySelector('.title, .performerCardName');
-                                    rawName = titleM ? (titleM.textContent || '').trim() : 'Model';
-                                }
+                                // ШУКАЄМО ІМ'Я: спочатку в спеціальному спані performerCardName, якщо ні - в alt картинки
+                                var nameEl = elM.querySelector('.performerCardName');
+                                var rawName = nameEl ? (nameEl.textContent || '').trim() : imgM.getAttribute('alt');
                                 
-                                var countDiv = elM.querySelector('.videos.performerCount');
+                                if (!rawName) rawName = 'Model';
+                                
+                                // ШУКАЄМО КІЛЬКІСТЬ ВІДЕО: тег span.performerCount
+                                var countDiv = elM.querySelector('.performerCount');
                                 var countText = countDiv ? (countDiv.textContent || '').trim() : '';
 
                                 if (rawName && urlM) {
                                     if (urlM.indexOf('http') !== 0) urlM = this.domain + (urlM.charAt(0) === '/' ? '' : '/') + urlM;
                                     
-                                    // МАГІЯ: Примусово додаємо /videos до посилання на модель
+                                    // Додаємо /videos для переходу на чисту десктопну сторінку
                                     if (urlM.indexOf('/videos') === -1) urlM = urlM.replace(/\/$/, '') + '/videos';
 
+                                    // Беремо картинку з data-thumb_url (як у твоєму коді) або src
                                     var imgSrcM = imgM.getAttribute('data-thumb_url') || imgM.getAttribute('src') || ''; 
                                     if (imgSrcM && imgSrcM.indexOf('//') === 0) imgSrcM = 'https:' + imgSrcM;
                                     
@@ -619,7 +621,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 }
                             }
                         }
-                    } 
+                    }
+
 
                     // 3. Студії (окремий парсер)
                     else if (targetPath === '/channels' || object.is_studios) {
@@ -658,31 +661,20 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     }
                   
 
-                    // 4. Відео 
-
+                    // 4. Відео (всі інші сторінки: головна, пошук, моделі)
                     else {
                         var vEls;
-                        
-                        // РОЗВИЛКА: Відсікаємо 5 рандомних відео зверху
-                        if (targetPath.indexOf('/model/') !== -1 || targetPath.indexOf('/pornstar/') !== -1) {
-                            // На сторінці моделі шукаємо СУВОРО в правильному контейнері
-                            vEls = doc.querySelectorAll('#mostRecentVideosSection li.pcVideoListItem, ul.videoList li');
+                        // Якщо ми в профілі моделі/студії — б'ємо СУВОРО в ID основного списку
+                        // Це відріже блоки "Featured" та "Recommended", які стоять вище в коді
+                        if (currentUrl.indexOf('/model/') !== -1 || currentUrl.indexOf('/pornstar/') !== -1 || currentUrl.indexOf('/channels/') !== -1) {
+                            vEls = doc.querySelectorAll('#mostRecentVideosSection li.pcVideoListItem');
                         } else {
-                            // На головній сторінці шукаємо широко (залишаємо старий стабільний пошук)
+                            // На головній та в пошуку — стандартний пошук
                             vEls = doc.querySelectorAll('div.gridWrapper li.pcVideoListItem, .videoBox');
                         }
                         
                         for (var v = 0; v < vEls.length; v++) {
                             var el = vEls[v];
-                            
-                            // ПРОГРАМНИЙ ФІЛЬТР СМІТТЯ:
-                            var isGridVideo = el.className.indexOf('pcVideoListItem') !== -1 || el.className.indexOf('videoBox') !== -1;
-                            var isModelVideo = el.getAttribute('data-video-id');
-                            
-                            if (!isGridVideo && !isModelVideo) {
-                                continue; // Пропускаємо ліві блоки
-                            }
-                            
                             var img = el.querySelector('img');
                             var a = el.querySelector('a.thumbnailTitle, a.js-videoPreview, a');
                             var timeEl = el.querySelector('var.duration, .duration .time, .duration');
@@ -693,7 +685,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 var posterUrl = img.getAttribute('src') || img.getAttribute('data-mediumthumb') || img.getAttribute('data-thumb_url');
                                 var timeText = timeEl ? (timeEl.textContent || '').trim() : '';
                                 
-                                // Фінальна перевірка, що це клікабельне відео
                                 if (title && href && href.indexOf('javascript') === -1 && href.indexOf('viewkey=') !== -1) {
                                     if (href.indexOf('http') !== 0) href = this.domain + (href.charAt(0) === '/' ? '' : '/') + href;
                                     if (posterUrl && posterUrl.indexOf('//') === 0) posterUrl = 'https:' + posterUrl;
