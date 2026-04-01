@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.2.7',
+        version: '2.2.8',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -631,7 +631,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     } 
                     // --- СТУДІЇ (CHANNELS) ---
                     else if ((targetPath === '/channels' || object.is_studios) && targetPath.indexOf('/channels/') === -1) {
-                        var sEls = doc.querySelectorAll('li.wrap.mainChannels, #allChannelsSection li, .channelsWrapper');
+                        var sEls = doc.querySelectorAll('ul#allChannelsSection > li, ul.channelGridWrapper > li');
                         for (var s = 0; s < sEls.length; s++) {
                             var elS = sEls[s];
                             if (elS.closest && elS.closest('.innerHeaderSubMenu')) continue;
