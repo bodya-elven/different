@@ -736,7 +736,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
 
             // ==========================================
-            // АДАПТЕР: AllPornStream (APS) - FIXED VERSION
+            // АДАПТЕР: AllPornStream (APS) - WATERFALL AUTO-PLAY
             // ==========================================
 
             allpornstream: {
@@ -749,8 +749,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 getUrl: function(object, page) {
                     var url = object.url || this.domain;
                     if (page > 1) {
-                        var uParts = url.split('?');
-                        var base = uParts[0];
+                        var uParts = url.split('?'), base = uParts[0];
                         var query = uParts.length > 1 ? '&' + uParts[1].replace(/page=\d+&?/g, '') : '';
                         return base + (base.endsWith('/') ? '' : '/') + '?page=' + page + query;
                     }
@@ -764,13 +763,13 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         { title: '🎥 Всі відео', action: 'nav', url: this.domain + '/' },
                         { title: '🎬 Blacked', action: 'nav', url: this.domain + '/search?q=Blacked' },
                         { title: '🎬 Tushy', action: 'nav', url: this.domain + '/search?q=Tushy' },
-                        { title: '🎬 Brazzers', action: 'nav', url: this.domain + '/search?q=Brazzers' },
-                        { title: '🎬 Vixen', action: 'nav', url: this.domain + '/search?q=Vixen' }
+                        { title: '🎬 Brazzers', action: 'nav', url: this.domain + '/search?q=Brazzers' }
                     ];
                 },
                 
                 parse: function(doc, currentUrl, object) {
                     var results = [];
+                    // Шукаємо картки за атрибутами Next.js
                     var elements = doc.querySelectorAll('div[data-href*="/post/"], div[data-slug*="/post/"]');
                     for (var i = 0; i < elements.length; i++) {
                         var el = elements[i];
@@ -811,78 +810,86 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 },
                 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
-                    // 1. Шукаємо масив посилань. В Next.js вони екрановані: \"link\":[[...]]
-                    var videoUrlsMatch = htmlText.match(/video_urls\\?":\{"link\\?":\s*(\\?\[\\?\[.*?\\?\]\\?\])/);
+                    var _this = this;
+                    var providers = [];
                     
-                    if (videoUrlsMatch) {
-                        try {
-                            // Очищаємо JSON від подвійного екранування лапок
-                            var rawJson = videoUrlsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                            var links = JSON.parse(rawJson); 
-
-                            if (!Array.isArray(links) || links.length === 0) {
-                                Lampa.Noty.show('Джерела не знайдені');
-                                return onError();
-                            }
-
-                            var selectItems = [];
-                            for (var i = 0; i < links.length; i++) {
-                                selectItems.push({ title: links[i][0], url: links[i][1] });
-                            }
-
-                            Lampa.Select.show({
-                                title: 'Виберіть джерело',
-                                items: selectItems,
-                                onSelect: function(item) {
-                                    Lampa.Noty.show('Запит до ' + item.title);
-                                    
-                                    window.pluginx_smartRequest(item.url, function(embedHtml) {
-                                        var videoUrl = '';
-                                        
-                                        if (item.title === 'VIDOZA') {
-                                            // Шукаємо src всередині sourcesCode: [{ src: "..." }]
-                                            var vMatch = embedHtml.match(/src:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i);
-                                            if (vMatch) videoUrl = vMatch[1];
-                                        } 
-                                        else if (item.title === 'STREAMTAPE') {
-                                            // Шукаємо текст всередині <div id="robotlink">...</div>
-                                            var robot = embedHtml.match(/id="robotlink"[^>]*>([^<]+)/);
-                                            if (robot) {
-                                                videoUrl = (robot[1].indexOf('http') === 0 ? '' : 'https:') + robot[1] + '&stream=1';
-                                            }
-                                        }
-                                        else if (item.title === 'VOE') {
-                                            var voeMatch = embedHtml.match(/["']hls["']\s*:\s*["']([^"']+)["']/i);
-                                            if (voeMatch) videoUrl = voeMatch[1];
-                                        }
-                                        else if (item.title === 'DOODSTREAM') {
-                                            // Для Doodstream зазвичай потрібен резолвер, але спробуємо знайти хоч щось
-                                            var doodMatch = embedHtml.match(/pass_md5\/([^'"]+)/);
-                                            if (doodMatch) videoUrl = item.url; 
-                                        }
-
-                                        if (videoUrl) {
-                                            startPlayback([{ 
-                                                title: item.title, 
-                                                url: videoUrl, 
-                                                headers: { 'Referer': item.url, 'User-Agent': 'Mozilla/5.0' } 
-                                            }]);
-                                        } else {
-                                            Lampa.Noty.show('Не вдалося витягти пряме посилання');
-                                            onError();
-                                        }
-                                    }, onError);
-                                },
-                                onBack: function() { Lampa.Controller.toggle('content'); }
-                            });
-                        } catch (e) { 
-                            console.log('CatalogX APS Error:', e);
-                            onError(); 
-                        }
-                    } else {
-                        Lampa.Noty.show('Блок посилань не знайдено');
-                        onError();
+                    // 1. Пошук джерел через "грубий" Regex (ігноруємо екранування Next.js)
+                    // Шукаємо пари виду ["NAME", "URL"]
+                    var reg = /\[\\?"([A-Z0-9]+)\\?",\\?"(https?:\\?\/\\?\/[^\\?"]+)\\?"\]/g;
+                    var match;
+                    while ((match = reg.exec(htmlText)) !== null) {
+                        providers.push({
+                            name: match[1],
+                            url: match[2].replace(/\\/g, '') // Очищаємо URL від слешів
+                        });
                     }
+
+                    if (providers.length === 0) {
+                        Lampa.Noty.show('Джерела не знайдені в коді');
+                        return onError();
+                    }
+
+                    // 2. Пріоритетність (Waterfall)
+                    var waterfall = ['VIDOZA', 'STREAMTAPE', 'VOE', 'DOODSTREAM'];
+                    var currentIndex = 0;
+
+                    function tryNextProvider() {
+                        if (currentIndex >= waterfall.length) {
+                            Lampa.Noty.show('Жодне джерело не спрацювало');
+                            return onError();
+                        }
+
+                        var targetName = waterfall[currentIndex];
+                        var found = providers.find(function(p) { return p.name === targetName; });
+
+                        if (!found) {
+                            currentIndex++;
+                            return tryNextProvider();
+                        }
+
+                        Lampa.Noty.show('Спроба: ' + targetName);
+                        
+                        window.pluginx_smartRequest(found.url, function(embedHtml) {
+                            var videoUrl = '';
+                            
+                            if (targetName === 'VIDOZA') {
+                                // Парсинг прямого mp4 з pData
+                                var vMatch = embedHtml.match(/src:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i);
+                                if (vMatch) videoUrl = vMatch[1];
+                            } 
+                            else if (targetName === 'STREAMTAPE') {
+                                // Парсинг з robotlink + імітація substring як у коді сайту
+                                var robot = embedHtml.match(/id="robotlink"[^>]*>([^<]+)/);
+                                if (robot) {
+                                    var linkText = robot[1].trim();
+                                    // Додаємо протокол, якщо його немає
+                                    videoUrl = (linkText.indexOf('//') === 0 ? 'https:' : '') + linkText + '&stream=1';
+                                }
+                            }
+                            else if (targetName === 'VOE') {
+                                var voeMatch = embedHtml.match(/["']hls["']\s*:\s*["']([^"']+)["']/i);
+                                if (voeMatch) videoUrl = voeMatch[1];
+                            }
+
+                            if (videoUrl) {
+                                startPlayback([{ 
+                                    title: targetName, 
+                                    url: videoUrl, 
+                                    headers: { 'Referer': found.url } 
+                                }]);
+                            } else {
+                                // Якщо цей провайдер не віддав посилання, пробуємо наступний
+                                currentIndex++;
+                                tryNextProvider();
+                            }
+                        }, function() {
+                            currentIndex++;
+                            tryNextProvider();
+                        });
+                    }
+
+                    // Запускаємо ланцюжок
+                    tryNextProvider();
                 },
                 
                 getMenu: function(doc, htmlText, element) {
