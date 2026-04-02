@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.2.7',
+        version: '2.2.8',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -233,9 +233,11 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     var _this = this;
 
                     // 1. ПАРСИНГ МОДЕЛЕЙ (Actors)
+                    // Шукаємо посилання, що містять /actors/, і всередині беремо текст саме з повним ім'ям
                     var actors = doc.querySelectorAll('a[href*="/actors/"]');
-                    actors.forEach(function(el) {
-                        var nameEl = el.querySelector('span.text-base.font-bold');
+                    for (var i = 0; i < actors.length; i++) {
+                        var el = actors[i];
+                        var nameEl = el.querySelector('span.text-foreground'); // Саме цей клас містить повне ім'я
                         var title = nameEl ? (nameEl.textContent || '').trim() : '';
                         var url = el.getAttribute('href');
                         if (title && url) {
@@ -245,24 +247,27 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 url: url.startsWith('http') ? url : _this.domain + url 
                             });
                         }
-                    });
+                    }
 
                     // 2. ПАРСИНГ СТУДІЙ (Producers)
+                    // Аналогічна логіка для студій
                     var studios = doc.querySelectorAll('a[href*="/producers/"]');
-                    studios.forEach(function(el) {
-                        var nameEl = el.querySelector('span.text-base.font-bold');
-                        var title = nameEl ? (nameEl.textContent || '').trim() : '';
-                        var url = el.getAttribute('href');
-                        if (title && url) {
+                    for (var j = 0; j < studios.length; j++) {
+                        var sel = studios[j];
+                        var studioNameEl = sel.querySelector('span.text-foreground');
+                        var sTitle = studioNameEl ? (studioNameEl.textContent || '').trim() : '';
+                        var sUrl = sel.getAttribute('href');
+                        if (sTitle && sUrl) {
                             menu.push({ 
-                                title: '🎬 ' + title, 
+                                title: '🎬 ' + sTitle, 
                                 action: 'direct', 
-                                url: url.startsWith('http') ? url : _this.domain + url 
+                                url: sUrl.startsWith('http') ? sUrl : _this.domain + sUrl 
                             });
                         }
-                    });
+                    }
 
-                    // 3. КАТЕГОРІЇ (Відкриваються окремим списком через action: cats_custom)
+                    // 3. КАТЕГОРІЇ (Теги)
+                    // Беремо текст безпосередньо з кнопок всередині посилань на категорії
                     var categoriesExist = doc.querySelector('a[href*="/categories/"]');
                     if (categoriesExist) {
                         menu.push({ 
@@ -275,6 +280,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
                     return menu;
                 }
+
             },
 
 
