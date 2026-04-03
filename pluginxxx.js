@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.4.1',
+        version: '2.4.2',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -101,7 +101,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
         var Adapters = {
 
             // =========================================================================
-            // АДАПТЕР: AllPornStream (APS) - CLOUDSTREAM LOGIC INTEGRATION
+            // АДАПТЕР: AllPornStream (APS) - MOBILE UA & FALLBACK LOGIC
             // =========================================================================
 
             allpornstream: {
@@ -246,37 +246,42 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var providers = [];
+                    // Використовуємо сторінку APS як натуральний Referer
+                    var pageUrl = element.url; 
 
-                    var pageUrl = element.url;
-                    var puMatch = htmlText.match(/\\?"page_url\\?"\s*:\s*\\?"([^"]+)\\?"/i);
-                    if (puMatch) {
-                        var extUrl = puMatch[1].replace(/\\/g, '');
-                        if (extUrl.indexOf('http') === 0) pageUrl = extUrl;
-                    }
-                    
-                    var regExternal = /\[\\?"([A-Z0-9]+)\\?",\\?"(https?:\\?\/\\?\/[^\\?"]+)\\?"\]/g;
+                    // 1. ТОТАЛЬНЕ ОЧИЩЕННЯ: перетворюємо \u0026 на &, видаляємо екранування лапок та слешів
+                    var cleanHtmlText = htmlText.replace(/\\u0026/g, '&').replace(/\\"/g, '"').replace(/\\\//g, '/');
+
+                    var regExternal = /\["([A-Z0-9]+)","(https?:\/\/[^"]+)"\]/g;
                     var matchExt;
-                    while ((matchExt = regExternal.exec(htmlText)) !== null) {
-                        providers.push({ name: matchExt[1], url: matchExt[2].replace(/\\/g, '') });
+                    while ((matchExt = regExternal.exec(cleanHtmlText)) !== null) {
+                        providers.push({ name: matchExt[1], url: matchExt[2] });
                     }
 
-                    var myDaddyMatch = htmlText.match(/https?:\/\/[^"'\\]*mydaddy\.cc[^"'\\]+/ig);
+                    // 2. ЗБІР УСІХ MYDADDY: Шукаємо чисті посилання mydaddy.cc
+                    var mdUrls = [];
+                    var myDaddyMatch = cleanHtmlText.match(/https?:\/\/mydaddy\.cc[^"'\s<>\\]+/ig);
                     if (myDaddyMatch) {
                         for (var m = 0; m < myDaddyMatch.length; m++) {
-                            var cleanUrl = myDaddyMatch[m].replace(/\\u0026/g, '&').replace(/\\/g, '');
-                            if (!providers.find(function(p) { return p.url === cleanUrl; })) {
-                                providers.push({ name: 'MYDADDY', url: cleanUrl });
+                            var cleanUrl = myDaddyMatch[m];
+                            if (mdUrls.indexOf(cleanUrl) === -1) {
+                                mdUrls.push(cleanUrl);
                             }
                         }
                     }
+                    
+                    if (mdUrls.length > 0) {
+                        // Зберігаємо масив посилань в один об'єкт провайдера
+                        providers.push({ name: 'MYDADDY', urls: mdUrls });
+                    }
 
                     var directStreams = [];
-                    var regDirect = /\[(\d+),\\?"(https?:\\?\/\\?\/[^\\?"]+\.mp4)\\?"\]/g;
+                    var regDirect = /\[(\d+),"(https?:\/\/[^"]+\.mp4)"\]/g;
                     var matchDir;
-                    while ((matchDir = regDirect.exec(htmlText)) !== null) {
+                    while ((matchDir = regDirect.exec(cleanHtmlText)) !== null) {
                         directStreams.push({
                             title: matchDir[1] + 'p',
-                            url: matchDir[2].replace(/\\/g, '')
+                            url: matchDir[2]
                         });
                     }
 
@@ -303,68 +308,90 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         
                         if (targetName === 'DIRECT') {
                             var bestQuality = found.streams[0];
-                            startPlayback([{
-                                title: bestQuality.title + ' (Direct)',
-                                url: bestQuality.url
-                            }]);
+                            startPlayback([{ title: bestQuality.title + ' (Direct)', url: bestQuality.url }]);
                             return;
                         }
 
-                     if (targetName && targetName.toUpperCase().includes('MYDADDY')) {
-    var network = new Lampa.Reguest();
-    network.timeout(15000);
+                        if (targetName === 'MYDADDY') {
+                            var mdIndex = 0;
+                            
+                            // 3. ФУНКЦІЯ ПЕРЕБОРУ АЛЬТЕРНАТИВНИХ ПОСИЛАНЬ MYDADDY
+                            function tryMyDaddyLink() {
+                                if (mdIndex >= found.urls.length) {
+                                    // Якщо всі посилання MyDaddy не спрацювали, йдемо до наступного провайдера (VOE і т.д.)
+                                    currentIndex++; 
+                                    return tryNextProvider();
+                                }
+                                
+                                var currentMdUrl = found.urls[mdIndex];
+                                var network = new Lampa.Reguest();
+                                network.timeout(15000);
+                                
+                                // Мобільний Android User-Agent + Referer
+                                var requestHeaders = {
+                                    'Referer': pageUrl,
+                                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
+                                };
+                                
+                                network.silent(currentMdUrl, function(embedHtml) {
+                                    var mdStreams = [];
+                                    var cleanEmbed = embedHtml.replace(/\\"/g, '"').replace(/\\\//g, '/');
+                                    
+                                    // Метод 1: Прямі посилання
+                                    var mp4Reg = /\/\/[a-zA-Z0-9.\-_/]+\.mp4/ig;
+                                    var matches = cleanEmbed.match(mp4Reg);
+                                    if (matches) {
+                                        for (var k = 0; k < matches.length; k++) {
+                                            var vUrl = matches[k];
+                                            if (vUrl.indexOf('//') === 0) vUrl = 'https:' + vUrl;
+                                            var qMatch = vUrl.match(/\/(\d+)\.mp4$/i);
+                                            var q = qMatch ? qMatch[1] : 'Unknown';
+                                            if (!mdStreams.find(function(i) { return i.url === vUrl; })) {
+                                                mdStreams.push({ title: q + 'p', url: vUrl });
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Метод 2: Конструктор Cloudstream (якщо прямі посилання приховані)
+                                    if (mdStreams.length === 0) {
+                                        var baseMatch = cleanEmbed.match(/poster="(\/\/[^"]+\/)(?:main\.jpg|tile\.vtt)"/i);
+                                        if (baseMatch) {
+                                            var baseUrl = baseMatch[1];
+                                            if (baseUrl.indexOf('//') === 0) baseUrl = 'https:' + baseUrl;
+                                            var titleReg = /title="(\d+)p|4K"/ig;
+                                            var tMatch;
+                                            while ((tMatch = titleReg.exec(cleanEmbed)) !== null) {
+                                                var quality = tMatch[1] || '2160'; 
+                                                var finalUrl = baseUrl + quality + '.mp4';
+                                                if (!mdStreams.find(function(i) { return i.url === finalUrl; })) {
+                                                    mdStreams.push({ title: quality + 'p', url: finalUrl });
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (mdStreams.length > 0) {
+                                        mdStreams.sort(function(a, b) { return parseInt(b.title) - parseInt(a.title); });
+                                        // Голе посилання в плеєр
+                                        startPlayback([{ 
+                                            title: 'MYDADDY (' + mdStreams[0].title + ')', 
+                                            url: mdStreams[0].url 
+                                        }]);
+                                    } else {
+                                        // Якщо на цьому лінку не знайдено відео, пробуємо альтернативний
+                                        mdIndex++; tryMyDaddyLink();
+                                    }
+                                }, function() {
+                                    // Якщо помилка запиту (404, тайм-аут) - пробуємо альтернативний
+                                    mdIndex++; tryMyDaddyLink();
+                                }, false, { headers: requestHeaders });
+                            }
+                            
+                            // Запускаємо перебір
+                            tryMyDaddyLink();
+                            return; 
+                        }
 
-    network.silent(found.url, function(html) {
-        try {
-            var streams = [];
-
-            // 🔥 парсимо source теги (це стабільніше)
-            var regex = /<source[^>]+src=\\"([^"]+\.mp4)\\"[^>]*title=\\"([^"]+)/g;
-            var match;
-
-            while ((match = regex.exec(html)) !== null) {
-                var url = match[1];
-                var title = match[2];
-
-                if (url.startsWith('//')) url = 'https:' + url;
-
-                streams.push({
-                    title: title,
-                    url: url
-                });
-            }
-
-            if (streams.length === 0) {
-                console.log('MYDADDY: no streams found');
-                currentIndex++;
-                return tryNextProvider();
-            }
-
-            // сортуємо по якості
-            streams.sort(function(a, b) {
-                return parseInt(b.title) - parseInt(a.title);
-            });
-
-            console.log('MYDADDY STREAMS:', streams);
-
-            startPlayback([{
-                title: 'MYDADDY (' + streams[0].title + ')',
-                url: streams[0].url
-            }]);
-
-        } catch (e) {
-            console.log('MYDADDY ERROR:', e);
-            currentIndex++;
-            tryNextProvider();
-        }
-
-    }, function() {
-        currentIndex++;
-        tryNextProvider();
-    });
-
-    return;
-}
                         window.pluginx_smartRequest(found.url, function(embedHtml) {
                             var videoUrl = '';
                             if (targetName === 'VIDOZA') {
@@ -419,28 +446,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         if (titleA && urlA) {
                             menu.push({ title: '👸 ' + titleA, action: 'direct', url: urlA.startsWith('http') ? urlA : this.domain + urlA });
                         }
-                    }
 
-                    var studios = doc.querySelectorAll('a[href*="/producers/"]');
-                    for (var j = 0; j < studios.length; j++) {
-                        var sel = studios[j];
-                        var studioNameEl = sel.querySelector('span.text-foreground');
-                        var sTitle = studioNameEl ? (studioNameEl.textContent || '').trim() : '';
-                        var sUrl = sel.getAttribute('href');
-                        if (sTitle && sUrl) {
-                            menu.push({ title: '🎬 ' + sTitle, action: 'direct', url: sUrl.startsWith('http') ? sUrl : this.domain + sUrl });
-                        }
-                    }
-
-                    var categoriesExist = doc.querySelector('a[href*="/categories/"]');
-                    if (categoriesExist) {
-                        menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: 'a[href*="/categories/"] button' });
-                    }
-
-                    menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
-                    return menu;
-                }
-            },
 
 
       // ======================================
