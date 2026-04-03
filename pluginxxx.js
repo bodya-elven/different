@@ -311,6 +311,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         }
 
                         if (targetName === 'MYDADDY') {
+    console.log('MYDADDY BLOCK START');
     var network = new Lampa.Reguest();
     network.timeout(15000);
 
