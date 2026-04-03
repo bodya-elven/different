@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.3.6',
+        version: '2.3.7',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -319,8 +319,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             
                             network.silent(found.url, function(embedHtml) {
                                 var mdStreams = [];
-                                // ВИПРАВЛЕНО: Шукаємо src у будь-яких тегах (source або a)
-                                var mp4Reg = /src=['"]([^'"]+\.mp4[^'"]*)['"]/ig;
+                                // ВИПРАВЛЕНО: Додано \\? для ігнорування екранування (слешів перед лапками)
+                                var mp4Reg = /src=\\?['"]([^'"\\]+\.mp4)/ig;
                                 var mp4Match;
                                 
                                 while ((mp4Match = mp4Reg.exec(embedHtml)) !== null) {
@@ -334,17 +334,17 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 
                                 if (mdStreams.length > 0) {
                                     mdStreams.sort(function(a, b) { return parseInt(b.title) - parseInt(a.title); });
-
-                                    // Відправляємо абсолютно чисте посилання
+                                    
+                                    // Відправляємо абсолютно чисте посилання без реферера
                                     startPlayback([{ 
                                         title: 'MYDADDY (' + mdStreams[0].title + ')', 
                                         url: mdStreams[0].url, 
-                                        headers: { 'Referer': pageUrl, 'User-Agent': 'Mozilla/5.0' } 
+                                        headers: { 'User-Agent': 'Mozilla/5.0' } 
                                     }]);
                                 } else {
                                     currentIndex++; tryNextProvider();
-
                                 }
+
                             }, function() {
                                 currentIndex++; tryNextProvider();
                             }, false, { headers: { 'Referer': pageUrl } });
