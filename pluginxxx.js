@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.3.3',
+        version: '2.3.4',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -101,7 +101,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
         var Adapters = {
 
             // =========================================================================
-            // АДАПТЕР: AllPornStream (APS) - FIXED NETWORK METHOD
+            // АДАПТЕР: AllPornStream (APS) - FINAL (MX PLAYER FIX + HQPORNER IMAGES)
             // =========================================================================
 
             allpornstream: {
@@ -132,6 +132,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 parse: function(doc, currentUrl, object) {
                     var results = [];
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
+                    var _this = this;
 
                     if (object.is_models || targetPath === '/actors') {
                         var mEls = doc.querySelectorAll('.grid > div.relative.flex.cursor-pointer, div.relative.flex.cursor-pointer.flex-col');
@@ -143,7 +144,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             if (!linkM) continue;
                             
                             var urlM = linkM.getAttribute('href');
-                            if (urlM && urlM.indexOf('http') !== 0) urlM = this.domain + urlM;
+                            if (urlM && urlM.indexOf('http') !== 0) urlM = _this.domain + urlM;
                             
                             if (processed.indexOf(urlM) !== -1) continue;
                             processed.push(urlM);
@@ -158,10 +159,21 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 if (src.indexOf('/api/images?src=') !== -1) {
                                     try {
                                         var match = src.match(/src=([^&]+)/);
-                                        if (match) picture = decodeURIComponent(match[1]);
+                                        if (match) {
+                                            var decoded = decodeURIComponent(match[1]);
+                                            // Якщо картинка з HQPorner - використовуємо їхній проксі
+                                            if (decoded.indexOf('hqporner.com') !== -1) {
+                                                picture = _this.domain + (src.startsWith('/') ? src.split(' ')[0] : '/' + src.split(' ')[0]);
+                                            } else {
+                                                picture = decoded;
+                                            }
+                                        }
                                     } catch(e) {}
                                 }
-                                if (!picture && src) picture = src.split(' ')[0];
+                                if (!picture && src) {
+                                    picture = src.split(' ')[0];
+                                    if (picture.startsWith('/')) picture = _this.domain + picture;
+                                }
                             }
                             
                             var count = '';
@@ -198,7 +210,9 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             var dataImages = el.getAttribute('data-images');
                             if (dataImages) {
                                 try { 
-                                    var imgs = JSON.parse(dataImages.replace(/\\"/g, '"')); 
+                                    // Заміна &quot; на ", щоб JSON не ламався
+                                    var cleanData = dataImages.replace(/\\"/g, '"').replace(/&quot;/g, '"');
+                                    var imgs = JSON.parse(cleanData); 
                                     if (imgs.length) img = imgs[0]; 
                                 } catch(e) {}
                             }
@@ -206,6 +220,13 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             if (!img) {
                                 var imgEl = el.querySelector('img');
                                 if (imgEl) img = imgEl.getAttribute('src') || '';
+                            }
+
+                            // ПЕРЕХОПЛЕННЯ ЗОБРАЖЕНЬ З HQPORNER (Тільки їх пропускаємо через проксі)
+                            if (img && img.indexOf('hqporner.com') !== -1 && img.indexOf('/api/images') === -1) {
+                                img = _this.domain + '/api/images?src=' + encodeURIComponent(img) + '&width=640&quality=75';
+                            } else if (img && img.startsWith('/')) {
+                                img = _this.domain + img;
                             }
                             
                             var time = '';
@@ -217,7 +238,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                             results.push({
                                 name: window.pluginx_formatTitle(title, time, '▶'),
-                                url: href.indexOf('http') === 0 ? href : this.domain + (href.indexOf('/') === 0 ? '' : '/') + href,
+                                url: href.indexOf('http') === 0 ? href : _this.domain + (href.indexOf('/') === 0 ? '' : '/') + href,
                                 picture: img,
                                 img: img
                             });
@@ -229,10 +250,13 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var providers = [];
 
-                    // 0. ОРИГІНАЛЬНИЙ PAGE URL ДЛЯ REFERER
+                    // 0. ВИПРАВЛЕНЕ ВИТЯГУВАННЯ REFERER (Ігнорує екранування \")
                     var pageUrl = element.url;
-                    var puMatch = htmlText.match(/"page_url"\s*:\s*"([^"\\]+)/i);
-                    if (puMatch) pageUrl = puMatch[1];
+                    var puMatch = htmlText.match(/\\?"page_url\\?"\s*:\s*\\?"([^"]+)\\?"/i);
+                    if (puMatch) {
+                        var extractedUrl = puMatch[1].replace(/\\/g, '');
+                        if (extractedUrl.indexOf('http') === 0) pageUrl = extractedUrl;
+                    }
                     
                     // 1. Зовнішні джерела (link)
                     var regExternal = /\[\\?"([A-Z0-9]+)\\?",\\?"(https?:\\?\/\\?\/[^\\?"]+)\\?"\]/g;
@@ -286,10 +310,17 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         }
                         
                         if (targetName === 'DIRECT') {
-                            var bestQuality = found.streams[0]; 
+                            var bestQuality = found.streams[0];
+                            var finalDirectUrl = bestQuality.url;
+                            
+                            // Примусово клеїмо Referer для зовнішніх плеєрів (MX, Vimu)
+                            if (finalDirectUrl.indexOf('|Referer=') === -1) {
+                                finalDirectUrl += '|Referer=' + pageUrl;
+                            }
+
                             startPlayback([{
                                 title: bestQuality.title + ' (Direct)',
-                                url: bestQuality.url,
+                                url: finalDirectUrl,
                                 headers: { 'Referer': pageUrl, 'User-Agent': 'Mozilla/5.0' }
                             }]);
                             return;
@@ -299,7 +330,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             var network = new Lampa.Reguest();
                             network.timeout(15000);
                             
-                            // ВИПРАВЛЕНО ТУТ: використовуємо .silent() замість .request()
                             network.silent(found.url, function(embedHtml) {
                                 var mdStreams = [];
                                 var mp4Reg = /<a[^>]*href=['"]([^'"]+)['"]/ig;
@@ -317,9 +347,17 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 
                                 if (mdStreams.length > 0) {
                                     mdStreams.sort(function(a, b) { return parseInt(b.title) - parseInt(a.title); });
+                                    
+                                    var finalMyDaddyUrl = mdStreams[0].url;
+                                    
+                                    // Примусово клеїмо Referer для зовнішніх плеєрів (MX, Vimu)
+                                    if (finalMyDaddyUrl.indexOf('|Referer=') === -1) {
+                                        finalMyDaddyUrl += '|Referer=' + pageUrl;
+                                    }
+
                                     startPlayback([{ 
                                         title: 'MYDADDY (' + mdStreams[0].title + ')', 
-                                        url: mdStreams[0].url, 
+                                        url: finalMyDaddyUrl, 
                                         headers: { 'Referer': pageUrl, 'User-Agent': 'Mozilla/5.0' } 
                                     }]);
                                 } else {
@@ -420,6 +458,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     return menu;
                 }
             },
+
 
 
       // ======================================
