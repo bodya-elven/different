@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.4.4',
+        version: '2.4.5',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -101,7 +101,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
         var Adapters = {
 
             // =========================================================================
-            // АДАПТЕР: AllPornStream (APS) - JSON & CORS BYPASS FIX
+            // АДАПТЕР: AllPornStream
             // =========================================================================
 
             allpornstream: {
@@ -319,7 +319,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 
                                 var currentMdUrl = found.urls[mdIndex];
                                 
-                                // ГОЛОВНА ФУНКЦІЯ: Збирає посилання і відправляє в плеєр
                                 function processMyDaddyHtml(embedHtml) {
                                     var mdStreams = [];
                                     var cleanEmbed = typeof embedHtml === 'string' ? embedHtml.replace(/\\"/g, '"').replace(/\\\//g, '/') : '';
@@ -333,19 +332,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                             var q = qMatch ? qMatch[1] : 'Unknown';
                                             if (!mdStreams.find(function(i) { return i.url === vUrl; })) {
                                                 mdStreams.push({ title: q + 'p', url: vUrl });
-                                            }
-                                        }
-                                    }
-                                    
-                                    if (mdStreams.length === 0) {
-                                        var posterMatch = cleanEmbed.match(/(?:https?:)?\/\/[^"'\s<>]*bigcdn\.cc[^"'\s<>]*\/(?:main\.jpg|tile\.vtt)/i);
-                                        if (posterMatch) {
-                                            var baseUrl = posterMatch[0].replace(/main\.jpg|tile\.vtt/i, '');
-                                            if (baseUrl.indexOf('//') === 0) baseUrl = 'https:' + baseUrl;
-                                            var qualities = ['1080', '720', '360'];
-                                            for (var i = 0; i < qualities.length; i++) {
-                                                var finalUrl = baseUrl + qualities[i] + '.mp4';
-                                                mdStreams.push({ title: qualities[i] + 'p', url: finalUrl });
                                             }
                                         }
                                     }
@@ -364,25 +350,18 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 var network = new Lampa.Reguest();
                                 network.timeout(15000);
                                 
-                                // ФІКС 1: ЗАБОРОНЯЄМО ЛАМПІ ПАРСИТИ ЦЕ ЯК JSON
                                 var requestOptions = {
                                     headers: {
                                         'Referer': pageUrl,
                                         'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
                                     },
-                                    dataType: 'text' // <--- Рятівник від помилки синтаксичного аналізу
+                                    dataType: 'text'
                                 };
                                 
                                 network.silent(currentMdUrl, function(embedHtml) {
                                     processMyDaddyHtml(embedHtml);
                                 }, function() {
-                                    // ФІКС 2: ОБХІД CORS НА ТЕЛЕВІЗОРІ
-                                    // Якщо прямий запит впав (бо ТВ заблокував), йдемо через проксі Лампи
-                                    window.pluginx_smartRequest(currentMdUrl, function(proxyHtml) {
-                                        processMyDaddyHtml(proxyHtml);
-                                    }, function() {
-                                        mdIndex++; tryMyDaddyLink();
-                                    });
+                                    mdIndex++; tryMyDaddyLink();
                                 }, false, requestOptions);
                             }
                             
