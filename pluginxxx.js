@@ -310,108 +310,53 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             return;
                         }
 
-                        if (targetName === 'MYDADDY') {
-    console.log('MYDADDY BLOCK START');
+                       if (targetName && targetName.toUpperCase().includes('MYDADDY')) {
     var network = new Lampa.Reguest();
     network.timeout(15000);
 
-    network.silent(found.url, function(embedHtml) {
+    network.silent(found.url, function(html) {
         try {
-            var mdStreams = [];
-
-            // 1. ЗНАХОДИМО СКРИПТ З do_pl()
-            var scriptMatch = embedHtml.match(/<script[^>]*>[\s\S]*?do_pl\(\)[\s\S]*?<\/script>/i);
-            if (!scriptMatch) {
-                console.log('MYDADDY: script not found');
-                currentIndex++; return tryNextProvider();
-            }
-
-            var script = scriptMatch[0];
-
-            // 2. ВИТЯГУЄМО CDN (//s25.bigcdn.cc)
-            var cdnMatch = script.match(/\/\/s\d+\.bigcdn\.cc/);
-            if (!cdnMatch) {
-                console.log('MYDADDY: cdn not found');
-                currentIndex++; return tryNextProvider();
-            }
-
-            var cdn = cdnMatch[0].replace('//', '');
-
-            // 3. ВИТЯГУЄМО PATH (/pubs/XXXX)
-            var pathMatch = script.match(/pubs\/([a-zA-Z0-9.]+)/);
-            if (!pathMatch) {
-                console.log('MYDADDY: path not found');
-                currentIndex++; return tryNextProvider();
-            }
-
-            var path = pathMatch[1];
-
-            var baseUrl = 'https://' + cdn + '/pubs/' + path;
-
-            // 4. ВИТЯГУЄМО ЯКОСТІ
-            var qualities = [];
-            var qRegex = /title=\\"(\d+p|4K)\\"/ig;
+            var streams = [];
+            var regex = /\/\/s\d+\.bigcdn\.cc\/pubs\/[^"]+\/(\d+)\.mp4/g;
             var match;
 
-            while ((match = qRegex.exec(embedHtml)) !== null) {
-                var q = match[1];
+            while ((match = regex.exec(html)) !== null) {
+                var quality = match[1];
+                var url = 'https:' + match[0];
 
-                if (q === '4K') q = '2160';
-                else q = q.replace('p', '');
-
-                if (qualities.indexOf(q) === -1) {
-                    qualities.push(q);
-                }
-            }
-
-            // fallback якщо не знайшли
-            if (qualities.length === 0) {
-                qualities = ['360', '720', '1080'];
-            }
-
-            // 5. БУДУЄМО ПОСИЛАННЯ
-            for (var i = 0; i < qualities.length; i++) {
-                var q = qualities[i];
-                var url = baseUrl + '/' + q + '.mp4';
-
-                mdStreams.push({
-                    title: q + 'p',
+                streams.push({
+                    title: quality + 'p',
                     url: url
                 });
             }
 
-            if (mdStreams.length === 0) {
-                console.log('MYDADDY: no streams built');
-                currentIndex++; return tryNextProvider();
+            if (streams.length === 0) {
+                console.log('MYDADDY: no streams found');
+                currentIndex++;
+                return tryNextProvider();
             }
 
-            // 6. СОРТУЄМО
-            mdStreams.sort(function(a, b) {
+            // сортуємо
+            streams.sort(function(a, b) {
                 return parseInt(b.title) - parseInt(a.title);
             });
 
-            console.log('MYDADDY FINAL:', mdStreams);
+            console.log('MYDADDY STREAMS:', streams);
 
-            // 7. ВІДДАЄМО
             startPlayback([{
-                title: 'MYDADDY (' + mdStreams[0].title + ')',
-                url: mdStreams[0].url
+                title: 'MYDADDY (' + streams[0].title + ')',
+                url: streams[0].url
             }]);
 
         } catch (e) {
             console.log('MYDADDY ERROR:', e);
-            currentIndex++; 
+            currentIndex++;
             tryNextProvider();
         }
 
     }, function() {
-        currentIndex++; 
+        currentIndex++;
         tryNextProvider();
-    }, false, {
-        headers: {
-            'Referer': 'https://mydaddy.cc/',
-            'Origin': 'https://mydaddy.cc'
-        }
     });
 
     return;
