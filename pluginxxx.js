@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.3.4',
+        version: '2.3.5',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -101,7 +101,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
         var Adapters = {
 
             // =========================================================================
-            // АДАПТЕР: AllPornStream (APS) - FINAL (MX PLAYER FIX + HQPORNER IMAGES)
+            // АДАПТЕР: AllPornStream (APS) - ULTIMATE VERSION (MYDADDY + FIXES)
             // =========================================================================
 
             allpornstream: {
@@ -161,7 +161,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                         var match = src.match(/src=([^&]+)/);
                                         if (match) {
                                             var decoded = decodeURIComponent(match[1]);
-                                            // Якщо картинка з HQPorner - використовуємо їхній проксі
                                             if (decoded.indexOf('hqporner.com') !== -1) {
                                                 picture = _this.domain + (src.startsWith('/') ? src.split(' ')[0] : '/' + src.split(' ')[0]);
                                             } else {
@@ -210,7 +209,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             var dataImages = el.getAttribute('data-images');
                             if (dataImages) {
                                 try { 
-                                    // Заміна &quot; на ", щоб JSON не ламався
                                     var cleanData = dataImages.replace(/\\"/g, '"').replace(/&quot;/g, '"');
                                     var imgs = JSON.parse(cleanData); 
                                     if (imgs.length) img = imgs[0]; 
@@ -222,7 +220,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 if (imgEl) img = imgEl.getAttribute('src') || '';
                             }
 
-                            // ПЕРЕХОПЛЕННЯ ЗОБРАЖЕНЬ З HQPORNER (Тільки їх пропускаємо через проксі)
                             if (img && img.indexOf('hqporner.com') !== -1 && img.indexOf('/api/images') === -1) {
                                 img = _this.domain + '/api/images?src=' + encodeURIComponent(img) + '&width=640&quality=75';
                             } else if (img && img.startsWith('/')) {
@@ -250,22 +247,18 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var providers = [];
 
-                    // 0. ВИПРАВЛЕНЕ ВИТЯГУВАННЯ REFERER (Ігнорує екранування \")
                     var pageUrl = element.url;
                     var puMatch = htmlText.match(/\\?"page_url\\?"\s*:\s*\\?"([^"]+)\\?"/i);
                     if (puMatch) {
-                        var extractedUrl = puMatch[1].replace(/\\/g, '');
-                        if (extractedUrl.indexOf('http') === 0) pageUrl = extractedUrl;
+                        pageUrl = puMatch[1].replace(/\\/g, '');
                     }
                     
-                    // 1. Зовнішні джерела (link)
                     var regExternal = /\[\\?"([A-Z0-9]+)\\?",\\?"(https?:\\?\/\\?\/[^\\?"]+)\\?"\]/g;
                     var matchExt;
                     while ((matchExt = regExternal.exec(htmlText)) !== null) {
                         providers.push({ name: matchExt[1], url: matchExt[2].replace(/\\/g, '') });
                     }
 
-                    // 1.5 MYDADDY (Пошук iframe в тексті)
                     var myDaddyMatch = htmlText.match(/https?:\/\/[^"'\\]*mydaddy\.cc[^"'\\]+/ig);
                     if (myDaddyMatch) {
                         for (var m = 0; m < myDaddyMatch.length; m++) {
@@ -276,7 +269,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         }
                     }
 
-                    // 2. Прямі джерела (DIRECT)
                     var directStreams = [];
                     var regDirect = /\[(\d+),\\?"(https?:\\?\/\\?\/[^\\?"]+\.mp4)\\?"\]/g;
                     var matchDir;
@@ -294,7 +286,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                     if (providers.length === 0) return onError();
 
-                    // 3. ВОДОСПАД
                     var waterfall = ['VIDOZA', 'STREAMTAPE', 'DIRECT', 'MYDADDY', 'VOE'];
                     var currentIndex = 0;
 
@@ -312,11 +303,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         if (targetName === 'DIRECT') {
                             var bestQuality = found.streams[0];
                             var finalDirectUrl = bestQuality.url;
-                            
-                            // Примусово клеїмо Referer для зовнішніх плеєрів (MX, Vimu)
-                            if (finalDirectUrl.indexOf('|Referer=') === -1) {
-                                finalDirectUrl += '|Referer=' + pageUrl;
-                            }
+                            if (finalDirectUrl.indexOf('|Referer=') === -1) finalDirectUrl += '|Referer=' + pageUrl;
 
                             startPlayback([{
                                 title: bestQuality.title + ' (Direct)',
@@ -332,28 +319,23 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             
                             network.silent(found.url, function(embedHtml) {
                                 var mdStreams = [];
-                                var mp4Reg = /<a[^>]*href=['"]([^'"]+)['"]/ig;
+                                // ВИПРАВЛЕНО: Шукаємо src у будь-яких тегах (source або a)
+                                var mp4Reg = /src=['"]([^'"]+\.mp4[^'"]*)['"]/ig;
                                 var mp4Match;
                                 
                                 while ((mp4Match = mp4Reg.exec(embedHtml)) !== null) {
                                     var vUrl = mp4Match[1];
-                                    if (vUrl.indexOf('.mp4') !== -1 || vUrl.indexOf('bigcdn') !== -1) {
-                                        if (vUrl.indexOf('//') === 0) vUrl = 'https:' + vUrl;
-                                        var qMatch = vUrl.match(/\/(\d+)\.mp4/i);
-                                        var q = qMatch ? qMatch[1] : 'Unknown';
-                                        mdStreams.push({ title: q + 'p', url: vUrl });
-                                    }
+                                    if (vUrl.indexOf('//') === 0) vUrl = 'https:' + vUrl;
+                                    
+                                    var qMatch = vUrl.match(/\/(\d+)\.mp4/i);
+                                    var q = qMatch ? qMatch[1] : 'Unknown';
+                                    mdStreams.push({ title: q + 'p', url: vUrl });
                                 }
                                 
                                 if (mdStreams.length > 0) {
                                     mdStreams.sort(function(a, b) { return parseInt(b.title) - parseInt(a.title); });
-                                    
                                     var finalMyDaddyUrl = mdStreams[0].url;
-                                    
-                                    // Примусово клеїмо Referer для зовнішніх плеєрів (MX, Vimu)
-                                    if (finalMyDaddyUrl.indexOf('|Referer=') === -1) {
-                                        finalMyDaddyUrl += '|Referer=' + pageUrl;
-                                    }
+                                    if (finalMyDaddyUrl.indexOf('|Referer=') === -1) finalMyDaddyUrl += '|Referer=' + pageUrl;
 
                                     startPlayback([{ 
                                         title: 'MYDADDY (' + mdStreams[0].title + ')', 
@@ -372,7 +354,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                         window.pluginx_smartRequest(found.url, function(embedHtml) {
                             var videoUrl = '';
-                            
                             if (targetName === 'VIDOZA') {
                                 var vMatch = embedHtml.match(/src:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i);
                                 if (vMatch) videoUrl = vMatch[1];
@@ -382,9 +363,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 if (tapeMatch) {
                                     var cleanPath = tapeMatch[2].substring(parseInt(tapeMatch[3])).substring(tapeMatch[4] ? parseInt(tapeMatch[4]) : 0);
                                     videoUrl = (tapeMatch[1].indexOf('//') === 0 ? 'https:' : '') + tapeMatch[1] + cleanPath + '&stream=1';
-                                } else {
-                                    var robot = embedHtml.match(/id=['"][^'"]*link['"][^>]*>([^<]+)/i);
-                                    if (robot) videoUrl = (robot[1].trim().indexOf('//') === 0 ? 'https:' : '') + robot[1].trim() + '&stream=1';
                                 }
                             }
                             else if (targetName === 'VOE') {
@@ -393,11 +371,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             }
 
                             if (videoUrl) {
-                                startPlayback([{ 
-                                    title: targetName, 
-                                    url: videoUrl, 
-                                    headers: { 'Referer': found.url, 'User-Agent': 'Mozilla/5.0' } 
-                                }]);
+                                startPlayback([{ title: targetName, url: videoUrl, headers: { 'Referer': found.url, 'User-Agent': 'Mozilla/5.0' } }]);
                             } else {
                                 currentIndex++; tryNextProvider();
                             }
@@ -405,7 +379,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             currentIndex++; tryNextProvider();
                         });
                     }
-
                     tryNextProvider();
                 },
                 
@@ -414,6 +387,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     var _this = this;
 
                     if (element.is_models) {
+                        // Регулярні вирази для віку та місця народження
                         var ageMatch = htmlText.match(/>\s*Age\s*<\/div><\/div><div[^>]*>([^<]+)/i);
                         if (ageMatch && ageMatch[1].toLowerCase().indexOf('unknown') === -1) {
                             menu.push({ title: 'Age: ' + ageMatch[1].trim(), action: 'none' });
@@ -423,7 +397,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         if (bornMatch && bornMatch[1].toLowerCase().indexOf('unknown') === -1) {
                             menu.push({ title: 'Born: ' + bornMatch[1].trim(), action: 'none' });
                         }
-                        
                         return menu;
                     }
                     
