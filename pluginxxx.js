@@ -462,6 +462,24 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                     var studios = doc.querySelectorAll('a[href*="/producers/"]');
                     for (var j = 0; j < studios.length; j++) {
+                        var sel = studios[j];
+                        var studioNameEl = sel.querySelector('span.text-foreground');
+                        var sTitle = studioNameEl ? (studioNameEl.textContent || '').trim() : '';
+                        var sUrl = sel.getAttribute('href');
+                        if (sTitle && sUrl) {
+                            menu.push({ title: '🎬 ' + sTitle, action: 'direct', url: sUrl.startsWith('http') ? sUrl : this.domain + sUrl });
+                        }
+                    }
+
+                    var categoriesExist = doc.querySelector('a[href*="/categories/"]');
+                    if (categoriesExist) {
+                        menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: 'a[href*="/categories/"] button' });
+                    }
+
+                    menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
+                    return menu;
+                }
+            },
     
 
       // ======================================
