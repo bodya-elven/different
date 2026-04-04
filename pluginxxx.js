@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.4.7',
+        version: '2.4.8',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -246,25 +246,27 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     return results;
                 },
                 
+
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var providers = [];
                     var pageUrl = element.url; 
 
                     var cleanHtmlText = htmlText.replace(/\\u0026/g, '&').replace(/\\"/g, '"').replace(/\\\//g, '/');
 
-                    var regExternal = /\["([A-Z0-9]+)","(https?:\/\/[^"]+)"\]/g;
-                    var matchExt;
-                    while ((matchExt = regExternal.exec(cleanHtmlText)) !== null) {
-                        providers.push({ name: matchExt[1], url: matchExt[2] });
-                    }
-
+                    // 1. Спочатку збираємо iframe (ТУТ ПРАВИЛЬНІ embed-посилання!)
                     var iframeReg = /"embed_url"\s*:\s*"([^"]+)".*?"hosting_provider"\s*:\s*"([^"]+)"/ig;
                     var iMatch;
                     while ((iMatch = iframeReg.exec(cleanHtmlText)) !== null) {
-                        var pUrl = iMatch[1];
-                        var pName = iMatch[2].toUpperCase();
+                        providers.push({ name: iMatch[2].toUpperCase(), url: iMatch[1] });
+                    }
+
+                    // 2. Потім збираємо старі зовнішні лінки (АЛЕ не перезаписуємо iframe)
+                    var regExternal = /\["([A-Z0-9]+)","(https?:\/\/[^"]+)"\]/g;
+                    var matchExt;
+                    while ((matchExt = regExternal.exec(cleanHtmlText)) !== null) {
+                        var pName = matchExt[1].toUpperCase();
                         if (!providers.find(function(p) { return p.name === pName; })) {
-                            providers.push({ name: pName, url: pUrl });
+                            providers.push({ name: pName, url: matchExt[2] });
                         }
                     }
 
@@ -300,8 +302,26 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                     if (providers.length === 0) return onError();
 
-                    var waterfall = ['DIRECT', 'MYDADDY', 'BIGWARP', 'VIDOZA', 'STREAMTAPE', 'VOE'];
+                    // Видалили BIGWARP, додали MIXDROP
+                    var waterfall = ['DIRECT', 'MYDADDY', 'MIXDROP', 'VIDOZA', 'STREAMTAPE', 'VOE'];
                     var currentIndex = 0;
+
+                    // Розпакувальник для MixDrop
+                    function unpackDeanEdwards(str) {
+                        try {
+                            var pMatch = str.match(/\}?\('(.*?)',\s*(\d+),\s*(\d+),\s*'([^']+)'\.split\('\|'\)/);
+                            if (pMatch) {
+                                var p = pMatch[1];
+                                var a = parseInt(pMatch[2]);
+                                var c = parseInt(pMatch[3]);
+                                var k = pMatch[4].split('|');
+                                var e = function(c) { return (c < a ? '' : e(parseInt(c / a))) + ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36)); };
+                                while (c--) { if (k[c]) { p = p.replace(new RegExp('\\b' + e(c) + '\\b', 'g'), k[c]); } }
+                                return p;
+                            }
+                        } catch(e) {}
+                        return '';
+                    }
 
                     function tryNextProvider() {
                         if (currentIndex >= waterfall.length) return onError();
@@ -322,16 +342,19 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                         if (targetName === 'MYDADDY') {
                             var mdIndex = 0;
+                            
                             function tryMyDaddyLink() {
                                 if (mdIndex >= found.urls.length) {
                                     currentIndex++; 
                                     return tryNextProvider();
                                 }
+                                
                                 var currentMdUrl = found.urls[mdIndex];
                                 
                                 function processMyDaddyHtml(embedHtml) {
                                     var mdStreams = [];
                                     var cleanEmbed = typeof embedHtml === 'string' ? embedHtml.replace(/\\"/g, '"').replace(/\\\//g, '/') : '';
+                                    
                                     var links = cleanEmbed.match(/(?:https?:)?\/\/[^"'\s<>]*bigcdn\.cc[^"'\s<>]*\.mp4/ig);
                                     if (links) {
                                         for (var l = 0; l < links.length; l++) {
@@ -344,9 +367,13 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                             }
                                         }
                                     }
+                                    
                                     if (mdStreams.length > 0) {
                                         mdStreams.sort(function(a, b) { return parseInt(b.title) - parseInt(a.title); });
-                                        startPlayback([{ title: 'MYDADDY (' + mdStreams[0].title + ')', url: mdStreams[0].url }]);
+                                        startPlayback([{ 
+                                            title: 'MYDADDY (' + mdStreams[0].title + ')', 
+                                            url: mdStreams[0].url 
+                                        }]);
                                     } else {
                                         mdIndex++; tryMyDaddyLink();
                                     }
@@ -354,77 +381,77 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                                 var network = new Lampa.Reguest();
                                 network.timeout(15000);
-                                network.silent(currentMdUrl, function(embedHtml) {
-                                    processMyDaddyHtml(embedHtml);
-                                }, function() {
-                                    mdIndex++; tryMyDaddyLink();
-                                }, false, {
+                                
+                                var requestOptions = {
                                     headers: {
                                         'Referer': pageUrl,
                                         'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
                                     },
                                     dataType: 'text'
-                                });
+                                };
+                                
+                                network.silent(currentMdUrl, function(embedHtml) {
+                                    processMyDaddyHtml(embedHtml);
+                                }, function() {
+                                    mdIndex++; tryMyDaddyLink();
+                                }, false, requestOptions);
                             }
+                            
                             tryMyDaddyLink();
                             return; 
                         }
 
-                        if (targetName === 'BIGWARP') {
-                            function processBigWarp(embedHtml) {
-                                var bwReg = /file:\s*["']([^"']+)["'][,\s]+label:\s*["']([^"']+)["']/ig;
-                                var bwMatch;
-                                var bwStreams = [];
+                        if (targetName === 'MIXDROP') {
+                            function processMixDrop(embedHtml) {
+                                var videoUrl = '';
                                 
-                                while ((bwMatch = bwReg.exec(embedHtml)) !== null) {
-                                    if (bwMatch[1].indexOf('http') === 0) {
-                                        bwStreams.push({ 
-                                            title: 'BIGWARP (' + bwMatch[2] + ')', 
-                                            url: bwMatch[1] + '|Referer=https://bigwarp.io/' 
-                                        });
+                                var packedScript = embedHtml.match(/eval\(function\(p,a,c,k,e,d\).*?\.split\('\|'\).*?\)/);
+                                if (packedScript) {
+                                    var unpacked = unpackDeanEdwards(packedScript[0]);
+                                    var wurlMatch = unpacked.match(/wurl\s*=\s*["']([^"']+)["']/i);
+                                    if (wurlMatch) {
+                                        videoUrl = (wurlMatch[1].indexOf('http') === -1 ? 'https:' : '') + wurlMatch[1];
                                     }
                                 }
-                                
-                                if (bwStreams.length > 0) {
-                                    startPlayback(bwStreams);
+
+                                if (!videoUrl) {
+                                    var directMatch = embedHtml.match(/(https:\/\/[^"']+\.mxcontent\.net\/[^"']+)/i);
+                                    if (directMatch) videoUrl = directMatch[1];
+                                }
+
+                                if (videoUrl) {
+                                    startPlayback([{ title: 'MIXDROP', url: videoUrl + '|Referer=https://mixdrop.co/' }]);
                                 } else {
-                                    var bwAlt = embedHtml.match(/(?:file|source|src)\s*[:=]\s*["'](https?:\/\/[^"']+(?:\.mp4|\.m3u8)[^"']*)["']/i);
-                                    if (bwAlt) {
-                                        startPlayback([{ title: 'BIGWARP', url: bwAlt[1] + '|Referer=https://bigwarp.io/' }]);
-                                    } else {
-                                        currentIndex++; tryNextProvider();
-                                    }
+                                    currentIndex++; tryNextProvider();
                                 }
                             }
 
-                            var bwNetwork = new Lampa.Reguest();
-                            bwNetwork.timeout(15000);
+                            var embedUrl = found.url.replace('/f/', '/e/');
+                            var mdNetwork = new Lampa.Reguest();
+                            mdNetwork.timeout(15000);
                             
-                            // ДОДАЛИ ЗАГОЛОВКИ, щоб обдурити захист BigWarp
-                            var bwOptions = {
+                            var mdOptions = {
                                 headers: {
-                                    'Referer': pageUrl,
-                                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
+                                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile'
                                 },
                                 dataType: 'text'
                             };
-                            
-                            // Спроба прямого запиту з імітацією браузера
-                            bwNetwork.silent(found.url, function(embedHtml) {
-                                processBigWarp(embedHtml);
+
+                            mdNetwork.silent(embedUrl, function(embedHtml) {
+                                processMixDrop(embedHtml);
                             }, function() {
-                                // Якщо все ж впаде, йдемо через резервний проксі
-                                window.pluginx_smartRequest(found.url, function(proxyHtml) {
-                                    processBigWarp(proxyHtml);
+                                // Фолбек на проксі, якщо CORS у браузері
+                                window.pluginx_smartRequest(embedUrl, function(proxyHtml) {
+                                    processMixDrop(proxyHtml);
                                 }, function() {
                                     currentIndex++; tryNextProvider();
                                 });
-                            }, false, bwOptions);
-                            
+                            }, false, mdOptions);
+
                             return;
                         }
 
-                        // Усі інші (де IP не грає ролі) йдуть через проксі
+                        // Усі інші йдуть через проксі
                         window.pluginx_smartRequest(found.url, function(embedHtml) {
                             var videoUrl = '';
                             
@@ -454,8 +481,9 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         });
                     }
                     tryNextProvider();
-
                 },
+
+
                 
                 getMenu: function(doc, htmlText, element) {
                     var menu = [];
