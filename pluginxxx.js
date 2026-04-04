@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.4.6',
+        version: '2.4.7',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -322,19 +322,16 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                         if (targetName === 'MYDADDY') {
                             var mdIndex = 0;
-                            
                             function tryMyDaddyLink() {
                                 if (mdIndex >= found.urls.length) {
                                     currentIndex++; 
                                     return tryNextProvider();
                                 }
-                                
                                 var currentMdUrl = found.urls[mdIndex];
                                 
                                 function processMyDaddyHtml(embedHtml) {
                                     var mdStreams = [];
                                     var cleanEmbed = typeof embedHtml === 'string' ? embedHtml.replace(/\\"/g, '"').replace(/\\\//g, '/') : '';
-                                    
                                     var links = cleanEmbed.match(/(?:https?:)?\/\/[^"'\s<>]*bigcdn\.cc[^"'\s<>]*\.mp4/ig);
                                     if (links) {
                                         for (var l = 0; l < links.length; l++) {
@@ -347,13 +344,9 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                             }
                                         }
                                     }
-                                    
                                     if (mdStreams.length > 0) {
                                         mdStreams.sort(function(a, b) { return parseInt(b.title) - parseInt(a.title); });
-                                        startPlayback([{ 
-                                            title: 'MYDADDY (' + mdStreams[0].title + ')', 
-                                            url: mdStreams[0].url 
-                                        }]);
+                                        startPlayback([{ title: 'MYDADDY (' + mdStreams[0].title + ')', url: mdStreams[0].url }]);
                                     } else {
                                         mdIndex++; tryMyDaddyLink();
                                     }
@@ -361,30 +354,28 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                                 var network = new Lampa.Reguest();
                                 network.timeout(15000);
-                                
-                                var requestOptions = {
+                                network.silent(currentMdUrl, function(embedHtml) {
+                                    processMyDaddyHtml(embedHtml);
+                                }, function() {
+                                    mdIndex++; tryMyDaddyLink();
+                                }, false, {
                                     headers: {
                                         'Referer': pageUrl,
                                         'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
                                     },
                                     dataType: 'text'
-                                };
-                                
-                                network.silent(currentMdUrl, function(embedHtml) {
-                                    processMyDaddyHtml(embedHtml);
-                                }, function() {
-                                    mdIndex++; tryMyDaddyLink();
-                                }, false, requestOptions);
+                                });
                             }
-                            
                             tryMyDaddyLink();
                             return; 
                         }
 
-                        window.pluginx_smartRequest(found.url, function(embedHtml) {
-                            var videoUrl = '';
+                        // ВИОКРЕМЛЕНИЙ ПРЯМИЙ ЗАПИТ ДЛЯ BIGWARP (БЕЗ ПРОКСІ)
+                        if (targetName === 'BIGWARP') {
+                            var bwNetwork = new Lampa.Reguest();
+                            bwNetwork.timeout(15000);
                             
-                            if (targetName === 'BIGWARP') {
+                            bwNetwork.silent(found.url, function(embedHtml) {
                                 var bwReg = /file:\s*["']([^"']+)["'][,\s]+label:\s*["']([^"']+)["']/ig;
                                 var bwMatch;
                                 var bwStreams = [];
@@ -400,13 +391,28 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 
                                 if (bwStreams.length > 0) {
                                     startPlayback(bwStreams);
-                                    return; 
                                 } else {
                                     var bwAlt = embedHtml.match(/(?:file|source|src)\s*[:=]\s*["'](https?:\/\/[^"']+(?:\.mp4|\.m3u8)[^"']*)["']/i);
-                                    if (bwAlt) videoUrl = bwAlt[1] + '|Referer=https://bigwarp.io/';
+                                    if (bwAlt) {
+                                        startPlayback([{ title: 'BIGWARP', url: bwAlt[1] + '|Referer=https://bigwarp.io/' }]);
+                                    } else {
+                                        currentIndex++; tryNextProvider();
+                                    }
                                 }
-                            }
-                            else if (targetName === 'VIDOZA') {
+                            }, function() {
+                                currentIndex++; tryNextProvider();
+                            }, false, {
+                                dataType: 'text'
+                            });
+                            
+                            return;
+                        }
+
+                        // Усі інші (де IP не грає ролі) йдуть через проксі
+                        window.pluginx_smartRequest(found.url, function(embedHtml) {
+                            var videoUrl = '';
+                            
+                            if (targetName === 'VIDOZA') {
                                 var vMatch = embedHtml.match(/src:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i);
                                 if (vMatch) videoUrl = vMatch[1];
                             } 
@@ -432,6 +438,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         });
                     }
                     tryNextProvider();
+
                 },
                 
                 getMenu: function(doc, htmlText, element) {
