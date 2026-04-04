@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.4.5',
+        version: '2.4.6',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -109,14 +109,18 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 domain: 'https://allpornstream.com',
                 
                 getHomeUrl: function() { return this.domain + '/'; },
-                getSearchUrl: function(query) { return this.domain + '/search?q=' + encodeURIComponent(query); },
+                getSearchUrl: function(query) {
+                    // Перетворюємо пробіли на плюси, як того вимагає APS
+                    return this.domain + '/?search=' + encodeURIComponent(query).replace(/%20/g, '+');
+                },
                 
                 getUrl: function(object, page) {
                     var url = object.url || this.domain;
                     if (page > 1) {
-                        var uParts = url.split('?'), base = uParts[0];
-                        var query = uParts.length > 1 ? '&' + uParts[1].replace(/page=\d+&?/g, '') : '';
-                        return base + (base.endsWith('/') ? '' : '/') + '?page=' + page + query;
+                        // Перевіряємо, чи в посиланні вже є параметри (наприклад, ?search=...)
+                        var separator = url.indexOf('?') !== -1 ? '&' : '?';
+                        // Видаляємо стару сторінку, якщо вона була, і додаємо актуальну
+                        return url.replace(/[&?]page=\d+/g, '') + separator + 'page=' + page;
                     }
                     return url;
                 },
