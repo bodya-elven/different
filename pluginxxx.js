@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.4.8',
+        version: '2.4.9',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -387,46 +387,52 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             var doodUrl = found.url.replace('/d/', '/e/');
                             if (doodUrl.indexOf('http') === -1) doodUrl = 'https:' + doodUrl;
                             
-                            // Витягуємо оригін (простий і надійний метод без new URL для старих ТВ)
                             var originMatch = doodUrl.match(/^(https?:\/\/[^\/]+)/);
                             var doodOrigin = originMatch ? originMatch[1] : 'https://doodstream.com';
 
                             var doodNetwork = new Lampa.Reguest();
                             doodNetwork.timeout(15000);
                             
+                            // 1. Використовуємо десктопний User-Agent з Kotlin-екстрактора
+                            var pcUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0';
+                            
                             var doodOptions = {
                                 headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile',
+                                    'User-Agent': pcUserAgent,
                                     'Referer': doodUrl
                                 },
                                 dataType: 'text'
                             };
 
-                            // Етап 1: Отримуємо HTML сторінки плеєра
                             doodNetwork.silent(doodUrl, function(html) {
-                                var md5Match = html.match(/\/pass_md5\/[^"']+/i);
+                                // 2. Регулярка точно як в Kotlin для витягування expiry та token
+                                var md5Regex = /\/pass_md5\/([^\/]+)\/([^\/'"]+)/i;
+                                var md5Match = html.match(md5Regex);
+                                
                                 if (!md5Match) {
                                     currentIndex++; return tryNextProvider();
                                 }
                                 
-                                var passPath = md5Match[0];
+                                var passPath = md5Match[0]; // /pass_md5/expiry/token
+                                var expiry = md5Match[1];
+                                var token = md5Match[2];
                                 var passUrl = doodOrigin + passPath;
-                                
-                                var tokenMatch = html.match(/token=([a-z0-9]+)/i);
-                                var token = tokenMatch ? tokenMatch[1] : passPath.split('/').pop();
 
-                                // Етап 2: Отримуємо базу посилання
                                 var passNetwork = new Lampa.Reguest();
-                                passNetwork.silent(passUrl, function(baseVideoUrl) {
+                                passNetwork.silent(passUrl, function(baseLink) {
+                                    baseLink = baseLink.trim();
                                     
+                                    // 10 випадкових символів (DoodStream зазвичай їх вимагає перед параметрами)
                                     var randomStr = '';
                                     var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
                                     for (var i = 0; i < 10; i++) {
                                         randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
                                     }
                                     
-                                    var finalUrl = baseVideoUrl + randomStr + '?token=' + token + '&expiry=' + Date.now();
+                                    // 3. Формуємо лінк ТОЧНО як в Kotlin: додаємо 000 до expiry
+                                    var finalUrl = baseLink + randomStr + "?token=" + token + "&expiry=" + expiry + "000";
                                     
+                                    // Віддаємо в плеєр (User-Agent тут не передається в Lampa, але Referer є)
                                     startPlayback([{ title: 'DOODSTREAM', url: finalUrl + '|Referer=' + doodUrl }]);
 
                                 }, function() {
