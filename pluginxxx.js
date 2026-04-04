@@ -402,51 +402,49 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         }
 
                         if (targetName === 'MIXDROP') {
-                            function processMixDrop(embedHtml) {
-                                var videoUrl = '';
-                                
-                                var packedScript = embedHtml.match(/eval\(function\(p,a,c,k,e,d\).*?\.split\('\|'\).*?\)/);
+                            // Формуємо лінк на плеєр і примусово міняємо домен на базовий, щоб уникнути редиректів
+                            var embedUrl = found.url.replace('/f/', '/e/').replace(/mxdrop\.to|mixdrop\.top|m1xdrop\.click/i, 'mixdrop.co');
+                            if (embedUrl.indexOf('http') === -1) embedUrl = 'https:' + embedUrl;
+
+                            console.log('--- MIXDROP DEBUG START ---');
+                            console.log('1. Trying to fetch:', embedUrl);
+
+                            // Використовуємо проксі Лампи, щоб обійти CORS і подивитися, ЩО САМЕ приходить
+                            window.pluginx_smartRequest(embedUrl, function(html) {
+                                console.log('2. Response length:', html ? html.length : 'EMPTY');
+                                console.log('3. Response snippet (first 500 chars):', html ? html.substring(0, 500) : 'NONE');
+
+                                if (!html) {
+                                    console.log('❌ MixDrop returned empty response!');
+                                    return;
+                                }
+
+                                if (html.indexOf('Cloudflare') !== -1 || html.indexOf('Just a moment...') !== -1) {
+                                    console.log('❌ We hit Cloudflare protection!');
+                                }
+
+                                var packedScript = html.match(/eval\(function\(p,a,c,k,e,d\).*?\.split\('\|'\).*?\)/);
                                 if (packedScript) {
+                                    console.log('✅ Found packed script! Length:', packedScript[0].length);
+                                    
                                     var unpacked = unpackDeanEdwards(packedScript[0]);
+                                    console.log('4. Unpacked snippet:', unpacked.substring(0, 200));
+                                    
                                     var wurlMatch = unpacked.match(/wurl\s*=\s*["']([^"']+)["']/i);
                                     if (wurlMatch) {
-                                        videoUrl = (wurlMatch[1].indexOf('http') === -1 ? 'https:' : '') + wurlMatch[1];
+                                        var videoUrl = (wurlMatch[1].indexOf('http') === -1 ? 'https:' : '') + wurlMatch[1];
+                                        console.log('🎉 BINGO! Final Video URL:', videoUrl);
+                                        // Пробуємо запустити
+                                        startPlayback([{ title: 'MIXDROP', url: videoUrl + '|Referer=https://mixdrop.co/' }]);
+                                    } else {
+                                        console.log('❌ wurl not found in unpacked code.');
                                     }
-                                }
-
-                                if (!videoUrl) {
-                                    var directMatch = embedHtml.match(/(https:\/\/[^"']+\.mxcontent\.net\/[^"']+)/i);
-                                    if (directMatch) videoUrl = directMatch[1];
-                                }
-
-                                if (videoUrl) {
-                                    startPlayback([{ title: 'MIXDROP', url: videoUrl + '|Referer=https://mixdrop.co/' }]);
                                 } else {
-                                    currentIndex++; tryNextProvider();
+                                    console.log('❌ Packed script NOT found in the HTML.');
                                 }
-                            }
-
-                            var embedUrl = found.url.replace('/f/', '/e/');
-                            var mdNetwork = new Lampa.Reguest();
-                            mdNetwork.timeout(15000);
-                            
-                            var mdOptions = {
-                                headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile'
-                                },
-                                dataType: 'text'
-                            };
-
-                            mdNetwork.silent(embedUrl, function(embedHtml) {
-                                processMixDrop(embedHtml);
-                            }, function() {
-                                // Фолбек на проксі, якщо CORS у браузері
-                                window.pluginx_smartRequest(embedUrl, function(proxyHtml) {
-                                    processMixDrop(proxyHtml);
-                                }, function() {
-                                    currentIndex++; tryNextProvider();
-                                });
-                            }, false, mdOptions);
+                            }, function(err) {
+                                console.log('❌ Proxy Error:', err);
+                            });
 
                             return;
                         }
