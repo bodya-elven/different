@@ -370,12 +370,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             return; 
                         }
 
-                        // ВИОКРЕМЛЕНИЙ ПРЯМИЙ ЗАПИТ ДЛЯ BIGWARP (БЕЗ ПРОКСІ)
                         if (targetName === 'BIGWARP') {
-                            var bwNetwork = new Lampa.Reguest();
-                            bwNetwork.timeout(15000);
-                            
-                            bwNetwork.silent(found.url, function(embedHtml) {
+                            function processBigWarp(embedHtml) {
                                 var bwReg = /file:\s*["']([^"']+)["'][,\s]+label:\s*["']([^"']+)["']/ig;
                                 var bwMatch;
                                 var bwStreams = [];
@@ -399,11 +395,31 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                         currentIndex++; tryNextProvider();
                                     }
                                 }
-                            }, function() {
-                                currentIndex++; tryNextProvider();
-                            }, false, {
+                            }
+
+                            var bwNetwork = new Lampa.Reguest();
+                            bwNetwork.timeout(15000);
+                            
+                            // ДОДАЛИ ЗАГОЛОВКИ, щоб обдурити захист BigWarp
+                            var bwOptions = {
+                                headers: {
+                                    'Referer': pageUrl,
+                                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
+                                },
                                 dataType: 'text'
-                            });
+                            };
+                            
+                            // Спроба прямого запиту з імітацією браузера
+                            bwNetwork.silent(found.url, function(embedHtml) {
+                                processBigWarp(embedHtml);
+                            }, function() {
+                                // Якщо все ж впаде, йдемо через резервний проксі
+                                window.pluginx_smartRequest(found.url, function(proxyHtml) {
+                                    processBigWarp(proxyHtml);
+                                }, function() {
+                                    currentIndex++; tryNextProvider();
+                                });
+                            }, false, bwOptions);
                             
                             return;
                         }
