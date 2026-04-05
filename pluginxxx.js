@@ -389,13 +389,41 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             
                             var originMatch = doodUrl.match(/^(https?:\/\/[^\/]+)/);
                             var doodOrigin = originMatch ? originMatch[1] : 'https://doodstream.com';
-
-                            var doodNetwork = new Lampa.Reguest();
-                            doodNetwork.timeout(15000);
-                            
-                            // 1. Використовуємо десктопний User-Agent з Kotlin-екстрактора
                             var pcUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0';
-                            
+
+                            // Функція, яка обробляє HTML і витягує токен, незалежно від того, як ми цей HTML отримали
+                            function processDoodHTML(html, requestMethod) {
+                                var md5Regex = /\/pass_md5\/([^\/]+)\/([^\/'"]+)/i;
+                                var md5Match = html.match(md5Regex);
+                                
+                                if (!md5Match) {
+                                    currentIndex++; return tryNextProvider();
+                                }
+                                
+                                var passPath = md5Match[0];
+                                var expiry = md5Match[1];
+                                var token = md5Match[2];
+                                var passUrl = doodOrigin + passPath;
+
+                                // Робимо другий запит тим самим методом, яким робили перший (прямий або проксі)
+                                requestMethod(passUrl, function(baseLink) {
+                                    baseLink = baseLink.trim();
+                                    
+                                    var randomStr = '';
+                                    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                                    for (var i = 0; i < 10; i++) {
+                                        randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+                                    }
+                                    
+                                    var finalUrl = baseLink + randomStr + "?token=" + token + "&expiry=" + expiry + "000";
+                                    
+                                    startPlayback([{ title: 'DOODSTREAM', url: finalUrl + '|Referer=' + doodUrl }]);
+
+                                }, function() {
+                                    currentIndex++; tryNextProvider();
+                                });
+                            }
+
                             var doodOptions = {
                                 headers: {
                                     'User-Agent': pcUserAgent,
@@ -404,47 +432,29 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 dataType: 'text'
                             };
 
+                            var doodNetwork = new Lampa.Reguest();
+                            doodNetwork.timeout(15000);
+                            
+                            // Спроба 1: Прямий запит (якщо Лампа дозволяє CORS, наприклад на ТВ)
                             doodNetwork.silent(doodUrl, function(html) {
-                                // 2. Регулярка точно як в Kotlin для витягування expiry та token
-                                var md5Regex = /\/pass_md5\/([^\/]+)\/([^\/'"]+)/i;
-                                var md5Match = html.match(md5Regex);
-                                
-                                if (!md5Match) {
-                                    currentIndex++; return tryNextProvider();
-                                }
-                                
-                                var passPath = md5Match[0]; // /pass_md5/expiry/token
-                                var expiry = md5Match[1];
-                                var token = md5Match[2];
-                                var passUrl = doodOrigin + passPath;
-
-                                var passNetwork = new Lampa.Reguest();
-                                passNetwork.silent(passUrl, function(baseLink) {
-                                    baseLink = baseLink.trim();
-                                    
-                                    // 10 випадкових символів (DoodStream зазвичай їх вимагає перед параметрами)
-                                    var randomStr = '';
-                                    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                                    for (var i = 0; i < 10; i++) {
-                                        randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
-                                    }
-                                    
-                                    // 3. Формуємо лінк ТОЧНО як в Kotlin: додаємо 000 до expiry
-                                    var finalUrl = baseLink + randomStr + "?token=" + token + "&expiry=" + expiry + "000";
-                                    
-                                    // Віддаємо в плеєр (User-Agent тут не передається в Lampa, але Referer є)
-                                    startPlayback([{ title: 'DOODSTREAM', url: finalUrl + '|Referer=' + doodUrl }]);
-
+                                processDoodHTML(html, function(url, onSuccess, onError) {
+                                    var passNet = new Lampa.Reguest();
+                                    passNet.silent(url, onSuccess, onError, false, doodOptions);
+                                });
+                            }, function() {
+                                // Спроба 2: Якщо CORS заблокував - йдемо через ПРОКСІ
+                                window.pluginx_smartRequest(doodUrl, function(proxyHtml) {
+                                    processDoodHTML(proxyHtml, function(url, onSuccess, onError) {
+                                        window.pluginx_smartRequest(url, onSuccess, onError);
+                                    });
                                 }, function() {
                                     currentIndex++; tryNextProvider();
-                                }, false, doodOptions); 
-
-                            }, function() {
-                                currentIndex++; tryNextProvider();
+                                });
                             }, false, doodOptions);
 
                             return;
                         }
+
 
                         window.pluginx_smartRequest(found.url, function(embedHtml) {
                             var videoUrl = '';
