@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.5.2',
+        version: '2.5.3',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -522,30 +522,45 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 
                 getMenu: function(doc, htmlText, element) {
                     var menu = [];
+                    
+                    // Обробка мета-даних для моделей
                     if (element.is_models) {
-                        var ageMatch = htmlText.match(/>\s*Age\s*<\/div><\/div><div[^>]*>([^<]+)/i);
-                        if (ageMatch && ageMatch[1].toLowerCase().indexOf('unknown') === -1) {
-                            menu.push({ title: 'Age: ' + ageMatch[1].trim(), action: 'none' });
-                        }
+                        var infoBlocks = doc.querySelectorAll('div.flex-row.items-center.justify-between.gap-3');
                         
-                        var bornMatch = htmlText.match(/>\s*Born\s*<\/div><\/div><div[^>]*>([^<]+)/i);
-                        if (bornMatch && bornMatch[1].toLowerCase().indexOf('unknown') === -1) {
-                            menu.push({ title: 'Born: ' + bornMatch[1].trim(), action: 'none' });
+                        for (var b = 0; b < infoBlocks.length; b++) {
+                            var block = infoBlocks[b];
+                            var labelEl = block.querySelector('.text-secondary-foreground');
+                            var valueEl = block.querySelector('.overflow-hidden.text-ellipsis.whitespace-nowrap');
+                            
+                            if (labelEl && valueEl) {
+                                var labelText = (labelEl.textContent || '').trim();
+                                // Чистимо текст від зайвих пробілів та коментарів <!-- -->
+                                var valueText = (valueEl.textContent || '').replace(/\s+\|\s+/g, ' | ').replace(/\s+/g, ' ').trim();
+                                
+                                if ((labelText === 'Age' || labelText === 'Born') && valueText.toLowerCase().indexOf('unknown') === -1 && valueText !== '') {
+                                    // Значок для краси, щоб виділялося як інформація
+                                    var icon = labelText === 'Age' ? '🎂 ' : '📍 ';
+                                    menu.push({ title: icon + labelText + ': ' + valueText, action: 'none' });
+                                }
+                            }
                         }
-                        return menu;
                     }
                     
+                    // Обробка пов'язаних акторів у відео
                     var actors = doc.querySelectorAll('a[href*="/actors/"]');
                     for (var i = 0; i < actors.length; i++) {
                         var elA = actors[i];
                         var nameEl = elA.querySelector('span.text-foreground');
                         var titleA = nameEl ? (nameEl.textContent || '').trim() : '';
                         var urlA = elA.getAttribute('href');
-                        if (titleA && urlA) {
+                        
+                        // Запобігаємо додаванню самої себе в меню на сторінці моделі
+                        if (titleA && urlA && titleA !== element.name.replace(/☰.*/, '').trim()) {
                             menu.push({ title: '👸 ' + titleA, action: 'direct', url: urlA.startsWith('http') ? urlA : this.domain + urlA });
                         }
                     }
 
+                    // Обробка студій
                     var studios = doc.querySelectorAll('a[href*="/producers/"]');
                     for (var j = 0; j < studios.length; j++) {
                         var sel = studios[j];
@@ -557,14 +572,16 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         }
                     }
 
+                    // Обробка категорій
                     var categoriesExist = doc.querySelector('a[href*="/categories/"]');
-                    if (categoriesExist) {
+                    if (categoriesExist && !element.is_models) { // На сторінці моделі категорії зазвичай не виводимо в меню
                         menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: 'a[href*="/categories/"] button' });
                     }
 
                     menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
                     return menu;
                 }
+
             },
 
 
