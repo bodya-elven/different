@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.5.4',
+        version: '2.5.5',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -305,7 +305,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                     img: picture,
                                     is_grid: true,
                                     is_models: isModels,
-                                    quality: count
+                                    card_badge: count
                                 });
                             }
                         }
@@ -351,7 +351,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 url: href.indexOf('http') === 0 ? href : _this.domain + (href.indexOf('/') === 0 ? '' : '/') + href,
                                 picture: img,
                                 img: img,
-                                quality: time
+                                time: time
                             });
                         }
                     }
@@ -1638,21 +1638,32 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 }, onBack: function () { Lampa.Controller.toggle('content'); } });
             };
 
-            comp.cardRender = function (card, element, events) {
-                // Отримуємо реальний HTML з об'єкта картки
-                var $card = (typeof card.render === 'function') ? card.render() : $(card);
+            comp.cardRender = function (card_obj, element, events) {
+                // ВАЖЛИВО: У Lampa саме ТРЕТІЙ аргумент (events) є інстансом картки!
+                var $card = typeof events.render === 'function' ? events.render() : $(events);
                 
                 if ($card && typeof $card.find === 'function') {
                     var imgEl = $card.find('.card__img')[0];
                     if (imgEl && element.picture) {
-                        // Захист від битих картинок (твоя оригінальна логіка)
                         imgEl.setAttribute('data-src-original', element.picture);
                         imgEl.onerror = function() {
                             if (typeof window.pluginx_handleImageRetry === 'function') window.pluginx_handleImageRetry(this);
                         };
                     }
+                    
+                    // --- БРОНЕБІЙНА ПЛАШКА ---
+                    // Беремо час з будь-якого з цих параметрів, який ти передав
+                    var badgeText = element.card_badge || element.time || element.quality;
+                    if (badgeText) {
+                        var $view = $card.find('.card__view');
+                        // Перевіряємо, чи ми вже не додали плашку
+                        if ($view.length > 0 && $view.find('.pluginx-time-badge').length === 0) {
+                            var badgeHtml = '<div class="pluginx-time-badge" style="position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.85); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 13px; font-weight: bold; z-index: 10; border: 1px solid rgba(255,255,255,0.2); pointer-events: none;">' + badgeText + '</div>';
+                            $view.append(badgeHtml);
+                        }
+                    }
                 }
-                
+
                 events.onEnter = function () {
                     window.pluginx_hidePreview();
                     var targetSite = currentSite;
@@ -1694,7 +1705,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     window.pluginx_smartRequest(element.url, function (htmlText) {
                         var doc = new DOMParser().parseFromString(htmlText, 'text/html'), menu = [];
                         
-                        // Додаємо кнопку відтворення у вбудованому плеєрі ТІЛЬКИ для відео з Pornhub
                         if (!element.is_grid && targetSite === 'pornhub') {
                             menu.push({ title: '▶ Відтворити в плеєрі Lampa', action: 'play_lampa_internal' });
                         }
@@ -1707,7 +1717,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         
                         Lampa.Select.show({ title: 'Дії', items: menu, onSelect: function (a) { 
                             if (a.action === 'bookmark') toggleBookmark(); 
-                            // Обробка нашої нової кнопки
                             else if (a.action === 'play_lampa_internal') {
                                 window.pluginx_smartRequest(element.url, function(hText) {
                                     var d = new DOMParser().parseFromString(hText, 'text/html');
@@ -1742,6 +1751,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     if (element.preview && !element.is_grid) previewTimeout = setTimeout(function () { window.pluginx_showPreview($(target), element.preview); }, 1000);
                 };
             };
+
             comp.onRight = comp.filter.bind(comp); return comp;
         }
 
