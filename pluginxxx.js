@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.4.9',
+        version: '2.5.0',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -123,7 +123,20 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     return url;
                 },
                 
-                getFilters: function(doc, currentUrl) { return null; },
+                getFilters: function(doc, currentUrl) {
+                    if (currentUrl.indexOf('/actors') !== -1) return null;
+                    return {
+                        subtitle: 'Сортування',
+                        items: [
+                            { title: '🕒 Нові відео', url: this.domain + '/?sort=recent' },
+                            { title: '⭐ Найкращі (Rating)', url: this.domain + '/?sort=rating' },
+                            { title: '👁️ Популярні (All Time)', url: this.domain + '/?sort=views' },
+                            { title: '📅 Популярні за сьогодні', url: this.domain + '/?sort=views&period=today' },
+                            { title: '📅 Популярні за тиждень', url: this.domain + '/?sort=views&period=weekly' },
+                            { title: '📅 Популярні за місяць', url: this.domain + '/?sort=views&period=monthly' }
+                        ]
+                    };
+                },
                 
                 getNavItems: function() {
                     return [
@@ -256,22 +269,19 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     var iMatch;
                     while ((iMatch = iframeReg.exec(cleanHtmlText)) !== null) {
                         var provName = iMatch[2].toUpperCase();
-                        // Залізно маркуємо DoodStream незалежно від того, як його назвав сервер
-                        if (iMatch[1].indexOf('playmogo') !== -1 || iMatch[1].indexOf('dood') !== -1) {
-                            provName = 'DOODSTREAM';
+                        if (iMatch[1].indexOf('playmogo') === -1 && iMatch[1].indexOf('dood') === -1) {
+                            providers.push({ name: provName, url: iMatch[1] });
                         }
-                        providers.push({ name: provName, url: iMatch[1] });
                     }
 
                     var regExternal = /\["([A-Z0-9]+)","(https?:\/\/[^"]+)"\]/g;
                     var matchExt;
                     while ((matchExt = regExternal.exec(cleanHtmlText)) !== null) {
                         var pName = matchExt[1].toUpperCase();
-                        if (matchExt[2].indexOf('playmogo') !== -1 || matchExt[2].indexOf('dood') !== -1) {
-                            pName = 'DOODSTREAM';
-                        }
-                        if (!providers.find(function(p) { return p.name === pName; })) {
-                            providers.push({ name: pName, url: matchExt[2] });
+                        if (matchExt[2].indexOf('playmogo') === -1 && matchExt[2].indexOf('dood') === -1) {
+                            if (!providers.find(function(p) { return p.name === pName; })) {
+                                providers.push({ name: pName, url: matchExt[2] });
+                            }
                         }
                     }
 
@@ -307,7 +317,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                     if (providers.length === 0) return onError();
 
-                    var waterfall = ['DIRECT', 'MYDADDY', 'DOODSTREAM', 'VIDOZA', 'STREAMTAPE', 'VOE'];
+                    var waterfall = ['DIRECT', 'MYDADDY', 'VIDOZA', 'STREAMTAPE', 'VOE'];
                     var currentIndex = 0;
 
                     function tryNextProvider() {
@@ -383,72 +393,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             return; 
                         }
 
-if (targetName === 'DOODSTREAM') {
-    var doodUrl = found.url.replace('/d/', '/e/');
-    if (doodUrl.indexOf('http') === -1) doodUrl = 'https:' + doodUrl;
-    
-    var originMatch = doodUrl.match(/^(https?:\/\/[^\/]+)/);
-    var doodOrigin = originMatch ? originMatch[1] : 'https://doodstream.com';
-    
-    Lampa.Noty.show('Dood: Крок 1 (Запит сторінки)');
-
-    window.pluginx_smartRequest(doodUrl, function(html) {
-        // Шукаємо pass_md5
-        var md5Regex = /\/pass_md5\/([^\/]+)\/([^\/'"]+)/i;
-        var md5Match = html.match(md5Regex);
-        
-        if (!md5Match) {
-            Lampa.Noty.show('Dood: Помилка - pass_md5 не знайдено');
-            console.log('DoodStream HTML:', html); // Подивимось, що прийшло
-            currentIndex++; return tryNextProvider();
-        }
-        
-        var passPath = md5Match[0]; // /pass_md5/xxxx/yyyy
-        var token = md5Match[2];    // yyyy
-        var passUrl = doodOrigin + passPath;
-
-        Lampa.Noty.show('Dood: Крок 2 (Отримання base link)');
-
-        // Важливо: для pass_md5 ОБОВ'ЯЗКОВО потрібен Referer
-        window.pluginx_smartRequest(passUrl, function(baseLink) {
-            if (!baseLink || baseLink.length < 5) {
-                Lampa.Noty.show('Dood: Порожня відповідь від сервера');
-                currentIndex++; return tryNextProvider();
-            }
-
-            // Генерація 10 рандомних символів (як у скрипті GitHub)
-            var randomStr = "";
-            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-            for (var i = 0; i < 10; i++) {
-                randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-
-            // Фінальна збірка посилання
-            // Додаємо мілісекунди (Date.now()) як у makePlay()
-            var finalUrl = baseLink.trim() + randomStr + "?token=" + token + "&expiry=" + Date.now();
-            
-            console.log('DoodStream Final URL:', finalUrl);
-            Lampa.Noty.show('Dood: Успіх! Запуск...');
-
-            startPlayback([{ 
-                title: 'DOODSTREAM', 
-                url: finalUrl + '|Referer=' + doodOrigin + '/' 
-            }]);
-
-        }, function(err) {
-            Lampa.Noty.show('Dood: Помилка запиту pass_md5');
-            currentIndex++; tryNextProvider();
-        }, { 'Referer': doodUrl });
-
-    }, function(err) {
-        Lampa.Noty.show('Dood: Не вдалося завантажити плеєр');
-        currentIndex++; tryNextProvider();
-    });
-
-    return;
-}
-
-
                         window.pluginx_smartRequest(found.url, function(embedHtml) {
                             var videoUrl = '';
                             
@@ -487,11 +431,6 @@ if (targetName === 'DOODSTREAM') {
                         if (ageMatch && ageMatch[1].toLowerCase().indexOf('unknown') === -1) {
                             menu.push({ title: 'Age: ' + ageMatch[1].trim(), action: 'none' });
                         }
-                        
-                        var bornMatch = htmlText.match(/>\s*Born\s*<\/div><\/div><div[^>]*>([^<]+)/i);
-                        if (bornMatch && bornMatch[1].toLowerCase().indexOf('unknown') === -1) {
-                            menu.push({ title: 'Born: ' + bornMatch[1].trim(), action: 'none' });
-                        }
                         return menu;
                     }
                     
@@ -506,27 +445,10 @@ if (targetName === 'DOODSTREAM') {
                         }
                     }
 
-                    var studios = doc.querySelectorAll('a[href*="/producers/"]');
-                    for (var j = 0; j < studios.length; j++) {
-                        var sel = studios[j];
-                        var studioNameEl = sel.querySelector('span.text-foreground');
-                        var sTitle = studioNameEl ? (studioNameEl.textContent || '').trim() : '';
-                        var sUrl = sel.getAttribute('href');
-                        if (sTitle && sUrl) {
-                            menu.push({ title: '🎬 ' + sTitle, action: 'direct', url: sUrl.startsWith('http') ? sUrl : this.domain + sUrl });
-                        }
-                    }
-
-                    var categoriesExist = doc.querySelector('a[href*="/categories/"]');
-                    if (categoriesExist) {
-                        menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: 'a[href*="/categories/"] button' });
-                    }
-
                     menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
                     return menu;
                 }
             },
-        
 
 
       // ======================================
