@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.5.0',
+        version: '2.5.1',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -100,10 +100,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
         var Adapters = {
 
-            // =========================================================================
-            // АДАПТЕР: AllPornStream
-            // =========================================================================
-
             allpornstream: {
                 title: 'AllPornStream',
                 domain: 'https://allpornstream.com',
@@ -125,17 +121,71 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 
                 getFilters: function(doc, currentUrl) {
                     if (currentUrl.indexOf('/actors') !== -1) return null;
-                    return {
-                        subtitle: 'Сортування',
-                        items: [
-                            { title: '🕒 Нові відео', url: this.domain + '/?sort=recent' },
-                            { title: '⭐ Найкращі (Rating)', url: this.domain + '/?sort=rating' },
-                            { title: '👁️ Популярні (All Time)', url: this.domain + '/?sort=views' },
-                            { title: '📅 Популярні за сьогодні', url: this.domain + '/?sort=views&period=today' },
-                            { title: '📅 Популярні за тиждень', url: this.domain + '/?sort=views&period=weekly' },
-                            { title: '📅 Популярні за місяць', url: this.domain + '/?sort=views&period=monthly' }
-                        ]
-                    };
+                    
+                    var sort = 'recent';
+                    if (currentUrl.indexOf('sort=rating') !== -1) sort = 'rating';
+                    else if (currentUrl.indexOf('sort=views') !== -1) sort = 'views';
+                    
+                    var dateParam = '';
+                    var dateMatch = currentUrl.match(/date=([^&]+)/);
+                    if (dateMatch) dateParam = dateMatch[1];
+                    
+                    var sortLabel = 'Most Recent';
+                    if (sort === 'rating') sortLabel = 'Most Rated';
+                    else if (sort === 'views') sortLabel = 'Most Viewed';
+                    
+                    var items = [];
+                    
+                    // 1. Пункт вибору основного сортування
+                    var sortOptions = [
+                        { title: 'Most Recent', url: this.domain + '/?sort=recent' },
+                        { title: 'Most Rated', url: this.domain + '/?sort=rating' },
+                        { title: 'Most Viewed', url: this.domain + '/?sort=views' }
+                    ];
+                    items.push({ title: '↕️ ' + sortLabel, action: 'static_select', items: sortOptions });
+                    
+                    // 2. Пункт вибору часових проміжків (тільки якщо не Recent)
+                    if (sort !== 'recent') {
+                        var activeDateTitle = 'All Time';
+                        var dateOptions = [];
+                        
+                        // Мапінг для формування URL та пошуку title
+                        var ranges = [
+                            { label: 'All Time', value: '', siteTitle: 'All Time' },
+                            { label: 'Today', value: 'day', siteTitle: 'Today' },
+                            { label: 'Last 7 days', value: 'week', siteTitle: 'Last 7 days' },
+                            { label: 'Last 30 days', value: 'month', siteTitle: 'Last 30 days' },
+                            { label: 'Last Year', value: 'year', siteTitle: 'Last Year' }
+                        ];
+                        
+                        // Намагаємось знайти реальні назви з атрибутів title на сайті
+                        var siteButtons = doc.querySelectorAll('button[aria-label^="Filter by"]');
+                        
+                        ranges.forEach(function(r) {
+                            var rUrl = 'https://allpornstream.com/?sort=' + sort + (r.value ? '&date=' + r.value : '');
+                            var displayTitle = r.label;
+                            
+                            // Шукаємо кнопку на сайті, щоб взяти її точний title
+                            for (var b = 0; b < siteButtons.length; b++) {
+                                var bTitle = siteButtons[b].getAttribute('title');
+                                var bAria = siteButtons[b].getAttribute('aria-label');
+                                if (bTitle && bTitle.toLowerCase().indexOf(r.label.toLowerCase()) !== -1) {
+                                    displayTitle = bTitle;
+                                    break;
+                                } else if (bAria && bAria.indexOf(r.label) !== -1 && bTitle) {
+                                    displayTitle = bTitle;
+                                    break;
+                                }
+                            }
+
+                            if (dateParam === r.value) activeDateTitle = displayTitle;
+                            dateOptions.push({ title: displayTitle, url: rUrl });
+                        });
+                        
+                        items.push({ title: '🗓️ ' + activeDateTitle, action: 'static_select', items: dateOptions });
+                    }
+                    
+                    return { subtitle: sortLabel, items: items };
                 },
                 
                 getNavItems: function() {
@@ -301,7 +351,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     }
 
                     var directStreams = [];
-                    var regDirect = /\[(\d+),"(https?:\/\/[^"]+\.mp4)"\]/g;
+                    var regDirect = /\[(\d+),"(https?:\/\/[^\"]+\.mp4)\"\]/g;
                     var matchDir;
                     while ((matchDir = regDirect.exec(cleanHtmlText)) !== null) {
                         directStreams.push({
@@ -449,7 +499,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     return menu;
                 }
             },
-
+                        
 
       // ======================================
       //=========== Блок Porno365 ==========
