@@ -383,77 +383,74 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             return; 
                         }
 
-                        if (targetName === 'DOODSTREAM') {
-                            var doodUrl = found.url.replace('/d/', '/e/');
-                            if (doodUrl.indexOf('http') === -1) doodUrl = 'https:' + doodUrl;
-                            
-                            var originMatch = doodUrl.match(/^(https?:\/\/[^\/]+)/);
-                            var doodOrigin = originMatch ? originMatch[1] : 'https://doodstream.com';
-                            var pcUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0';
+ if (targetName === 'DOODSTREAM') {
+    // 1. Формуємо правильний URL ембеду
+    var doodUrl = found.url.replace('/d/', '/e/');
+    if (doodUrl.indexOf('http') === -1) doodUrl = 'https:' + doodUrl;
+    
+    var originMatch = doodUrl.match(/^(https?:\/\/[^\/]+)/);
+    var doodOrigin = originMatch ? originMatch[1] : 'https://doodstream.com';
+    var pcUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36';
 
-                            // Функція, яка обробляє HTML і витягує токен, незалежно від того, як ми цей HTML отримали
-                            function processDoodHTML(html, requestMethod) {
-                                var md5Regex = /\/pass_md5\/([^\/]+)\/([^\/'"]+)/i;
-                                var md5Match = html.match(md5Regex);
-                                
-                                if (!md5Match) {
-                                    currentIndex++; return tryNextProvider();
-                                }
-                                
-                                var passPath = md5Match[0];
-                                var expiry = md5Match[1];
-                                var token = md5Match[2];
-                                var passUrl = doodOrigin + passPath;
+    function processDoodHTML(html) {
+        // Шукаємо pass_md5 посилання
+        var md5Regex = /\/pass_md5\/([^\/]+)\/([^\/'"]+)/i;
+        var md5Match = html.match(md5Regex);
+        
+        if (!md5Match) {
+            currentIndex++; return tryNextProvider();
+        }
+        
+        var passUrl = doodOrigin + md5Match[0];
+        var token = md5Match[2]; // Це той самий токен, що в GitHub скрипті
 
-                                // Робимо другий запит тим самим методом, яким робили перший (прямий або проксі)
-                                requestMethod(passUrl, function(baseLink) {
-                                    baseLink = baseLink.trim();
-                                    
-                                    var randomStr = '';
-                                    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                                    for (var i = 0; i < 10; i++) {
-                                        randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
-                                    }
-                                    
-                                    var finalUrl = baseLink + randomStr + "?token=" + token + "&expiry=" + expiry + "000";
-                                    
-                                    startPlayback([{ title: 'DOODSTREAM', url: finalUrl + '|Referer=' + doodUrl }]);
+        // Другий запит - отримуємо базову частину посилання
+        // Використовуємо native для Android, щоб обійти CORS
+        var net = new Lampa.Reguest();
+        var options = {
+            headers: { 'User-Agent': pcUserAgent, 'Referer': doodUrl },
+            dataType: 'text'
+        };
 
-                                }, function() {
-                                    currentIndex++; tryNextProvider();
-                                });
-                            }
+        var finalize = function(baseLink) {
+            if (!baseLink || baseLink.length < 5) {
+                currentIndex++; return tryNextProvider();
+            }
 
-                            var doodOptions = {
-                                headers: {
-                                    'User-Agent': pcUserAgent,
-                                    'Referer': doodUrl
-                                },
-                                dataType: 'text'
-                            };
+            // Логіка генерації випадкового рядка (як у makePlay з GitHub)
+            var randomStr = "";
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            for (var i = 0; i < 10; i++) {
+                randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
 
-                            var doodNetwork = new Lampa.Reguest();
-                            doodNetwork.timeout(15000);
-                            
-                            // Спроба 1: Прямий запит (якщо Лампа дозволяє CORS, наприклад на ТВ)
-                            doodNetwork.silent(doodUrl, function(html) {
-                                processDoodHTML(html, function(url, onSuccess, onError) {
-                                    var passNet = new Lampa.Reguest();
-                                    passNet.silent(url, onSuccess, onError, false, doodOptions);
-                                });
-                            }, function() {
-                                // Спроба 2: Якщо CORS заблокував - йдемо через ПРОКСІ
-                                window.pluginx_smartRequest(doodUrl, function(proxyHtml) {
-                                    processDoodHTML(proxyHtml, function(url, onSuccess, onError) {
-                                        window.pluginx_smartRequest(url, onSuccess, onError);
-                                    });
-                                }, function() {
-                                    currentIndex++; tryNextProvider();
-                                });
-                            }, false, doodOptions);
+            // Збираємо фінальний URL: base + random + token + timestamp
+            var finalUrl = baseLink.trim() + randomStr + "?token=" + token + "&expiry=" + Date.now();
+            
+            // ВАЖЛИВО: додаємо Referer до самого стріму для плеєра
+            startPlayback([{ 
+                title: 'DOODSTREAM', 
+                url: finalUrl + '|Referer=' + doodOrigin + '/' 
+            }]);
+        };
 
-                            return;
-                        }
+        // Пробуємо отримати baseLink через native (Android) або через твій smartRequest
+        if (Lampa.Platform.is('android')) {
+            net.native(passUrl, finalize, function() { currentIndex++; tryNextProvider(); }, false, options);
+        } else {
+            window.pluginx_smartRequest(passUrl, finalize, function() { currentIndex++; tryNextProvider(); }, options.headers);
+        }
+    }
+
+    // Перший запит до сторінки плеєра
+    if (Lampa.Platform.is('android')) {
+        var n = new Lampa.Reguest();
+        n.native(doodUrl, processDoodHTML, function() { currentIndex++; tryNextProvider(); }, false, { headers: { 'User-Agent': pcUserAgent } });
+    } else {
+        window.pluginx_smartRequest(doodUrl, processDoodHTML, function() { currentIndex++; tryNextProvider(); });
+    }
+    return;
+}
 
 
                         window.pluginx_smartRequest(found.url, function(embedHtml) {
