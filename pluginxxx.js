@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.5.5',
+        version: '2.5.6',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -580,8 +580,11 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: 'a[href*="/categories/"] button' });
                     }
 
-                    menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
+                    if (!element.is_models) {
+    menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
+}
                     return menu;
+
                 }
 
             },
@@ -1658,7 +1661,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         var $view = $card.find('.card__view');
                         // Перевіряємо, чи ми вже не додали плашку
                         if ($view.length > 0 && $view.find('.pluginx-time-badge').length === 0) {
-                            var badgeHtml = '<div class="pluginx-time-badge" style="position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.85); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 13px; font-weight: bold; z-index: 10; border: 1px solid rgba(255,255,255,0.2); pointer-events: none;">' + badgeText + '</div>';
+                            var badgeHtml = '<div class="pluginx-time-badge" style="position: absolute; left: -4px; bottom: -4px; background: rgba(0,0,0,0.5); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: normal; font-family: inherit; border: none; z-index: 10; pointer-events: none;">' + badgeText + '</div>';
+
                             $view.append(badgeHtml);
                         }
                     }
