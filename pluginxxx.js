@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.5.1',
+        version: '2.5.2',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -121,7 +121,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     }
                     return url;
                 },
-
+                
                 getFilters: function(doc, currentUrl) {
                     var basePath = currentUrl.split('?')[0];
                     var pathOnly = basePath.replace(this.domain, '').replace(/\/+$/, '');
@@ -159,7 +159,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 activeSortLabel = label;
                             }
                             
-                            // Використовуємо basePath замість this.domain
                             sortOptions.push({ title: label, url: basePath + '?sort=' + sVal });
                         }
                     } else {
@@ -199,7 +198,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                     activeDateLabel = dLabel;
                                 }
                                 
-                                // Використовуємо basePath
                                 var dUrl = basePath + '?sort=' + activeSortValue + (dVal ? '&date=' + dVal : '');
                                 dateOptions.push({ title: dLabel, url: dUrl });
                             }
@@ -223,11 +221,12 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
                     return filtersArray;
                 },
-
                 
                 getNavItems: function() {
                     return [
-                        { title: '👸 Моделі', action: 'nav', url: this.domain + '/actors', is_models: true }
+                        { title: '🗄️ Категорії', action: 'nav', url: this.domain + '/categories', is_categories: true },
+                        { title: '👸 Моделі', action: 'nav', url: this.domain + '/actors', is_models: true },
+                        { title: '🎬 Студії', action: 'nav', url: this.domain + '/producers', is_studios: true }
                     ];
                 },
                 
@@ -236,13 +235,18 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
                     var _this = this;
 
-                    if (object.is_models || targetPath === '/actors') {
+                    var isModels = object.is_models || targetPath === '/actors';
+                    var isStudios = object.is_studios || targetPath === '/producers';
+                    var isCategories = object.is_categories || targetPath === '/categories';
+
+                    if (isModels || isStudios || isCategories) {
                         var mEls = doc.querySelectorAll('.grid > div.relative.flex.cursor-pointer, div.relative.flex.cursor-pointer.flex-col');
                         var processed = [];
                         
                         for (var m = 0; m < mEls.length; m++) {
                             var elM = mEls[m];
-                            var linkM = elM.querySelector('a[href^="/actors/"]');
+                            var linkSel = isModels ? 'a[href^="/actors/"]' : (isStudios ? 'a[href^="/producers/"]' : 'a[href^="/categories/"]');
+                            var linkM = elM.querySelector(linkSel);
                             if (!linkM) continue;
                             
                             var urlM = linkM.getAttribute('href');
@@ -253,7 +257,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             
                             var imgM = elM.querySelector('img');
                             var titleEl = elM.querySelector('.truncate');
-                            var nameM = titleEl ? (titleEl.textContent || '').trim() : (imgM ? imgM.getAttribute('alt') : 'Model');
+                            var fallbackName = isModels ? 'Model' : (isStudios ? 'Studio' : 'Category');
+                            var nameM = titleEl ? (titleEl.textContent || '').trim() : (imgM ? imgM.getAttribute('alt') : fallbackName);
                             
                             var picture = '';
                             if (imgM) {
@@ -278,13 +283,18 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             }
                             
                             var count = '';
-                            var statBlocks = elM.querySelectorAll('.flex-col.items-center');
-                            for (var s = 0; s < statBlocks.length; s++) {
-                                if ((statBlocks[s].textContent || '').indexOf('Videos') !== -1) {
-                                    var countSpan = statBlocks[s].querySelector('span');
-                                    if (countSpan) count = (countSpan.textContent || '').trim();
-                                    break;
+                            if (isModels) {
+                                var statBlocks = elM.querySelectorAll('.flex-col.items-center');
+                                for (var s = 0; s < statBlocks.length; s++) {
+                                    if ((statBlocks[s].textContent || '').indexOf('Videos') !== -1) {
+                                        var countSpan = statBlocks[s].querySelector('span');
+                                        if (countSpan) count = (countSpan.textContent || '').trim();
+                                        break;
+                                    }
                                 }
+                            } else {
+                                var spans = elM.querySelectorAll('.flex.items-center.gap-1 span');
+                                if (spans.length > 0) count = (spans[0].textContent || '').trim();
                             }
                             
                             if (nameM && urlM) {
@@ -294,7 +304,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                     picture: picture,
                                     img: picture,
                                     is_grid: true,
-                                    is_models: true
+                                    is_models: isModels
                                 });
                             }
                         }
@@ -556,6 +566,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     return menu;
                 }
             },
+
 
 
 
