@@ -383,72 +383,68 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                             return; 
                         }
 
- if (targetName === 'DOODSTREAM') {
-    // 1. Формуємо правильний URL ембеду
+if (targetName === 'DOODSTREAM') {
     var doodUrl = found.url.replace('/d/', '/e/');
     if (doodUrl.indexOf('http') === -1) doodUrl = 'https:' + doodUrl;
     
     var originMatch = doodUrl.match(/^(https?:\/\/[^\/]+)/);
     var doodOrigin = originMatch ? originMatch[1] : 'https://doodstream.com';
-    var pcUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36';
+    
+    Lampa.Noty.show('Dood: Крок 1 (Запит сторінки)');
 
-    function processDoodHTML(html) {
-        // Шукаємо pass_md5 посилання
+    window.pluginx_smartRequest(doodUrl, function(html) {
+        // Шукаємо pass_md5
         var md5Regex = /\/pass_md5\/([^\/]+)\/([^\/'"]+)/i;
         var md5Match = html.match(md5Regex);
         
         if (!md5Match) {
+            Lampa.Noty.show('Dood: Помилка - pass_md5 не знайдено');
+            console.log('DoodStream HTML:', html); // Подивимось, що прийшло
             currentIndex++; return tryNextProvider();
         }
         
-        var passUrl = doodOrigin + md5Match[0];
-        var token = md5Match[2]; // Це той самий токен, що в GitHub скрипті
+        var passPath = md5Match[0]; // /pass_md5/xxxx/yyyy
+        var token = md5Match[2];    // yyyy
+        var passUrl = doodOrigin + passPath;
 
-        // Другий запит - отримуємо базову частину посилання
-        // Використовуємо native для Android, щоб обійти CORS
-        var net = new Lampa.Reguest();
-        var options = {
-            headers: { 'User-Agent': pcUserAgent, 'Referer': doodUrl },
-            dataType: 'text'
-        };
+        Lampa.Noty.show('Dood: Крок 2 (Отримання base link)');
 
-        var finalize = function(baseLink) {
+        // Важливо: для pass_md5 ОБОВ'ЯЗКОВО потрібен Referer
+        window.pluginx_smartRequest(passUrl, function(baseLink) {
             if (!baseLink || baseLink.length < 5) {
+                Lampa.Noty.show('Dood: Порожня відповідь від сервера');
                 currentIndex++; return tryNextProvider();
             }
 
-            // Логіка генерації випадкового рядка (як у makePlay з GitHub)
+            // Генерація 10 рандомних символів (як у скрипті GitHub)
             var randomStr = "";
             var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
             for (var i = 0; i < 10; i++) {
                 randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
             }
 
-            // Збираємо фінальний URL: base + random + token + timestamp
+            // Фінальна збірка посилання
+            // Додаємо мілісекунди (Date.now()) як у makePlay()
             var finalUrl = baseLink.trim() + randomStr + "?token=" + token + "&expiry=" + Date.now();
             
-            // ВАЖЛИВО: додаємо Referer до самого стріму для плеєра
+            console.log('DoodStream Final URL:', finalUrl);
+            Lampa.Noty.show('Dood: Успіх! Запуск...');
+
             startPlayback([{ 
                 title: 'DOODSTREAM', 
                 url: finalUrl + '|Referer=' + doodOrigin + '/' 
             }]);
-        };
 
-        // Пробуємо отримати baseLink через native (Android) або через твій smartRequest
-        if (Lampa.Platform.is('android')) {
-            net.native(passUrl, finalize, function() { currentIndex++; tryNextProvider(); }, false, options);
-        } else {
-            window.pluginx_smartRequest(passUrl, finalize, function() { currentIndex++; tryNextProvider(); }, options.headers);
-        }
-    }
+        }, function(err) {
+            Lampa.Noty.show('Dood: Помилка запиту pass_md5');
+            currentIndex++; tryNextProvider();
+        }, { 'Referer': doodUrl });
 
-    // Перший запит до сторінки плеєра
-    if (Lampa.Platform.is('android')) {
-        var n = new Lampa.Reguest();
-        n.native(doodUrl, processDoodHTML, function() { currentIndex++; tryNextProvider(); }, false, { headers: { 'User-Agent': pcUserAgent } });
-    } else {
-        window.pluginx_smartRequest(doodUrl, processDoodHTML, function() { currentIndex++; tryNextProvider(); });
-    }
+    }, function(err) {
+        Lampa.Noty.show('Dood: Не вдалося завантажити плеєр');
+        currentIndex++; tryNextProvider();
+    });
+
     return;
 }
 
