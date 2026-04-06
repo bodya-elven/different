@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.5.6',
+        version: '2.5.7',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -233,23 +233,24 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 parse: function(doc, currentUrl, object, htmlText) {
     var results = [];
     var _this = this;
-    
-    // Отримуємо шлях сторінки для визначення типу контенту
+
+    // Визначаємо шлях сторінки для ідентифікації типу контенту
     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
-    
-    // Визначаємо типи сторінок
+    if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
+
+    // Прапори типів сторінок
     var isModels = object.is_models || targetPath === '/actors';
     var isStudios = object.is_studios || targetPath === '/producers';
     var isCategories = object.is_categories || targetPath === '/categories';
 
-    // --- БЛОК 1: ЕКСТРАКЦІЯ ДАНИХ ІЗ NEXT.JS RSC (ДЛЯ СПИСКІВ) ---
+    // --- БЛОК 1: ЕКСТРАКЦІЯ ДАНИХ ІЗ NEXT.JS (RSC PAYLOAD) ---
+    // Працює для сторінок, де контент приходить у скриптах self.__next_f.push
     if (isModels || isStudios || isCategories) {
         try {
-            // Використовуємо сирий текст сторінки, щоб дістати дані зі скриптів
             var source = htmlText || (doc.documentElement ? doc.documentElement.innerHTML : "");
             var fullPayload = "";
-            
-            // Збираємо всі частини self.__next_f.push
+
+            // Збираємо всі фрагменти даних
             var regex = /self\.__next_f\.push\(\[1,"(.*?)"\]\)/g;
             var match;
             while ((match = regex.exec(source)) !== null) {
@@ -257,24 +258,22 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
             }
 
             if (fullPayload) {
-                // Декодуємо спецсимволи та екранування Next.js
+                // Очищаємо дані від екранування Next.js
                 var cleanData = fullPayload
                     .replace(/\\n/g, '')
                     .replace(/\\"/g, '"')
                     .replace(/\\u0026/g, '&')
                     .replace(/\\\\/g, '\\');
 
-                // Шукаємо ключ "items", де лежить масив об'єктів
                 var startKey = '"items":[';
                 var startIndex = cleanData.indexOf(startKey);
 
                 if (startIndex !== -1) {
-                    // Вирізаємо частину тексту, що починається з [
                     var jsonToParse = cleanData.substring(startIndex + startKey.length - 1);
-                    
-                    // Рахуємо баланс дужок, щоб знайти точний кінець масиву
                     var bracketCount = 0;
                     var finalJson = "";
+
+                    // Вирізаємо масив об'єктів за балансом дужок [ ]
                     for (var i = 0; i < jsonToParse.length; i++) {
                         if (jsonToParse[i] === '[') bracketCount++;
                         if (jsonToParse[i] === ']') bracketCount--;
@@ -282,21 +281,26 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                         if (bracketCount === 0) break;
                     }
 
-                    // Перетворюємо в масив об'єктів
                     var items = JSON.parse(finalJson);
 
                     items.forEach(function(item) {
-                        var name = item.actor || item.name || item.producer || "";
-                        var slug = item.slug || (name ? name.toLowerCase().replace(/\s+/g, '-') : "");
-                        
-                        // Формуємо URL відповідно до типу сторінки
+                        // Визначаємо ім'я (для категорій це 'category', для моделей 'actor', для студій 'producer')
+                        var name = item.category || item.actor || item.producer || item.name || item.title || "";
+                        var slug = item.slug || (name ? name.toString().toLowerCase().replace(/\s+/g, '-') : "");
+
+                        // Формуємо посилання
                         var typePath = isModels ? '/actors/' : (isStudios ? '/producers/' : '/categories/');
                         var url = _this.domain + typePath + slug;
 
-                        // Визначаємо зображення
+                        // Пошук зображення (пріоритет: images -> thumbs -> image)
                         var img = "";
-                        if (item.images && item.images.length > 0) img = item.images[0];
-                        else if (item.thumbs_urls && item.thumbs_urls.length > 0) img = item.thumbs_urls[0];
+                        if (item.images && item.images.length > 0 && item.images[0]) {
+                            img = item.images[0];
+                        } else if (item.thumbs_urls && item.thumbs_urls.length > 0 && item.thumbs_urls[0]) {
+                            img = item.thumbs_urls[0];
+                        } else if (item.image) {
+                            img = item.image;
+                        }
 
                         if (name) {
                             results.push({
@@ -304,7 +308,9 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 url: url,
                                 picture: img,
                                 img: img,
-                                is_grid: true,
+                                // Стилізація: категорії — текстовою сіткою, інше — звичайним гридом
+                                is_grid: !isCategories,
+                                noimg_grid: isCategories,
                                 is_models: isModels,
                                 is_categories: isCategories,
                                 is_studios: isStudios,
@@ -319,41 +325,40 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
         }
     }
 
-    // --- БЛОК 2: СТАНДАРТНИЙ ПАРСИНГ (ДЛЯ ВІДЕО ТА FALLBACK) ---
-    // Якщо результатів ще немає (це сторінка відео або RSC не знайдено)
+    // --- БЛОК 2: СТАНДАРТНИЙ DOM ПАРСИНГ (ДЛЯ ВІДЕО-ПОСТІВ) ---
+    // Виконується, якщо Блок 1 не дав результатів (наприклад, на головній або в пошуку)
     if (results.length === 0) {
         var elements = doc.querySelectorAll('div[data-href*="/post/"], div[data-slug*="/post/"]');
         
-        for (var i = 0; i < elements.length; i++) {
-            var el = elements[i];
+        for (var j = 0; j < elements.length; j++) {
+            var el = elements[j];
             var href = el.getAttribute('data-href') || el.getAttribute('data-slug');
             var title = el.getAttribute('data-title') || (el.querySelector('h2') ? el.querySelector('h2').textContent : '');
             
             if (!href || !title) continue;
             
-            var img = '';
+            var videoImg = '';
             var dataImages = el.getAttribute('data-images');
             if (dataImages) {
                 try { 
-                    var cleanDataImages = dataImages.replace(/\\"/g, '"').replace(/&quot;/g, '"');
-                    var imgs = JSON.parse(cleanDataImages); 
-                    if (imgs.length) img = imgs[0]; 
+                    var cleanImgs = dataImages.replace(/\\"/g, '"').replace(/&quot;/g, '"');
+                    var imgs = JSON.parse(cleanImgs); 
+                    if (imgs.length) videoImg = imgs[0]; 
                 } catch(e) {}
             }
             
-            if (!img) {
+            if (!videoImg) {
                 var imgEl = el.querySelector('img');
-                if (imgEl) img = imgEl.getAttribute('src') || '';
+                if (imgEl) videoImg = imgEl.getAttribute('src') || '';
             }
 
-            // Обробка проксі-зображень або відносних шляхів
-            if (img && img.indexOf('hqporner.com') !== -1 && img.indexOf('/api/images') === -1) {
-                img = _this.domain + '/api/images?src=' + encodeURIComponent(img) + '&width=640&quality=75';
-            } else if (img && img.startsWith('/')) {
-                img = _this.domain + img;
+            // Обробка проксі для hqporner та відносних шляхів
+            if (videoImg && videoImg.indexOf('hqporner.com') !== -1 && videoImg.indexOf('/api/images') === -1) {
+                videoImg = _this.domain + '/api/images?src=' + encodeURIComponent(videoImg) + '&width=640&quality=75';
+            } else if (videoImg && videoImg.startsWith('/')) {
+                videoImg = _this.domain + videoImg;
             }
             
-            // Тривалість відео
             var time = '';
             var spans = el.querySelectorAll('span');
             for (var sp = 0; sp < spans.length; sp++) {
@@ -364,8 +369,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
             results.push({
                 name: title,
                 url: href.indexOf('http') === 0 ? href : _this.domain + (href.indexOf('/') === 0 ? '' : '/') + href,
-                picture: img,
-                img: img,
+                picture: videoImg,
+                img: videoImg,
                 time: time
             });
         }
@@ -373,6 +378,7 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
 
     return results;
 },
+
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var providers = [];
                     var pageUrl = element.url; 
