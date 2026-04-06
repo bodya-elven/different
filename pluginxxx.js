@@ -305,7 +305,6 @@ var css = '<style>\
     var results = [];
     var _this = this;
 
-    // Визначаємо шлях сторінки
     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
     if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
 
@@ -313,7 +312,7 @@ var css = '<style>\
     var isStudios = object.is_studios || targetPath === '/producers';
     var isCategories = object.is_categories || targetPath === '/categories';
 
-    // --- БЛОК 1: ЕКСТРАКЦІЯ ТА СОРТУВАННЯ RSC (СПИСКИ) ---
+    // --- БЛОК 1: RSC PAYLOAD (СПИСКИ МОДЕЛЕЙ, КАТЕГОРІЙ, СТУДІЙ) ---
     if (isModels || isStudios || isCategories) {
         try {
             var source = htmlText || (doc.documentElement ? doc.documentElement.innerHTML : "");
@@ -325,7 +324,6 @@ var css = '<style>\
             }
 
             if (fullPayload) {
-                // Очищення даних від екранування Next.js
                 var cleanData = fullPayload
                     .replace(/\\n/g, '')
                     .replace(/\\"/g, '"')
@@ -339,7 +337,6 @@ var css = '<style>\
                     var jsonToParse = cleanData.substring(startIndex + startKey.length - 1);
                     var bracketCount = 0, finalJson = "";
                     
-                    // Вирізаємо JSON масив за балансом дужок
                     for (var i = 0; i < jsonToParse.length; i++) {
                         if (jsonToParse[i] === '[') bracketCount++;
                         if (jsonToParse[i] === ']') bracketCount--;
@@ -349,28 +346,24 @@ var css = '<style>\
 
                     var items = JSON.parse(finalJson);
 
-                    // --- ЛОГІКА ВНУТРІШНЬОГО СОРТУВАННЯ ---
+                    // Сортування масиву перед видачею
                     if (currentUrl.indexOf('sort=likes') !== -1) {
                         items.sort(function(a, b) { return (b.likes || 0) - (a.likes || 0); });
                     } else if (currentUrl.indexOf('sort=views') !== -1) {
                         items.sort(function(a, b) { return (b.views || 0) - (a.views || 0); });
                     } else {
-                        // За замовчуванням: Video Count (count)
                         items.sort(function(a, b) { return (b.count || 0) - (a.count || 0); });
                     }
 
-                    // Формування карток
                     items.forEach(function(item) {
                         var name = item.category || item.actor || item.producer || item.name || item.title || "";
                         var slug = item.slug || (name ? name.toString().toLowerCase().replace(/\s+/g, '-') : "");
                         var typePath = isModels ? '/actors/' : (isStudios ? '/producers/' : '/categories/');
                         
-                        // Картинки: для категорій ігноруємо, для інших шукаємо
                         var img = "";
                         if (!isCategories) {
                             if (item.images && item.images[0]) img = item.images[0];
                             else if (item.thumbs_urls && item.thumbs_urls[0]) img = item.thumbs_urls[0];
-                            else if (item.image) img = item.image;
                         }
 
                         if (name) {
@@ -379,11 +372,8 @@ var css = '<style>\
                                 url: _this.domain + typePath + slug,
                                 picture: img,
                                 img: img,
-                                is_grid: true,           // Робимо колонки
-                                noimg_grid: isCategories, // Активує стиль плашки (CSS noimg-grid)
-                                is_models: isModels,
-                                is_categories: isCategories,
-                                is_studios: isStudios,
+                                is_grid: true,
+                                noimg_grid: isCategories,
                                 card_badge: (item.count && item.count !== '0') ? '🎬 ' + item.count : ''
                             });
                         }
@@ -391,13 +381,14 @@ var css = '<style>\
                 }
             }
         } catch (e) { 
-            console.error("AllPornStream RSC Parse Error:", e); 
+            console.error("APS RSC Error:", e); 
         }
     }
 
-    // --- БЛОК 2: СТАНДАРТНИЙ ПАРСИНГ (ДЛЯ ВІДЕО-ПОСТІВ) ---
+    // --- БЛОК 2: СТАНДАРТНИЙ DOM ПАРСИНГ (ВІДЕО) ---
     if (results.length === 0) {
         var elements = doc.querySelectorAll('div[data-href*="/post/"], div[data-slug*="/post/"]');
+        
         for (var j = 0; j < elements.length; j++) {
             var el = elements[j];
             var href = el.getAttribute('data-href') || el.getAttribute('data-slug');
@@ -419,13 +410,10 @@ var css = '<style>\
                 videoImg = el.querySelector('img').getAttribute('src') || '';
             }
 
-            // Обробка проксі та відносних шляхів
-            if (videoImg && videoImg.indexOf('hqporner.com') !== -1 && videoImg.indexOf('/api/images') === -1) {
-                videoImg = _this.domain + '/api/images?src=' + encodeURIComponent(videoImg) + '&width=640&quality=75';
-            } else if (videoImg && videoImg.startsWith('/')) {
+            if (videoImg && videoImg.startsWith('/')) {
                 videoImg = _this.domain + videoImg;
             }
-            
+                     
             var time = '';
             var spans = el.querySelectorAll('span');
             for (var sp = 0; sp < spans.length; sp++) {
