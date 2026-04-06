@@ -60,33 +60,34 @@ var css = '<style>\
     .main-grid .card__title { display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; white-space: normal !important; text-align: left !important; line-height: 1.2 !important; max-height: 3.6em !important; padding-top: 2px !important; margin-top: 0 !important; text-overflow: ellipsis !important; }\
     .main-grid.categories-grid .card__title, .main-grid.models-grid .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }\
     \
-    /* ОБ’ЄДНАНИЙ СТИЛЬ ПЛАШОК (ГОЛОВНА + КАТЕГОРІЇ) */
-.noimg-grid .card, .noimg-main-grid .card, .main-grid.noimg-grid .card, .main-grid.noimg-main-grid .card {
-    height: auto !important; position: relative !important; display: flex !important; align-items: stretch !important; 
-}
-/* ПРИМУСОВО ХОВАЄМО СІРИЙ КВАДРАТ (КЛЮЧОВИЙ МОМЕНТ) */
-.noimg-grid .card__view, .noimg-main-grid .card__view, .main-grid.noimg-grid .card__view, .main-grid.noimg-main-grid .card__view {
-    display: none !important; 
-}
-/* ПЕРЕТВОРЮЄМО НАЗВУ НА ПЛАТФОРМУ-КАРТКУ */
-.noimg-grid .card__title, .noimg-main-grid .card__title, .main-grid.noimg-grid .card__title, .main-grid.noimg-main-grid .card__title {
-    position: relative !important; width: 100% !important; height: 100% !important; 
-    min-height: 100px !important; /* Висота плашки */
-    color: #ffffff !important; font-weight: normal !important; 
-    font-size: 1.4em !important; 
-    text-align: center !important; 
-    display: flex !important; align-items: center !important; justify-content: center !important; 
-    white-space: normal !important; word-break: break-word !important; -webkit-line-clamp: unset !important; 
-    padding: 15px !important; margin: 0 !important; 
-    background: rgba(35,35,35,0.9) !important; border-radius: 8px !important; 
-    border: 1px solid rgba(255,255,255,0.1) !important; transition: transform 0.2s, background 0.2s !important; z-index: 10 !important; 
-}\
+    /* ОБ’ЄДНАНИЙ СТИЛЬ ПЛАШОК (ГОЛОВНА + КАТЕГОРІЇ) */\
+    .noimg-grid .card, .noimg-main-grid .card, .main-grid.noimg-grid .card, .main-grid.noimg-main-grid .card {\
+        height: auto !important; position: relative !important; display: flex !important; align-items: stretch !important; \
+    }\
+    /* ПРИМУСОВО ХОВАЄМО СІРИЙ КВАДРАТ (Badge теж зникне) */\
+    .noimg-grid .card__view, .noimg-main-grid .card__view, .main-grid.noimg-grid .card__view, .main-grid.noimg-main-grid .card__view {\
+        display: none !important; \
+    }\
+    /* ПЕРЕТВОРЮЄМО НАЗВУ НА ПЛАТФОРМУ-КАРТКУ */\
+    .noimg-grid .card__title, .noimg-main-grid .card__title, .main-grid.noimg-grid .card__title, .main-grid.noimg-main-grid .card__title {\
+        position: relative !important; width: 100% !important; height: 100% !important; \
+        min-height: 100px !important; \
+        color: #ffffff !important; font-weight: normal !important; \
+        font-size: 1.4em !important; \
+        text-align: center !important; \
+        display: flex !important; align-items: center !important; justify-content: center !important; \
+        white-space: normal !important; word-break: break-word !important; -webkit-line-clamp: unset !important; \
+        padding: 15px !important; margin: 0 !important; \
+        background: rgba(35,35,35,0.9) !important; border-radius: 8px !important; \
+        border: 1px solid rgba(255,255,255,0.1) !important; transition: transform 0.2s, background 0.2s !important; z-index: 10 !important; \
+    }\
     .noimg-grid .card.focus .card__title, .noimg-main-grid .card.focus .card__title, .main-grid.noimg-grid .card.focus .card__title, .main-grid.noimg-main-grid .card.focus .card__title {\
         transform: scale(1.03) !important; background: rgba(70,70,70,0.95) !important; border-color: #fff !important; box-shadow: 0 0 10px rgba(255,255,255,0.3) !important;\
     }\
     .main-grid .card__age { display: none !important; }\
     .pluginx-filter-btn { order: -1 !important; margin-right: auto !important; }\
 </style>';
+
 
 
 
@@ -365,7 +366,6 @@ var css = '<style>\
                                         var img = "";
                                         if (!isCategories) {
                                             var rawImg = (item.images && item.images[0]) || (item.thumbs_urls && item.thumbs_urls[0]) || item.image || "";
-                                            
                                             if (rawImg && rawImg.indexOf('hqporner.com') !== -1 && rawImg.indexOf('/api/images') === -1) {
                                                 img = _this.domain + '/api/images?src=' + encodeURIComponent(rawImg) + '&width=640&quality=75';
                                             } else if (rawImg && rawImg.startsWith('/')) {
@@ -382,7 +382,7 @@ var css = '<style>\
                                                 picture: img,
                                                 img: img,
                                                 is_grid: true,
-                                                is_noimg: isCategories,
+                                                noimg_grid: isCategories,
                                                 card_badge: (item.count && item.count !== '0') ? '🎬 ' + item.count : ''
                                             });
                                         }
