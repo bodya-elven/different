@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.5.7',
+        version: '2.5.8',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -42,7 +42,67 @@
         if (window.pluginx_ready) return;
         window.pluginx_ready = true;
 
-var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-width: 580px) { .main-grid .card { width: 100% !important; margin-bottom: 10px !important; padding: 0 5px !important; } .main-grid.categories-grid .card, .main-grid.models-grid .card, .main-grid.noimg-grid .card { width: 50% !important; } } @media screen and (min-width: 581px) { .main-grid .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; } .main-grid.noimg-main-grid .card { width: 50% !important; } .main-grid.categories-grid .card, .main-grid.models-grid .card, .main-grid.noimg-grid .card { width: 16.666% !important; } } .main-grid .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; position: relative !important; } .main-grid.categories-grid .card__view { padding-bottom: 62.5% !important; background: #ffffff !important; } .main-grid.models-grid .card__view { padding-bottom: 150% !important; background: #ffffff !important; } .main-grid .card__img { object-fit: cover !important; border-radius: 12px !important; position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1 !important; } .main-grid .card__title { display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; white-space: normal !important; text-align: left !important; line-height: 1.2 !important; max-height: 3.6em !important; padding-top: 2px !important; margin-top: 0 !important; text-overflow: ellipsis !important; } .main-grid.categories-grid .card__title, .main-grid.models-grid .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; } .main-grid.noimg-grid .card, .main-grid.noimg-main-grid .card { height: auto !important; position: relative !important; display: flex !important; align-items: stretch !important; } .main-grid.noimg-grid .card__view, .main-grid.noimg-main-grid .card__view { display: none !important; } .main-grid.noimg-grid .card__title, .main-grid.noimg-main-grid .card__title { position: relative !important; width: 100% !important; height: 100% !important; min-height: 80px !important; color: #ffffff !important; font-weight: normal !important; font-size: 1.3em !important; text-align: center !important; display: flex !important; align-items: center !important; justify-content: center !important; white-space: normal !important; word-break: break-word !important; -webkit-line-clamp: unset !important; -webkit-box-orient: unset !important; padding: 15px !important; margin: 0 !important; background: rgba(35,35,35,0.9) !important; border-radius: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; transition: transform 0.2s, background 0.2s !important; z-index: 10 !important; } .main-grid.noimg-grid .card.focus .card__title, .main-grid.noimg-main-grid .card.focus .card__title { transform: scale(1.03) !important; background: rgba(70,70,70,0.95) !important; border-color: #fff !important; box-shadow: 0 0 10px rgba(255,255,255,0.3) !important; } @media screen and (min-width: 581px) { .main-grid.noimg-main-grid .card__title { font-size: 1.4em !important; min-height: 100px !important; } .main-grid.noimg-grid .card__title { font-size: 1.1em !important; min-height: 60px !important; padding: 10px !important; } } .main-grid .card__age { display: none !important; } .pluginx-filter-btn { order: -1 !important; margin-right: auto !important; } </style>';
+var css = '<style>\
+    .main-grid { padding: 0 !important; }\
+    @media screen and (max-width: 580px) {\
+        .main-grid .card { width: 100% !important; margin-bottom: 10px !important; padding: 0 5px !important; }\
+        .main-grid.categories-grid .card, .main-grid.models-grid .card, .main-grid.noimg-grid .card { width: 50% !important; }\
+    }\
+    @media screen and (min-width: 581px) {\
+        .main-grid .card { width: 25% !important; margin-bottom: 15px !important; padding: 0 8px !important; }\
+        .main-grid.noimg-main-grid .card { width: 50% !important; }\
+        .main-grid.categories-grid .card, .main-grid.models-grid .card, .main-grid.noimg-grid .card { width: 16.666% !important; }\
+    }\
+    .main-grid .card__view { padding-bottom: 56.25% !important; border-radius: 12px !important; position: relative !important; }\
+    .main-grid.categories-grid .card__view { padding-bottom: 62.5% !important; background: #ffffff !important; }\
+    .main-grid.models-grid .card__view { padding-bottom: 150% !important; background: #ffffff !important; }\
+    .main-grid .card__img { object-fit: cover !important; border-radius: 12px !important; position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1 !important; }\
+    .main-grid .card__title { display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; white-space: normal !important; text-align: left !important; line-height: 1.2 !important; max-height: 3.6em !important; padding-top: 2px !important; margin-top: 0 !important; text-overflow: ellipsis !important; }\
+    .main-grid.categories-grid .card__title, .main-grid.models-grid .card__title { -webkit-line-clamp: 2 !important; text-align: center !important; font-weight: normal !important; margin-top: 5px !important; }\
+    \
+    /* Уніфікація стилю плашок для noimg-grid та noimg-main-grid */\
+    .main-grid.noimg-grid .card, .main-grid.noimg-main-grid .card { height: auto !important; position: relative !important; display: flex !important; align-items: stretch !important; }\
+    .main-grid.noimg-grid .card__view, .main-grid.noimg-main-grid .card__view { display: none !important; }\
+    .main-grid.noimg-grid .card__title, .main-grid.noimg-main-grid .card__title {\
+        position: relative !important;\
+        width: 100% !important;\
+        height: 100% !important;\
+        min-height: 80px !important;\
+        color: #ffffff !important;\
+        font-weight: normal !important;\
+        font-size: 1.3em !important;\
+        text-align: center !important;\
+        display: flex !important;\
+        align-items: center !important;\
+        justify-content: center !important;\
+        white-space: normal !important;\
+        word-break: break-word !important;\
+        -webkit-line-clamp: unset !important;\
+        -webkit-box-orient: unset !important;\
+        padding: 15px !important;\
+        margin: 0 !important;\
+        background: rgba(35,35,35,0.9) !important;\
+        border-radius: 8px !important;\
+        border: 1px solid rgba(255,255,255,0.1) !important;\
+        transition: transform 0.2s, background 0.2s !important;\
+        z-index: 10 !important;\
+    }\
+    .main-grid.noimg-grid .card.focus .card__title, .main-grid.noimg-main-grid .card.focus .card__title {\
+        transform: scale(1.03) !important;\
+        background: rgba(70,70,70,0.95) !important;\
+        border-color: #fff !important;\
+        box-shadow: 0 0 10px rgba(255,255,255,0.3) !important;\
+    }\
+    \
+    @media screen and (min-width: 581px) {\
+        .main-grid.noimg-main-grid .card__title { font-size: 1.4em !important; min-height: 100px !important; }\
+        /* Зрівнюємо noimg-grid з main для кращого вигляду */\
+        .main-grid.noimg-grid .card__title { font-size: 1.3em !important; min-height: 100px !important; padding: 15px !important; }\
+    }\
+    .main-grid .card__age { display: none !important; }\
+    .pluginx-filter-btn { order: -1 !important; margin-right: auto !important; }\
+</style>';
+
 
         $('body').append(css);
 
@@ -234,23 +294,18 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
     var results = [];
     var _this = this;
 
-    // Визначаємо шлях сторінки для ідентифікації типу контенту
     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
     if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
 
-    // Прапори типів сторінок
     var isModels = object.is_models || targetPath === '/actors';
     var isStudios = object.is_studios || targetPath === '/producers';
     var isCategories = object.is_categories || targetPath === '/categories';
 
-    // --- БЛОК 1: ЕКСТРАКЦІЯ ДАНИХ ІЗ NEXT.JS (RSC PAYLOAD) ---
-    // Працює для сторінок, де контент приходить у скриптах self.__next_f.push
     if (isModels || isStudios || isCategories) {
         try {
             var source = htmlText || (doc.documentElement ? doc.documentElement.innerHTML : "");
             var fullPayload = "";
 
-            // Збираємо всі фрагменти даних
             var regex = /self\.__next_f\.push\(\[1,"(.*?)"\]\)/g;
             var match;
             while ((match = regex.exec(source)) !== null) {
@@ -258,7 +313,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
             }
 
             if (fullPayload) {
-                // Очищаємо дані від екранування Next.js
                 var cleanData = fullPayload
                     .replace(/\\n/g, '')
                     .replace(/\\"/g, '"')
@@ -273,7 +327,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     var bracketCount = 0;
                     var finalJson = "";
 
-                    // Вирізаємо масив об'єктів за балансом дужок [ ]
                     for (var i = 0; i < jsonToParse.length; i++) {
                         if (jsonToParse[i] === '[') bracketCount++;
                         if (jsonToParse[i] === ']') bracketCount--;
@@ -284,15 +337,12 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     var items = JSON.parse(finalJson);
 
                     items.forEach(function(item) {
-                        // Визначаємо ім'я (для категорій це 'category', для моделей 'actor', для студій 'producer')
                         var name = item.category || item.actor || item.producer || item.name || item.title || "";
                         var slug = item.slug || (name ? name.toString().toLowerCase().replace(/\s+/g, '-') : "");
 
-                        // Формуємо посилання
                         var typePath = isModels ? '/actors/' : (isStudios ? '/producers/' : '/categories/');
                         var url = _this.domain + typePath + slug;
 
-                        // Пошук зображення (пріоритет: images -> thumbs -> image)
                         var img = "";
                         if (item.images && item.images.length > 0 && item.images[0]) {
                             img = item.images[0];
@@ -308,8 +358,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                                 url: url,
                                 picture: img,
                                 img: img,
-                                // Стилізація: категорії — текстовою сіткою, інше — звичайним гридом
-                                is_grid: !isCategories,
+                                // Важливо: додаємо класи для активації твого CSS
+                                is_grid: true,
                                 noimg_grid: isCategories,
                                 is_models: isModels,
                                 is_categories: isCategories,
@@ -325,11 +375,8 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
         }
     }
 
-    // --- БЛОК 2: СТАНДАРТНИЙ DOM ПАРСИНГ (ДЛЯ ВІДЕО-ПОСТІВ) ---
-    // Виконується, якщо Блок 1 не дав результатів (наприклад, на головній або в пошуку)
     if (results.length === 0) {
         var elements = doc.querySelectorAll('div[data-href*="/post/"], div[data-slug*="/post/"]');
-        
         for (var j = 0; j < elements.length; j++) {
             var el = elements[j];
             var href = el.getAttribute('data-href') || el.getAttribute('data-slug');
@@ -352,7 +399,6 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                 if (imgEl) videoImg = imgEl.getAttribute('src') || '';
             }
 
-            // Обробка проксі для hqporner та відносних шляхів
             if (videoImg && videoImg.indexOf('hqporner.com') !== -1 && videoImg.indexOf('/api/images') === -1) {
                 videoImg = _this.domain + '/api/images?src=' + encodeURIComponent(videoImg) + '&width=640&quality=75';
             } else if (videoImg && videoImg.startsWith('/')) {
