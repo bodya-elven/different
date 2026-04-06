@@ -230,139 +230,149 @@ var css = '<style>.main-grid { padding: 0 !important; } @media screen and (max-w
                     ];
                 },
                 
-                parse: function(doc, currentUrl, object) {
-                    var results = [];
-                    var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
-                    var _this = this;
+                parse: function(doc, currentUrl, object, htmlText) {
+    var results = [];
+    var _this = this;
+    
+    // Отримуємо шлях сторінки для визначення типу контенту
+    var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
+    
+    // Визначаємо типи сторінок
+    var isModels = object.is_models || targetPath === '/actors';
+    var isStudios = object.is_studios || targetPath === '/producers';
+    var isCategories = object.is_categories || targetPath === '/categories';
 
-                    var isModels = object.is_models || targetPath === '/actors';
-                    var isStudios = object.is_studios || targetPath === '/producers';
-                    var isCategories = object.is_categories || targetPath === '/categories';
+    // --- БЛОК 1: ЕКСТРАКЦІЯ ДАНИХ ІЗ NEXT.JS RSC (ДЛЯ СПИСКІВ) ---
+    if (isModels || isStudios || isCategories) {
+        try {
+            // Використовуємо сирий текст сторінки, щоб дістати дані зі скриптів
+            var source = htmlText || (doc.documentElement ? doc.documentElement.innerHTML : "");
+            var fullPayload = "";
+            
+            // Збираємо всі частини self.__next_f.push
+            var regex = /self\.__next_f\.push\(\[1,"(.*?)"\]\)/g;
+            var match;
+            while ((match = regex.exec(source)) !== null) {
+                fullPayload += match[1];
+            }
 
-                    if (isModels || isStudios || isCategories) {
-                        var mEls = doc.querySelectorAll('.grid > div.relative.flex.cursor-pointer, div.relative.flex.cursor-pointer.flex-col');
-                        var processed = [];
-                        
-                        for (var m = 0; m < mEls.length; m++) {
-                            var elM = mEls[m];
-                            var linkSel = isModels ? 'a[href^="/actors/"]' : (isStudios ? 'a[href^="/producers/"]' : 'a[href^="/categories/"]');
-                            var linkM = elM.querySelector(linkSel);
-                            if (!linkM) continue;
-                            
-                            var urlM = linkM.getAttribute('href');
-                            if (urlM && urlM.indexOf('http') !== 0) urlM = _this.domain + urlM;
-                            
-                            if (processed.indexOf(urlM) !== -1) continue;
-                            processed.push(urlM);
-                            
-                            var imgM = elM.querySelector('img');
-                            var titleEl = elM.querySelector('.truncate');
-                            var fallbackName = isModels ? 'Model' : (isStudios ? 'Studio' : 'Category');
-                            var nameM = titleEl ? (titleEl.textContent || '').trim() : (imgM ? imgM.getAttribute('alt') : fallbackName);
-                            
-                            var picture = '';
-                            if (imgM) {
-                                var src = imgM.getAttribute('src') || imgM.getAttribute('srcset') || '';
-                                if (src.indexOf('/api/images?src=') !== -1) {
-                                    try {
-                                        var match = src.match(/src=([^&]+)/);
-                                        if (match) {
-                                            var decoded = decodeURIComponent(match[1]);
-                                            if (decoded.indexOf('hqporner.com') !== -1) {
-                                                picture = _this.domain + (src.startsWith('/') ? src.split(' ')[0] : '/' + src.split(' ')[0]);
-                                            } else {
-                                                picture = decoded;
-                                            }
-                                        }
-                                    } catch(e) {}
-                                }
-                                if (!picture && src) {
-                                    picture = src.split(' ')[0];
-                                    if (picture.startsWith('/')) picture = _this.domain + picture;
-                                }
-                            }
-                            
-                            var count = '';
-                            if (isModels) {
-                                var statBlocks = elM.querySelectorAll('.flex-col.items-center');
-                                for (var s = 0; s < statBlocks.length; s++) {
-                                    if ((statBlocks[s].textContent || '').indexOf('Videos') !== -1) {
-                                        var countSpan = statBlocks[s].querySelector('span');
-                                        if (countSpan) count = (countSpan.textContent || '').trim();
-                                        break;
-                                    }
-                                }
-                            } else {
-                                var spans = elM.querySelectorAll('.flex.items-center.gap-1 span');
-                                if (spans.length > 0) count = (spans[0].textContent || '').trim();
-                            }
-                            
-                            if (nameM && urlM) {
-                                // Перевіряємо, щоб count не був порожнім або просто нулем
-                                var finalBadge = (count && count !== '0') ? '🎬 ' + count : '';
-                                
-                                results.push({
-                                    name: nameM,
-                                    url: urlM,
-                                    picture: picture,
-                                    img: picture,
-                                    is_grid: true,
-                                    is_models: isModels,
-                                    card_badge: finalBadge 
-                                });
-                            }
-                        } 
-                    } 
+            if (fullPayload) {
+                // Декодуємо спецсимволи та екранування Next.js
+                var cleanData = fullPayload
+                    .replace(/\\n/g, '')
+                    .replace(/\\"/g, '"')
+                    .replace(/\\u0026/g, '&')
+                    .replace(/\\\\/g, '\\');
+
+                // Шукаємо ключ "items", де лежить масив об'єктів
+                var startKey = '"items":[';
+                var startIndex = cleanData.indexOf(startKey);
+
+                if (startIndex !== -1) {
+                    // Вирізаємо частину тексту, що починається з [
+                    var jsonToParse = cleanData.substring(startIndex + startKey.length - 1);
                     
+                    // Рахуємо баланс дужок, щоб знайти точний кінець масиву
+                    var bracketCount = 0;
+                    var finalJson = "";
+                    for (var i = 0; i < jsonToParse.length; i++) {
+                        if (jsonToParse[i] === '[') bracketCount++;
+                        if (jsonToParse[i] === ']') bracketCount--;
+                        finalJson += jsonToParse[i];
+                        if (bracketCount === 0) break;
+                    }
 
-                    else {
-                        var elements = doc.querySelectorAll('div[data-href*="/post/"], div[data-slug*="/post/"]');
-                        for (var i = 0; i < elements.length; i++) {
-                            var el = elements[i];
-                            var href = el.getAttribute('data-href') || el.getAttribute('data-slug');
-                            var title = el.getAttribute('data-title') || (el.querySelector('h2') ? el.querySelector('h2').textContent : '');
-                            
-                            if (!href || !title) continue;
-                            
-                            var img = '';
-                            var dataImages = el.getAttribute('data-images');
-                            if (dataImages) {
-                                try { 
-                                    var cleanData = dataImages.replace(/\\"/g, '"').replace(/&quot;/g, '"');
-                                    var imgs = JSON.parse(cleanData); 
-                                    if (imgs.length) img = imgs[0]; 
-                                } catch(e) {}
-                            }
-                            
-                            if (!img) {
-                                var imgEl = el.querySelector('img');
-                                if (imgEl) img = imgEl.getAttribute('src') || '';
-                            }
+                    // Перетворюємо в масив об'єктів
+                    var items = JSON.parse(finalJson);
 
-                            if (img && img.indexOf('hqporner.com') !== -1 && img.indexOf('/api/images') === -1) {
-                                img = _this.domain + '/api/images?src=' + encodeURIComponent(img) + '&width=640&quality=75';
-                            } else if (img && img.startsWith('/')) {
-                                img = _this.domain + img;
-                            }
-                            
-                            var time = '';
-                            var spans = el.querySelectorAll('span');
-                            for (var sp = 0; sp < spans.length; sp++) {
-                                var txt = (spans[sp].textContent || '').trim();
-                                if (/^\d+:\d+/.test(txt)) { time = txt; break; }
-                            }
+                    items.forEach(function(item) {
+                        var name = item.actor || item.name || item.producer || "";
+                        var slug = item.slug || (name ? name.toLowerCase().replace(/\s+/g, '-') : "");
+                        
+                        // Формуємо URL відповідно до типу сторінки
+                        var typePath = isModels ? '/actors/' : (isStudios ? '/producers/' : '/categories/');
+                        var url = _this.domain + typePath + slug;
 
+                        // Визначаємо зображення
+                        var img = "";
+                        if (item.images && item.images.length > 0) img = item.images[0];
+                        else if (item.thumbs_urls && item.thumbs_urls.length > 0) img = item.thumbs_urls[0];
+
+                        if (name) {
                             results.push({
-                                name: title, // Чиста назва
-                                url: href.indexOf('http') === 0 ? href : _this.domain + (href.indexOf('/') === 0 ? '' : '/') + href,
+                                name: name,
+                                url: url,
                                 picture: img,
                                 img: img,
-                                time: time
+                                is_grid: true,
+                                is_models: isModels,
+                                is_categories: isCategories,
+                                is_studios: isStudios,
+                                card_badge: (item.count && item.count !== '0') ? '🎬 ' + item.count : ''
                             });
                         }
-                    }
-                    return results;
-                },
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("AllPornStream RSC Parse Error:", e);
+        }
+    }
+
+    // --- БЛОК 2: СТАНДАРТНИЙ ПАРСИНГ (ДЛЯ ВІДЕО ТА FALLBACK) ---
+    // Якщо результатів ще немає (це сторінка відео або RSC не знайдено)
+    if (results.length === 0) {
+        var elements = doc.querySelectorAll('div[data-href*="/post/"], div[data-slug*="/post/"]');
+        
+        for (var i = 0; i < elements.length; i++) {
+            var el = elements[i];
+            var href = el.getAttribute('data-href') || el.getAttribute('data-slug');
+            var title = el.getAttribute('data-title') || (el.querySelector('h2') ? el.querySelector('h2').textContent : '');
+            
+            if (!href || !title) continue;
+            
+            var img = '';
+            var dataImages = el.getAttribute('data-images');
+            if (dataImages) {
+                try { 
+                    var cleanDataImages = dataImages.replace(/\\"/g, '"').replace(/&quot;/g, '"');
+                    var imgs = JSON.parse(cleanDataImages); 
+                    if (imgs.length) img = imgs[0]; 
+                } catch(e) {}
+            }
+            
+            if (!img) {
+                var imgEl = el.querySelector('img');
+                if (imgEl) img = imgEl.getAttribute('src') || '';
+            }
+
+            // Обробка проксі-зображень або відносних шляхів
+            if (img && img.indexOf('hqporner.com') !== -1 && img.indexOf('/api/images') === -1) {
+                img = _this.domain + '/api/images?src=' + encodeURIComponent(img) + '&width=640&quality=75';
+            } else if (img && img.startsWith('/')) {
+                img = _this.domain + img;
+            }
+            
+            // Тривалість відео
+            var time = '';
+            var spans = el.querySelectorAll('span');
+            for (var sp = 0; sp < spans.length; sp++) {
+                var txt = (spans[sp].textContent || '').trim();
+                if (/^\d+:\d+/.test(txt)) { time = txt; break; }
+            }
+
+            results.push({
+                name: title,
+                url: href.indexOf('http') === 0 ? href : _this.domain + (href.indexOf('/') === 0 ? '' : '/') + href,
+                picture: img,
+                img: img,
+                time: time
+            });
+        }
+    }
+
+    return results;
+},
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var providers = [];
                     var pageUrl = element.url; 
