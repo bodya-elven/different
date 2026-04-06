@@ -311,9 +311,10 @@ var css = '<style>\
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
                     if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
 
-                    var isModels = object.is_models || targetPath === '/actors';
-                    var isStudios = object.is_studios || targetPath === '/producers';
-                    var isCategories = object.is_categories || targetPath === '/categories';
+                    var isModels = object.is_models || targetPath.indexOf('/actors') !== -1;
+                    var isStudios = object.is_studios || targetPath.indexOf('/producers') !== -1;
+                    var isCategories = object.is_categories || targetPath.indexOf('/categories') !== -1;
+
 
                     // --- БЛОК 1: RSC PAYLOAD (СПИСКИ МОДЕЛЕЙ, КАТЕГОРІЙ, СТУДІЙ) ---
                     if (isModels || isStudios || isCategories) {
@@ -443,7 +444,10 @@ is_studios: isStudios,
                                 url: href.indexOf('http') === 0 ? href : _this.domain + (href.indexOf('/') === 0 ? '' : '/') + href,
                                 picture: img,
                                 img: img,
-                                time: time
+                                time: time,
+                                is_grid: (isModels || isStudios || isCategories),
+                                is_noimg: isCategories,
+                                is_models: isModels
                             });
                         }
                     }
