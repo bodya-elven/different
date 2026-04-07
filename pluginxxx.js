@@ -180,7 +180,6 @@ var css = '<style>\
                 getFilters: function(doc, currentUrl) {
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
                     
-                    // Немає сортування: Пошук, список категорій, схожі відео
                     if (currentUrl.indexOf('/search/') !== -1 || targetPath === '/porno' || currentUrl.indexOf('related') !== -1) return null;
 
                     var filters = [];
@@ -250,14 +249,17 @@ var css = '<style>\
                     var isCatListPage = object.is_categories || targetPath === '/porno';
 
                     var cleanCatName = function(str) {
-                        if (!str) return "";
-                        // Видаляємо "Порно " на початку (будь-який регістр)
-                        var s = str.replace(/^[пП]орно\s+/i, '').trim();
-                        // Кожне слово з великої букви
-                        return s.split(/\s+/).map(function(w) {
-                            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-                        }).join(' ');
-                    };
+    if (!str) return "";
+    // Розбиваємо рядок на слова за пробілами
+    var parts = str.trim().split(/\s+/);
+    // Видаляємо перше слово (наше "Порно")
+    if (parts.length > 1) parts.shift();
+    
+    // Повертаємо решту, роблячи кожне слово з великої літери
+    return parts.map(function(w) {
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(' ');
+};
 
                     if (isCatListPage) {
                         var cats = doc.querySelectorAll('.categories-block');
@@ -267,12 +269,13 @@ var css = '<style>\
                                 var imgC = elC.querySelector('img'), imgSrcC = imgC ? imgC.getAttribute('src') : '';
                                 if (imgSrcC && imgSrcC.indexOf('//') === 0) imgSrcC = 'https:' + imgSrcC;
                                 results.push({
-                                    name: cleanCatName(titleC.textContent),
-                                    url: linkC.getAttribute('href'),
-                                    picture: imgSrcC, img: imgSrcC,
-                                    card_badge: countC ? '🎬 ' + countC.textContent.trim() : '',
-                                    is_grid: true // Тільки для списку категорій (біла сітка)
-                                });
+    name: cleanCatName(titleC.textContent),
+    url: linkC.getAttribute('href'),
+    picture: imgSrcC, 
+    img: imgSrcC,
+    card_badge: countC ? '🎬 ' + countC.textContent.trim() : '',
+    is_grid: true
+});
                             }
                         }
                     } else {
