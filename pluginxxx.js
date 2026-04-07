@@ -157,6 +157,13 @@ var css = '<style>\
                 title: 'Porndish (data-src)',
                 domain: 'https://www.porndish.com',
                 getHomeUrl: function() { return this.domain; },
+                getSearchUrl: function(query) { return this.domain + '/?s=' + encodeURIComponent(query); },
+                getUrl: function(object, page) {
+                    var url = object.url || this.domain;
+                    if (page > 1) return url.split('?')[0].replace(/\/+$/, '') + '/page/' + page + '/';
+                    return url;
+                },
+                getNavItems: function() { return []; },
                 parse: function(doc, currentUrl, object) {
                     var results = [];
                     var elements = doc.querySelectorAll('article.entry-tpl-grid, article.post');
@@ -166,20 +173,21 @@ var css = '<style>\
                         var imgEl = el.querySelector('.g1-frame-inner img');
                         var timeEl = el.querySelector('.mace-video-duration');
                         if (a) {
-                            // Беремо data-src, якщо там заглушка - ігноруємо
                             var img = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
                             if (img && img.indexOf('data:image') !== -1) img = imgEl.getAttribute('data-src') || '';
-
                             results.push({
                                 name: (a.textContent || '').trim(),
                                 url: a.getAttribute('href'),
                                 picture: img,
+                                img: img,
                                 time: timeEl ? (timeEl.textContent || '').trim() : ''
                             });
                         }
                     }
                     return results;
-                }
+                },
+                getStreams: function(h, d, e, s, onError) { onError(); },
+                getMenu: function() { return []; }
             },
 
             // =========================================================================
@@ -189,6 +197,13 @@ var css = '<style>\
                 title: 'Porndish (HQ srcset)',
                 domain: 'https://www.porndish.com',
                 getHomeUrl: function() { return this.domain; },
+                getSearchUrl: function(query) { return this.domain + '/?s=' + encodeURIComponent(query); },
+                getUrl: function(object, page) {
+                    var url = object.url || this.domain;
+                    if (page > 1) return url.split('?')[0].replace(/\/+$/, '') + '/page/' + page + '/';
+                    return url;
+                },
+                getNavItems: function() { return []; },
                 parse: function(doc, currentUrl, object) {
                     var results = [];
                     var elements = doc.querySelectorAll('article.entry-tpl-grid, article.post');
@@ -201,7 +216,6 @@ var css = '<style>\
                             var img = '';
                             var srcset = imgEl ? imgEl.getAttribute('data-srcset') : null;
                             if (srcset) {
-                                // Розбиваємо "url 192w, url 364w" і шукаємо найбільше число
                                 var parts = srcset.split(',');
                                 var maxW = 0;
                                 for (var j = 0; j < parts.length; j++) {
@@ -213,26 +227,35 @@ var css = '<style>\
                                 }
                             }
                             if (!img && imgEl) img = imgEl.getAttribute('data-src') || imgEl.getAttribute('src');
-
                             results.push({
                                 name: (a.textContent || '').trim(),
                                 url: a.getAttribute('href'),
                                 picture: img,
+                                img: img,
                                 time: timeEl ? (timeEl.textContent || '').trim() : ''
                             });
                         }
                     }
                     return results;
-                }
+                },
+                getStreams: function(h, d, e, s, onError) { onError(); },
+                getMenu: function() { return []; }
             },
 
             // =========================================================================
-            // ВАРІАНТ 3: Через проксі weserv.nl (Обхід CORS та Хотлінкінгу)
+            // ВАРІАНТ 3: Через проксі weserv.nl (Найбільш стабільний)
             // =========================================================================
             porndish3: {
                 title: 'Porndish (Proxy)',
                 domain: 'https://www.porndish.com',
                 getHomeUrl: function() { return this.domain; },
+                getSearchUrl: function(query) { return this.domain + '/?s=' + encodeURIComponent(query); },
+                getUrl: function(object, page) {
+                    var url = object.url || this.domain;
+                    if (page > 1) return url.split('?')[0].replace(/\/+$/, '') + '/page/' + page + '/';
+                    return url;
+                },
+                getNavItems: function() { return []; },
                 parse: function(doc, currentUrl, object) {
                     var results = [];
                     var elements = doc.querySelectorAll('article.entry-tpl-grid, article.post');
@@ -243,23 +266,26 @@ var css = '<style>\
                         var timeEl = el.querySelector('.mace-video-duration');
                         if (a) {
                             var rawImg = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
-                            // Якщо це base64, намагаємось взяти data-src
-                            if (rawImg.indexOf('data:image') !== -1) rawImg = imgEl.getAttribute('data-src') || '';
+                            if (rawImg && rawImg.indexOf('data:image') !== -1) rawImg = imgEl.getAttribute('data-src') || '';
                             
-                            // Проганяємо через публічний проксі
+                            // Використовуємо проксі для обходу обмежень завантаження
                             var img = rawImg ? 'https://images.weserv.nl/?url=' + encodeURIComponent(rawImg) + '&w=600' : '';
 
                             results.push({
                                 name: (a.textContent || '').trim(),
                                 url: a.getAttribute('href'),
                                 picture: img,
+                                img: img,
                                 time: timeEl ? (timeEl.textContent || '').trim() : ''
                             });
                         }
                     }
                     return results;
-                }
+                },
+                getStreams: function(h, d, e, s, onError) { onError(); },
+                getMenu: function() { return []; }
             },
+
 
 
 
