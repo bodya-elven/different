@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.6.2',
+        version: '2.6.3',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -159,68 +159,86 @@ var css = '<style>\
                 getHomeUrl: function() { return this.domain + '/videos/'; },
                 
                 getSearchUrl: function(query) { 
-                    return this.domain + '/search/?q=' + encodeURIComponent(query); 
+                    return this.domain + '/search/?text=' + encodeURIComponent(query); 
                 },
                 
                 getUrl: function(object, page) {
                     var url = object.url || (this.domain + '/videos/');
                     if (page > 1) {
                         var base = url.split('?')[0].replace(/\/page-\d+\/?$/, '').replace(/\/+$/, '');
-                        // Для головної (/videos/): сторінка 2+ йде без /videos
+                        // Специфічна пагінація головної: /videos/ -> /page-2/
                         if (base === this.domain || base.indexOf('/videos') !== -1) {
                             return this.domain + '/page-' + page + '/';
                         }
-                        // Для категорій та сортувань: додаємо /page-X/ в кінець
                         return base + '/page-' + page + '/';
                     }
                     return url;
                 },
 
                 getFilters: function(doc, currentUrl) {
+                    var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
+                    
+                    // Сортування відсутнє: Пошук, Списки категорій, Схожі відео
+                    if (currentUrl.indexOf('/search/') !== -1 || targetPath === '/porno' || currentUrl.indexOf('related') !== -1) return null;
+
                     var filters = [];
                     var basePath = currentUrl.split('?')[0]
                         .replace(/\/page-\d+\/?$/, '')
-                        .replace(/\/month\/?$/, '')
-                        .replace(/\/all-time\/?$/, '')
+                        .replace(/\/most-popular\/?$/, '')
+                        .replace(/\/top-rated\/?$/, '')
                         .replace(/\/+$/, '');
 
-                    // 1. Головне сортування (визначаємо активне з посилання)
-                    var activeSort = 'Новое';
-                    if (currentUrl.indexOf('top-rated-porn') !== -1) activeSort = 'Лучшее';
-                    else if (currentUrl.indexOf('most-popular-porn') !== -1) activeSort = 'Популярное';
-
-                    filters.push({
-                        subtitle: '↕️ ' + activeSort,
-                        items: [
-                            { title: 'Новое', url: this.domain + '/videos/' },
-                            { title: 'Лучшее', url: this.domain + '/top-rated-porn/' },
-                            { title: 'Популярное', url: this.domain + '/most-popular-porn/' }
-                        ]
-                    });
-
-                    // 2. Періоди (з'являються тільки в Лучшее та Популярное)
-                    if (activeSort !== 'Новое') {
-                        var activePeriod = 'За неделю';
-                        if (currentUrl.indexOf('/month') !== -1) activePeriod = 'За месяц';
-                        else if (currentUrl.indexOf('/all-time') !== -1) activePeriod = 'За всё время';
+                    // 1. Динамічне сортування всередині КАТЕГОРІЙ
+                    if (targetPath.indexOf('/porno-') !== -1) {
+                        var activeCatSort = 'Новые';
+                        if (currentUrl.indexOf('/most-popular/') !== -1) activeCatSort = 'Популярные';
+                        else if (currentUrl.indexOf('/top-rated/') !== -1) activeCatSort = 'Рейтинг';
 
                         filters.push({
-                            subtitle: '🗓️ ' + activePeriod,
+                            subtitle: '↕️ ' + activeCatSort,
                             items: [
-                                { title: 'За неделю', url: basePath + '/' },
-                                { title: 'За месяц', url: basePath + '/month/' },
-                                { title: 'За всё время', url: basePath + '/all-time/' }
+                                { title: 'Новые', url: basePath + '/' },
+                                { title: 'Популярные', url: basePath + '/most-popular/' },
+                                { title: 'Рейтинг', url: basePath + '/top-rated/' }
                             ]
                         });
+                    } 
+                    // 2. Глобальне сортування (Головна, Лучшее, Популярное)
+                    else if (targetPath === '' || targetPath === '/videos' || currentUrl.indexOf('top-rated-porn') !== -1 || currentUrl.indexOf('most-popular-porn') !== -1) {
+                        var activeGlobalSort = 'Новое';
+                        if (currentUrl.indexOf('top-rated-porn') !== -1) activeGlobalSort = 'Лучшее';
+                        else if (currentUrl.indexOf('most-popular-porn') !== -1) activeGlobalSort = 'Популярное';
+
+                        filters.push({
+                            subtitle: '↕️ ' + activeGlobalSort,
+                            items: [
+                                { title: 'Новое', url: this.domain + '/videos/' },
+                                { title: 'Лучшее', url: this.domain + '/top-rated-porn/' },
+                                { title: 'Популярное', url: this.domain + '/most-popular-porn/' }
+                            ]
+                        });
+
+                        if (activeGlobalSort !== 'Новое') {
+                            var activePeriod = 'За неделю';
+                            if (currentUrl.indexOf('/month') !== -1) activePeriod = 'За месяц';
+                            else if (currentUrl.indexOf('/all-time') !== -1) activePeriod = 'За всё время';
+
+                            filters.push({
+                                subtitle: '🗓️ ' + activePeriod,
+                                items: [
+                                    { title: 'За неделю', url: basePath + '/' },
+                                    { title: 'За месяц', url: basePath + '/month/' },
+                                    { title: 'За всё время', url: basePath + '/all-time/' }
+                                ]
+                            });
+                        }
                     }
                     return filters;
                 },
 
                 getNavItems: function() {
                     return [
-                        { title: '🆕 Новое', action: 'nav', url: this.domain + '/videos/' },
-                        { title: '🏆 Лучшее', action: 'nav', url: this.domain + '/top-rated-porn/' },
-                        { title: '🔥 Популярное', action: 'nav', url: this.domain + '/most-popular-porn/' },
+                        { title: '🎬 Новинки', action: 'nav', url: this.domain + '/videos/' },
                         { title: '🗄️ Категории', action: 'nav', url: this.domain + '/porno/', is_categories: true }
                     ];
                 },
@@ -230,23 +248,27 @@ var css = '<style>\
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
                     var isCatList = object.is_categories || targetPath === '/porno';
 
+                    var cleanCatName = function(str) {
+                        if (!str) return "";
+                        // Видаляємо "Порно " на початку, робимо Title Case
+                        var s = str.replace(/^Порно\s+/i, '').trim();
+                        return s.split(' ').map(function(w) {
+                            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+                        }).join(' ');
+                    };
+
                     if (isCatList) {
                         var cats = doc.querySelectorAll('.categories-block');
                         for (var i = 0; i < cats.length; i++) {
-                            var elC = cats[i];
-                            var linkC = elC.querySelector('a.link');
-                            var imgC = elC.querySelector('img');
-                            var titleC = elC.querySelector('.title');
-                            var countC = elC.querySelector('.videos .text');
+                            var elC = cats[i], linkC = elC.querySelector('a.link'), titleC = elC.querySelector('.title'), countC = elC.querySelector('.videos .text');
                             if (linkC && titleC) {
-                                var imgSrcC = imgC ? imgC.getAttribute('src') : '';
+                                var imgC = elC.querySelector('img'), imgSrcC = imgC ? imgC.getAttribute('src') : '';
                                 if (imgSrcC && imgSrcC.indexOf('//') === 0) imgSrcC = 'https:' + imgSrcC;
                                 results.push({
-                                    name: (titleC.textContent || '').trim(),
+                                    name: cleanCatName(titleC.textContent),
                                     url: linkC.getAttribute('href'),
-                                    picture: imgSrcC,
-                                    img: imgSrcC,
-                                    card_badge: countC ? '🎬 ' + countC.textContent.trim() : '', // Плашка з емодзі
+                                    picture: imgSrcC, img: imgSrcC,
+                                    card_badge: countC ? '🎬 ' + countC.textContent.trim() : '',
                                     is_grid: true
                                 });
                             }
@@ -254,22 +276,25 @@ var css = '<style>\
                     } else {
                         var items = doc.querySelectorAll('.video-block, .item');
                         for (var j = 0; j < items.length; j++) {
-                            var elV = items[j];
-                            var aV = elV.querySelector('a.link') || elV.querySelector('a');
-                            var titleV = elV.querySelector('.title, .name');
-                            var imgV = elV.querySelector('img.thumb, img');
-                            var timeV = elV.querySelector('.duration');
-                            if (aV && (titleV || imgV)) {
+                            var elV = items[j], aV = elV.querySelector('a.link') || elV.querySelector('a'), titleV = elV.querySelector('.title, .name'), timeV = elV.querySelector('.duration');
+                            if (aV) {
                                 var urlV = aV.getAttribute('href');
                                 if (urlV && urlV.indexOf('http') !== 0) urlV = this.domain + (urlV.startsWith('/') ? '' : '/') + urlV;
-                                var imgSrcV = imgV ? (imgV.getAttribute('data-original') || imgV.getAttribute('src')) : '';
+                                var imgEl = elV.querySelector('img.thumb, img'), imgSrcV = imgEl ? (imgEl.getAttribute('data-original') || imgEl.getAttribute('src')) : '';
                                 if (imgSrcV && imgSrcV.indexOf('//') === 0) imgSrcV = 'https:' + imgSrcV;
+
+                                // РОБОЧИЙ ТРЕЙЛЕР (.webm)
+                                var previewUrl = "";
+                                if (imgSrcV && imgSrcV.indexOf('.jpg') !== -1) {
+                                    previewUrl = imgSrcV.substring(0, imgSrcV.lastIndexOf('/')) + '/video.webm';
+                                }
+
                                 results.push({
-                                    name: titleV ? (titleV.textContent || '').trim() : (imgV ? imgV.getAttribute('alt') : ''),
+                                    name: titleV ? (titleV.textContent || '').trim() : (imgEl ? imgEl.getAttribute('alt') : ''),
                                     url: urlV,
-                                    picture: imgSrcV,
-                                    img: imgSrcV,
-                                    time: timeV ? (timeV.textContent || '').trim() : '' // Плашка тривалості
+                                    picture: imgSrcV, img: imgSrcV,
+                                    time: timeV ? (timeV.textContent || '').trim() : '',
+                                    preview: previewUrl
                                 });
                             }
                         }
@@ -278,20 +303,15 @@ var css = '<style>\
                 },
 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
-                    // Парсимо PlayerJS конфіг
                     var fileMatch = htmlText.match(/file\s*:\s*["']([^"']+)["']/);
                     if (fileMatch && fileMatch[1]) {
-                        var fileData = fileMatch[1].replace(/\\/g, '');
-                        var parts = fileData.split(',');
-                        var qualities = [];
-                        
+                        var fileData = fileMatch[1].replace(/\\/g, ''), parts = fileData.split(','), qualities = [];
                         for (var i = 0; i < parts.length; i++) {
                             var m = parts[i].match(/\[(\d+p)\]\s*(https?:\/\/[^\s,]+)/);
                             if (m) qualities.push({ title: m[1], url: m[2].trim() });
                         }
-                        
                         if (qualities.length > 0) {
-                            // Сортуємо: найкраща якість буде першою
+                            // Обираємо найкращу якість
                             qualities.sort(function(a, b) { return parseInt(b.title) - parseInt(a.title); });
                             startPlayback(qualities);
                             return;
@@ -302,7 +322,7 @@ var css = '<style>\
 
                 getMenu: function(doc, htmlText, element) {
                     var menu = [];
-                    // Моделі з відео
+                    // Витягуємо моделі з відео (якщо вони є в коді сторінки)
                     var models = doc.querySelectorAll('.row.models a');
                     for (var i = 0; i < models.length; i++) {
                         var mName = (models[i].textContent || '').trim();
@@ -311,11 +331,12 @@ var css = '<style>\
                             menu.push({ title: '👸 ' + mName, action: 'direct', url: mUrl.startsWith('http') ? mUrl : this.domain + mUrl });
                         }
                     }
-                    menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: '.row:not(.models) a.link' });
+                    menu.push({ title: '🗄️ Категории', action: 'cats_custom', sel: '.row:not(.models) a.link' });
                     menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
                     return menu;
                 }
             },
+
 
 
 
