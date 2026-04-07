@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.6.4',
+        version: '2.6.5',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -151,100 +151,116 @@ var css = '<style>\
 
 
             // =========================================================================
-            // АДАПТЕР: PORNDISH (ОНОВЛЕНИЙ ПАРСИНГ ТА HQ-ЗОБРАЖЕННЯ)
+            // ВАРІАНТ 1: Пріоритет data-src (Стандартний Lazy Load)
             // =========================================================================
-            porndish2: {
-                title: 'Porndish 2',
+            porndish1: {
+                title: 'Porndish (data-src)',
                 domain: 'https://www.porndish.com',
-                
                 getHomeUrl: function() { return this.domain; },
-                
-                getSearchUrl: function(query) { 
-                    return this.domain + '/?s=' + encodeURIComponent(query); 
-                },
-                
-                getUrl: function(object, page) {
-                    var url = object.url || this.domain;
-                    if (page > 1) {
-                        var base = url.split('?')[0].replace(/\/page\/\d+\/?$/, '').replace(/\/+$/, '');
-                        var query = url.indexOf('?') !== -1 ? '?' + url.split('?')[1] : '';
-                        // Формат пагінації Porndish: /page/2/
-                        return base + '/page/' + page + '/' + query;
-                    }
-                    return url;
-                },
-
-                getFilters: function(doc, currentUrl) { return null; },
-
-                getNavItems: function() {
-                    return [ 
-                        { title: '🗄️ Категорії', action: 'nav', url: this.domain + '/', is_categories: true } 
-                    ];
-                },
-
                 parse: function(doc, currentUrl, object) {
                     var results = [];
-                    var _this = this;
-                    
-                    // Використовуємо нові класи з твоєї верстки
                     var elements = doc.querySelectorAll('article.entry-tpl-grid, article.post');
-
                     for (var i = 0; i < elements.length; i++) {
                         var el = elements[i];
-                        
-                        // Шукаємо заголовок та посилання
-                        var titleEl = el.querySelector('.entry-title a');
-                        var linkEl = el.querySelector('a.g1-frame');
-                        
-                        if (titleEl && linkEl) {
-                            var title = (titleEl.textContent || '').trim();
-                            var url = titleEl.getAttribute('href');
-                            
-                            // Час відео
-                            var timeEl = el.querySelector('.mace-video-duration');
-                            var time = timeEl ? (timeEl.textContent || '').trim() : '';
+                        var a = el.querySelector('.entry-title a');
+                        var imgEl = el.querySelector('.g1-frame-inner img');
+                        var timeEl = el.querySelector('.mace-video-duration');
+                        if (a) {
+                            // Беремо data-src, якщо там заглушка - ігноруємо
+                            var img = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
+                            if (img && img.indexOf('data:image') !== -1) img = imgEl.getAttribute('data-src') || '';
 
-                            // РОБОТА З ЗОБРАЖЕННЯМ (HQ-Style Proxy)
-                            var imgEl = el.querySelector('img');
-                            var rawImg = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
-                            var img = '';
-
-                            if (rawImg) {
-                                // Якщо картинка з рідного домену — пропускаємо через проксі для ресайзу та обходу CORS
-                                if (rawImg.indexOf('porndish.com') !== -1 && rawImg.indexOf('/api/images') === -1) {
-                                    img = _this.domain + '/api/images?src=' + encodeURIComponent(rawImg) + '&width=640&quality=75';
-                                } else if (rawImg.startsWith('/')) {
-                                    img = _this.domain + rawImg;
-                                } else {
-                                    img = rawImg;
-                                }
-                            }
-
-                            if (title && url) {
-                                results.push({
-                                    name: title,
-                                    url: url,
-                                    picture: img,
-                                    img: img,
-                                    time: time,
-                                    // Оскільки ми тепер маємо нормальні картинки, 
-                                    // прибираємо застарілий прапор is_noimg_main
-                                    is_noimg_main: false 
-                                });
-                            }
+                            results.push({
+                                name: (a.textContent || '').trim(),
+                                url: a.getAttribute('href'),
+                                picture: img,
+                                time: timeEl ? (timeEl.textContent || '').trim() : ''
+                            });
                         }
                     }
                     return results;
-                },
-
-                getStreams: function(htmlText, doc, element, startPlayback, onError) {
-                    // (Тут залишається твоя існуюча логіка для стрімів)
-                },
-
-                getMenu: function(doc, htmlText, element) {
-                    return [ { title: '🔥 Схожі відео', action: 'sim', url: element.url } ];
                 }
             },
+
+            // =========================================================================
+            // ВАРІАНТ 2: Найкраща якість (Парсинг srcset)
+            // =========================================================================
+            porndish2: {
+                title: 'Porndish (HQ srcset)',
+                domain: 'https://www.porndish.com',
+                getHomeUrl: function() { return this.domain; },
+                parse: function(doc, currentUrl, object) {
+                    var results = [];
+                    var elements = doc.querySelectorAll('article.entry-tpl-grid, article.post');
+                    for (var i = 0; i < elements.length; i++) {
+                        var el = elements[i];
+                        var a = el.querySelector('.entry-title a');
+                        var imgEl = el.querySelector('.g1-frame-inner img');
+                        var timeEl = el.querySelector('.mace-video-duration');
+                        if (a) {
+                            var img = '';
+                            var srcset = imgEl ? imgEl.getAttribute('data-srcset') : null;
+                            if (srcset) {
+                                // Розбиваємо "url 192w, url 364w" і шукаємо найбільше число
+                                var parts = srcset.split(',');
+                                var maxW = 0;
+                                for (var j = 0; j < parts.length; j++) {
+                                    var match = parts[j].trim().split(/\s+/);
+                                    if (match.length === 2) {
+                                        var w = parseInt(match[1]);
+                                        if (w > maxW) { maxW = w; img = match[0]; }
+                                    }
+                                }
+                            }
+                            if (!img && imgEl) img = imgEl.getAttribute('data-src') || imgEl.getAttribute('src');
+
+                            results.push({
+                                name: (a.textContent || '').trim(),
+                                url: a.getAttribute('href'),
+                                picture: img,
+                                time: timeEl ? (timeEl.textContent || '').trim() : ''
+                            });
+                        }
+                    }
+                    return results;
+                }
+            },
+
+            // =========================================================================
+            // ВАРІАНТ 3: Через проксі weserv.nl (Обхід CORS та Хотлінкінгу)
+            // =========================================================================
+            porndish3: {
+                title: 'Porndish (Proxy)',
+                domain: 'https://www.porndish.com',
+                getHomeUrl: function() { return this.domain; },
+                parse: function(doc, currentUrl, object) {
+                    var results = [];
+                    var elements = doc.querySelectorAll('article.entry-tpl-grid, article.post');
+                    for (var i = 0; i < elements.length; i++) {
+                        var el = elements[i];
+                        var a = el.querySelector('.entry-title a');
+                        var imgEl = el.querySelector('.g1-frame-inner img');
+                        var timeEl = el.querySelector('.mace-video-duration');
+                        if (a) {
+                            var rawImg = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
+                            // Якщо це base64, намагаємось взяти data-src
+                            if (rawImg.indexOf('data:image') !== -1) rawImg = imgEl.getAttribute('data-src') || '';
+                            
+                            // Проганяємо через публічний проксі
+                            var img = rawImg ? 'https://images.weserv.nl/?url=' + encodeURIComponent(rawImg) + '&w=600' : '';
+
+                            results.push({
+                                name: (a.textContent || '').trim(),
+                                url: a.getAttribute('href'),
+                                picture: img,
+                                time: timeEl ? (timeEl.textContent || '').trim() : ''
+                            });
+                        }
+                    }
+                    return results;
+                }
+            },
+
 
 
 
