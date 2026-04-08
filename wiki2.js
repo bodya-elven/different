@@ -36,21 +36,8 @@
 
                     if (id) {
                         var personData = { id: id, name: name };
-                        var html = activity.render();
-                        
-                        var attempts = 0;
-                        var tryRender = function() {
-                            var buttons_container = html.find('.full-start-new__buttons, .full-start__buttons');
-                            if (buttons_container.length > 0) {
-                                _this.render(personData, html, 'person');
-                            } else if (attempts < 30) {
-                                attempts++;
-                                setTimeout(tryRender, 100);
-                            } else {
-                                _this.render(personData, html, 'person');
-                            }
-                        };
-                        tryRender();
+                        // Малюємо миттєво, без таймерів
+                        _this.render(personData, activity.render(), 'person');
                     }
                 }
             });
@@ -67,6 +54,7 @@
             var container = $(html);
             if (container.find('.lampa-wiki-button').length) return;
 
+            // Кнопка стартує напівпрозорою (opacity: 0.3)
             var button = $('<div class="full-start__button selector lampa-wiki-button" style="opacity: 0.3; transition: opacity 0.3s;">' +
                     '<img src="' + ICON_WIKI + '" class="wiki-icon-img">' +
                     '<span>Wikipedia</span>' +
@@ -118,33 +106,37 @@
 
             if (!$('style#wiki-plugin-style').length) $('head').append('<style id="wiki-plugin-style">' + style + '</style>');
 
-            var buttons_container = container.find('.full-start-new__buttons, .full-start__buttons');
-            
-            if (buttons_container.length === 0) {
-                buttons_container = $('<div class="full-start__buttons"></div>');
-                var info_block = container.find('.full-start__info, .full-start__head, .actor__info, .full-person__info').first();
-                if (info_block.length) {
-                    info_block.append(buttons_container);
-                } else {
-                    container.find('.scroll__content, .full-start').first().append(buttons_container);
-                }
-            }
-
             if (type === 'person') {
-                var firstSelector = buttons_container.children('.selector').first();
-                if (firstSelector.length) {
-                    firstSelector.after(button); 
-                } else {
-                    buttons_container.append(button);
+                // Залізобетонне розміщення для акторів: створюємо власний незалежний блок під текстом
+                var my_buttons = container.find('.wiki-custom-buttons');
+                if (my_buttons.length === 0) {
+                    my_buttons = $('<div class="wiki-custom-buttons full-start__buttons" style="display:flex; flex-wrap:wrap; margin-top: 15px;"></div>');
+                    var info_block = container.find('.full-start__info, .full-person__info, .actor__info').first();
+                    if (info_block.length) {
+                        info_block.append(my_buttons);
+                    } else {
+                        container.append(my_buttons);
+                    }
                 }
+                my_buttons.append(button);
             } else {
-                buttons_container.append(button);
+                // Розміщення для фільмів
+                var buttons_container = container.find('.full-start-new__buttons, .full-start__buttons');
+                if (buttons_container.length) {
+                    buttons_container.append(button);
+                } else {
+                    container.append(button);
+                }
             }
 
+            // Фоновий пошук
             _this.performSearch(item, type, function(hasResults) {
-                if (hasResults) button.addClass('ready');
+                if (hasResults) {
+                    button.css('opacity', '1').addClass('ready'); // Робимо кнопку яскравою
+                }
             });
 
+            // Обробка кліку: працює тільки якщо кнопка "горить" (ready)
             button.on('hover:enter click', function() {
                 if ($(this).hasClass('ready')) {
                     if (!isOpened) _this.handleButtonClick(item, type); 
