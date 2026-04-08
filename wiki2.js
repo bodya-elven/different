@@ -8,6 +8,9 @@
         var cachedResults = null;
         var searchPromise = null;
         var isOpened = false;
+        
+        // Змінна для зберігання фонового запиту (за твоєю логікою)
+        var backgroundSearchPromise = null; 
 
         this.init = function () {
             Lampa.Listener.follow('full', function (e) {
@@ -15,46 +18,68 @@
                     _this.cleanup();
                     setTimeout(function() {
                         try {
-                            _this.render(e.data.movie, e.object.activity.render(), 'movie');
+                            _this.render(e.data.movie, 'movie');
                         } catch (err) {}
                     }, 50);
                 }
             });
 
             Lampa.Listener.follow('activity', function (e) {
-                if (e.type === 'complite' && e.component === 'actor') {
+                // КРОК 1: МИТТЄВЕ ПЕРЕХОПЛЕННЯ ID (на старті)
+                if (e.type === 'start' && e.component === 'actor') {
                     _this.cleanup();
-                    
-                    var activity = e.object.activity;
-                    var id = activity.id || (activity.data && activity.data.id) || (activity.item && activity.item.id) || (activity.person && activity.person.id);
-                    var name = activity.title || (activity.data && (activity.data.name || activity.data.title)) || 'Особа';
-                    
-                    if (!id && window.location.href.indexOf('id=') !== -1) {
-                        var match = window.location.href.match(/[?&]id=(\d+)/);
-                        if (match) id = match[1];
-                    }
-
+                    var id = _this.extractId(e);
                     if (id) {
-                        var personData = { id: id, name: name };
-                        // Малюємо миттєво, без таймерів
-                        _this.render(personData, activity.render(), 'person');
+                        var name = _this.extractName(e);
+                        // Запускаємо запит до Вікіпедії відразу, поки Лампа ще вантажиться!
+                        backgroundSearchPromise = _this.performSearch({id: id, name: name}, 'person', null);
                     }
                 }
+
+                // КРОК 2: МАЛЮЄМО КНОПКУ (коли сторінка готова)
+                if (e.type === 'complite' && e.component === 'actor') {
+                    setTimeout(function() {
+                        try {
+                            var id = _this.extractId(e);
+                            if (id) {
+                                var personData = { id: id, name: _this.extractName(e) };
+                                _this.render(personData, 'person');
+                            }
+                        } catch (err) {}
+                    }, 150); // Мінімальна затримка, щоб DOM-дерево точно стало на екран
+                }
             });
+        };
+
+        // Функції для надійного витягування ID та Імені з будь-якого місця
+        this.extractId = function(e) {
+            var item = e.object.item || e.object.data || e.object.person || {};
+            var id = item.id || e.object.id;
+            if (!id && window.location.href.indexOf('id=') !== -1) {
+                var match = window.location.href.match(/[?&]id=(\d+)/);
+                if (match) id = match[1];
+            }
+            return id;
+        };
+
+        this.extractName = function(e) {
+            var item = e.object.item || e.object.data || e.object.person || {};
+            return item.title || item.name || e.object.title || 'Особа';
         };
 
         this.cleanup = function() {
             $('.lampa-wiki-button').remove();
             cachedResults = null;
             searchPromise = null;
+            backgroundSearchPromise = null;
             isOpened = false;
         };
 
-        this.render = function (item, html, type) {
-            var container = $(html);
-            if (container.find('.lampa-wiki-button').length) return;
+        // Залізобетонний рендер: малюємо прямо в активну сторінку на екрані
+        this.render = function (item, type) {
+            var active_page = $('.activity--active'); // Шукаємо відкриту вкладку на ТБ
+            if (active_page.length === 0 || active_page.find('.lampa-wiki-button').length) return;
 
-            // Кнопка стартує напівпрозорою (opacity: 0.3)
             var button = $('<div class="full-start__button selector lampa-wiki-button" style="opacity: 0.3; transition: opacity 0.3s;">' +
                     '<img src="' + ICON_WIKI + '" class="wiki-icon-img">' +
                     '<span>Wikipedia</span>' +
@@ -106,37 +131,42 @@
 
             if (!$('style#wiki-plugin-style').length) $('head').append('<style id="wiki-plugin-style">' + style + '</style>');
 
-            if (type === 'person') {
-                // Залізобетонне розміщення для акторів: створюємо власний незалежний блок під текстом
-                var my_buttons = container.find('.wiki-custom-buttons');
-                if (my_buttons.length === 0) {
-                    my_buttons = $('<div class="wiki-custom-buttons full-start__buttons" style="display:flex; flex-wrap:wrap; margin-top: 15px;"></div>');
-                    var info_block = container.find('.full-start__info, .full-person__info, .actor__info').first();
-                    if (info_block.length) {
-                        info_block.append(my_buttons);
-                    } else {
-                        container.append(my_buttons);
-                    }
-                }
-                my_buttons.append(button);
-            } else {
-                // Розміщення для фільмів
-                var buttons_container = container.find('.full-start-new__buttons, .full-start__buttons');
-                if (buttons_container.length) {
-                    buttons_container.append(button);
+            // Логіка вставки кнопки
+            var buttons_container = active_page.find('.full-start-new__buttons, .full-start__buttons');
+            
+            if (buttons_container.length === 0) {
+                // Якщо контейнера кнопок немає, створюємо свій
+                buttons_container = $('<div class="full-start__buttons wiki-custom-buttons" style="display:flex; flex-wrap:wrap; margin-top: 15px;"></div>');
+                var info_block = active_page.find('.full-start__info, .full-person__info, .actor-info, .actor__info').first();
+                if (info_block.length) {
+                    info_block.append(buttons_container);
                 } else {
-                    container.append(button);
+                    active_page.find('.scroll__content').first().prepend(buttons_container); // Якщо зовсім біда, ліпимо зверху сторінки
                 }
             }
 
-            // Фоновий пошук
-            _this.performSearch(item, type, function(hasResults) {
-                if (hasResults) {
-                    button.css('opacity', '1').addClass('ready'); // Робимо кнопку яскравою
+            if (type === 'person') {
+                var firstSelector = buttons_container.children('.selector').first();
+                if (firstSelector.length) {
+                    firstSelector.after(button); // Після першої кнопки
+                } else {
+                    buttons_container.append(button);
                 }
-            });
+            } else {
+                buttons_container.append(button);
+            }
 
-            // Обробка кліку: працює тільки якщо кнопка "горить" (ready)
+            // Перевіряємо статус фонового запиту
+            if (type === 'person' && backgroundSearchPromise) {
+                backgroundSearchPromise.done(function(results) {
+                    if (results.length > 0) button.css('opacity', '1').addClass('ready');
+                });
+            } else {
+                _this.performSearch(item, type, function(hasResults) {
+                    if (hasResults) button.css('opacity', '1').addClass('ready');
+                });
+            }
+
             button.on('hover:enter click', function() {
                 if ($(this).hasClass('ready')) {
                     if (!isOpened) _this.handleButtonClick(item, type); 
@@ -145,10 +175,9 @@
                 }
             });
         };
-
         this.getTitle = function(item, type) {
             if (type === 'person') {
-                return item.title || (item.item && item.item.name) || (item.data && item.data.name) || 'Особа';
+                return item.title || item.name || 'Особа';
             }
             return item.title || item.name;
         };
@@ -163,8 +192,9 @@
             if (cachedResults) {
                 if (cachedResults.length > 0) _this.showMenu(cachedResults, title);
                 else { isOpened = false; }
-            } else if (searchPromise) {
-                searchPromise.done(function(results) {
+            } else if (searchPromise || backgroundSearchPromise) {
+                var activePromise = searchPromise || backgroundSearchPromise;
+                activePromise.done(function(results) {
                     if (results.length) _this.showMenu(results, title);
                     else { isOpened = false; }
                 }).fail(function() {
@@ -177,23 +207,9 @@
                 });
             }
         };
+
         this.performSearch = function (item, type, callback) {
-            var id = null;
-
-            if (type === 'person') {
-                id = item.id || (item.item && item.item.id) || (item.data && item.data.id) || (item.person && item.person.id);
-                if (!id && window.Lampa && Lampa.Activity && Lampa.Activity.active()) {
-                    var active = Lampa.Activity.active();
-                    id = active.id || (active.item && active.item.id) || (active.data && active.data.id);
-                }
-                if (!id && window.location.href.indexOf('id=') !== -1) {
-                    var match = window.location.href.match(/[?&]id=(\d+)/);
-                    if (match) id = match[1];
-                }
-            } else {
-                id = item ? item.id : null;
-            }
-
+            var id = item ? item.id : null;
             if (!id) {
                 if (callback) callback(false);
                 return $.Deferred().reject().promise();
