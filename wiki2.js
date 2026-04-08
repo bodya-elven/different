@@ -22,15 +22,22 @@
                 }
             });
 
-            // Для акторів (повертаємо ідеальний момент 'start' з першої спроби)
+            // Для всіх персон (режисерів, акторів тощо)
             Lampa.Listener.follow('activity', function (e) {
                 if (e.type === 'start' && e.component === 'actor') {
                     _this.cleanup();
                     setTimeout(function() {
                         try {
-                            // Надійно отримуємо ID та дані актора
+                            // Розширений пошук ID у всіх можливих місцях
                             var personData = e.object.activity.item || e.object.activity.data || e.object.activity.person;
-                            if (!personData && e.object.activity.id) personData = { id: e.object.activity.id, name: e.object.activity.title };
+                            
+                            // Спроба витягнути ID напряму з activity
+                            if (!personData || !personData.id) {
+                                var actId = e.object.activity.id || (e.object.activity.data && e.object.activity.data.id);
+                                if (actId) {
+                                    personData = { id: actId, name: e.object.activity.title || 'Особа' };
+                                }
+                            }
                             
                             _this.render(personData, e.object.activity.render(), 'person');
                         } catch (err) {}
@@ -101,11 +108,10 @@
 
             if (!$('style#wiki-plugin-style').length) $('head').append('<style id="wiki-plugin-style">' + style + '</style>');
 
-            // Успішна логіка розміщення з першої спроби
             if (type === 'person') {
                 var firstSelector = container.find('.selector').first();
                 if (firstSelector.length) {
-                    firstSelector.after(button); // Ставимо відразу після першої кнопки
+                    firstSelector.after(button); 
                 } else {
                     container.append(button);
                 }
@@ -120,7 +126,6 @@
                 if (hasResults) button.addClass('ready');
             });
 
-            // ТУТ БУВ БАГ: тепер передаємо item, а не item.movie
             button.on('hover:enter click', function() {
                 if (!isOpened) _this.handleButtonClick(item, type); 
             });
@@ -153,7 +158,12 @@
         };
 
         this.performSearch = function (item, type, callback) {
-            if (!item || !item.id) return $.Deferred().reject().promise();
+            // Шпигун №1: Перевірка наявності ID
+            if (!item || !item.id) {
+                if (type === 'person') Lampa.Noty.show('Wiki: Не знайдено ID особи');
+                return $.Deferred().reject().promise();
+            }
+            
             var _this = this;
             var def = $.Deferred();
             
@@ -161,18 +171,26 @@
             var mainType = type === 'person' ? 'Біографія' : (method === 'tv' ? 'Серіал' : 'Фільм');
             var tmdbKey = Lampa.TMDB.key();
 
+            // Шпигун №2: ID успішно знайдено
+            if (type === 'person') Lampa.Noty.show('Wiki: Шукаємо особу з ID ' + item.id);
+
             $.ajax({
                 url: Lampa.TMDB.api(method + '/' + item.id + '/external_ids?api_key=' + tmdbKey),
                 dataType: 'json',
                 success: function(extResp) {
                     var mainQId = extResp.wikidata_id;
                     
+                    // Шпигун №3: Перевірка Wikidata ID
                     if (!mainQId) {
+                        if (type === 'person') Lampa.Noty.show('Wiki: У Wikidata немає ID для цієї особи');
                         cachedResults = [];
                         if (callback) callback(false);
                         def.reject();
                         return;
                     }
+
+                    // Шпигун №4: Успіх на етапі Вікіданих
+                    if (type === 'person') Lampa.Noty.show('Wiki: Wikidata ID знайдено - ' + mainQId);
 
                     $.ajax({
                         url: 'https://www.wikidata.org/w/api.php?action=wbgetentities&ids=' + mainQId + '&props=claims&format=json&origin=*',
