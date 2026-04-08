@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.6.7',
+        version: '2.6.8',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -177,6 +177,7 @@ var css = '<style>\
                     var pagination = doc.querySelector('.pagination');
                     if (!pagination) return false; 
                     var current = pagination.querySelector('.current');
+                    // Запобігаємо зацикленню: якщо сервер віддає сторінку 1 замість 4
                     if (!current || parseInt(current.textContent) !== page) return false;
                     return true;
                 },
@@ -203,7 +204,8 @@ var css = '<style>\
                 getNavItems: function() {
                     return [
                         { title: '🗄️ Категорії', action: 'nav', url: this.domain + '/categories/free-brazz-premium-2026/', is_categories: true },
-                        { title: '👸 Моделі', action: 'nav', url: this.domain + '/pornstars/gender/female/free-brazz-premium-2026/', is_models: true },
+                        // Передаємо is_categories: true для моделей, щоб застосувалась горизонтальна сітка, а не вертикальна
+                        { title: '👸 Моделі', action: 'nav', url: this.domain + '/pornstars/gender/female/free-brazz-premium-2026/', is_categories: true },
                         { title: '🎬 Студії', action: 'nav', url: this.domain + '/sites/free-brazz-premium-2026/', is_studios: true }
                     ];
                 },
@@ -225,14 +227,13 @@ var css = '<style>\
                                 var sImg = container.querySelector('img');
                                 if(sLink && sImg) {
                                     var sUrl = sLink.getAttribute('href');
+                                    if (sUrl && sUrl.indexOf('http') !== 0) sUrl = this.domain + sUrl;
                                     var sImgSrc = sImg.getAttribute('data-src') || sImg.getAttribute('src');
                                     results.push({ 
                                         name: sTitle, 
                                         url: sUrl, 
                                         picture: sImgSrc, img: sImgSrc, 
-                                        is_grid: true, 
-                                        card_grid: 'categories-grid',
-                                        is_models: false // Запобігає увімкненню портретної сітки
+                                        is_grid: true
                                     });
                                 }
                             }
@@ -241,7 +242,7 @@ var css = '<style>\
                     }
 
                     // --- 2. ПАРСИНГ КАТЕГОРІЙ ТА МОДЕЛЕЙ ---
-                    if (object.is_categories || object.is_models || targetPath.indexOf('/categories/') !== -1 || targetPath.indexOf('/pornstars/') !== -1) {
+                    if (object.is_categories || targetPath.indexOf('/categories/') !== -1 || targetPath.indexOf('/pornstars/') !== -1) {
                         var items = doc.querySelectorAll('article.thumb-block');
                         for (var i = 0; i < items.length; i++) {
                             var el = items[i];
@@ -251,21 +252,27 @@ var css = '<style>\
 
                             if (a && titleEl) {
                                 var imgSrc = imgEl ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src')) : '';
+                                var mUrl = a.getAttribute('href');
+                                if (mUrl && mUrl.indexOf('http') !== 0) mUrl = this.domain + mUrl;
                                 results.push({
                                     name: titleEl.textContent.trim(),
-                                    url: a.getAttribute('href'),
+                                    url: mUrl,
                                     picture: imgSrc, img: imgSrc,
-                                    is_grid: true,
-                                    card_grid: 'categories-grid',
-                                    is_models: false // Робимо горизонтальні фото для моделей, як у категорій
+                                    is_grid: true
                                 });
                             }
                         }
                         return results;
                     }
 
-                    // --- 3. ПАРСИНГ ВІДЕО ---
-                    var videos = doc.querySelectorAll('article.loop-video');
+                    // --- 3. ПАРСИНГ ВІДЕО ТА СХОЖИХ ВІДЕО ---
+                    var videosContainer = doc;
+                    if (object.is_related) {
+                        var underBlock = doc.querySelector('.under-video-block');
+                        if (underBlock) videosContainer = underBlock;
+                    }
+
+                    var videos = videosContainer.querySelectorAll('article.loop-video');
                     for (var j = 0; j < videos.length; j++) {
                         var v = videos[j];
                         var link = v.querySelector('a');
@@ -277,8 +284,9 @@ var css = '<style>\
                             var vTitle = link.getAttribute('title') || '';
                             if (!vTitle) {
                                 var hdr = v.querySelector('header span');
-                                vTitle = hdr ? hdr.textContent.replace(/^[A-Z][a-z]{2}\s\d{2}:\s*/i, '').trim() : '';
+                                vTitle = hdr ? hdr.textContent : '';
                             }
+                            vTitle = vTitle.replace(/^[A-Z][a-z]{2}\s\d{2}:\s*/i, '').trim();
 
                             var previewUrl = "";
                             if (vImg && vImg.indexOf('project1content.com') !== -1) {
@@ -286,15 +294,16 @@ var css = '<style>\
                                                  .replace(/\/m=[^\/]+\//, '/')
                                                  .replace('poster/poster_01.jpg', 'mediabook/mediabook_320p.mp4');
                             }
+                            
+                            var vUrl = link.getAttribute('href');
+                            if (vUrl && vUrl.indexOf('http') !== 0) vUrl = this.domain + vUrl;
 
                             results.push({
                                 name: vTitle,
-                                url: link.getAttribute('href'),
+                                url: vUrl,
                                 picture: vImg, img: vImg,
                                 time: dur ? dur.textContent.trim() : '', 
-                                preview: previewUrl,
-                                is_grid: false, // Явно відключаємо режим сітки, щоб текст відцентрувався
-                                is_models: false
+                                preview: previewUrl
                             });
                         }
                     }
@@ -302,22 +311,14 @@ var css = '<style>\
                 },
 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
-                    var iframe = doc.querySelector('iframe[name="player"]') || doc.querySelector('iframe');
-                    if (iframe) {
-                        var src = iframe.getAttribute('src');
-                        if (src && src.indexOf('http') !== 0) src = 'https:' + src;
-                        
-                        window.pluginx_smartRequest(src, function(pHtml) {
-                            // Регулярний вираз для точного перехоплення m3u8 з параметрами hash і time
-                            var m3u8Match = pHtml.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/i);
-                            
-                            if (m3u8Match && m3u8Match[1]) {
-                                var vUrl = m3u8Match[1].replace(/\\/g, '');
-                                startPlayback([{ title: 'Auto', url: vUrl }]);
-                            } else {
-                                onError();
-                            }
-                        }, onError);
+                    // Дістаємо ID відео прямо з поточного посилання картики, наприклад /video/11475135/
+                    var match = element.url.match(/\/video\/(\d+)\//);
+                    
+                    if (match && match[1]) {
+                        var videoId = match[1];
+                        // Використовуємо твою формулу
+                        var streamUrl = 'https://brazzpw.com/player/m3u8_' + videoId + '.m3u8?hash=1&time=1';
+                        startPlayback([{ title: 'Auto', url: streamUrl }]);
                     } else {
                         onError();
                     }
@@ -328,20 +329,23 @@ var css = '<style>\
                     
                     var actors = doc.querySelectorAll('#video-actors a');
                     for (var i = 0; i < actors.length; i++) {
-                        menu.push({ title: '👸 ' + actors[i].textContent.trim(), action: 'direct', url: actors[i].getAttribute('href'), is_models: true });
+                        var aUrl = actors[i].getAttribute('href');
+                        if (aUrl && aUrl.indexOf('http') !== 0) aUrl = this.domain + aUrl;
+                        menu.push({ title: '👸 ' + actors[i].textContent.trim(), action: 'direct', url: aUrl, is_categories: true });
                     }
 
                     var studio = doc.querySelector('#video-author a');
                     if (studio) {
-                        menu.push({ title: '🎬 ' + studio.textContent.trim(), action: 'direct', url: studio.getAttribute('href'), is_studios: true });
+                        var sUrl = studio.getAttribute('href');
+                        if (sUrl && sUrl.indexOf('http') !== 0) sUrl = this.domain + sUrl;
+                        menu.push({ title: '🎬 ' + studio.textContent.trim(), action: 'direct', url: sUrl, is_categories: true });
                     }
 
-                    // Повертаємо категорії як випадаючий список
-                    menu.push({ title: '🏷️ Категории', action: 'cats_custom', sel: '.tags-list a' });
+                    menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: '.tags-list a' });
 
                     var related = doc.querySelectorAll('.under-video-block article.loop-video');
                     if (related.length > 0) {
-                        menu.push({ title: '🔥 Схожі відео', action: 'sim_custom', sel: '.under-video-block article.loop-video' });
+                        menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
                     }
 
                     return menu;
