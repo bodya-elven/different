@@ -500,7 +500,7 @@
             en: 'Distance between information elements',
             uk: 'Відстань між елементами інформації'
         },
-        settings_title_display: {,
+        settings_title_display: {
             en: 'Display',
             uk: 'Відображення'
         },
@@ -518,7 +518,7 @@
         },
         description_overlay: {
             en: 'Description in Overlay',
-            uk: 'Опис в оверлеї'ґ'
+            uk: 'Опис в оверлеї'
         },
         description_overlay_desc: {
             en: 'Show description in a separate window when clicked',
