@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.6.8',
+        version: '2.6.9',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -183,7 +183,11 @@ var css = '<style>\
                 },
 
                 getFilters: function(doc, currentUrl) {
-                    if (currentUrl.indexOf('/categories/') !== -1 || currentUrl.indexOf('/pornstars/') !== -1 || currentUrl.indexOf('/sites/') !== -1) return null;
+                    // Показуємо сортування ТІЛЬКИ на головній або на сторінках сортування
+                    var isHome = currentUrl.endsWith('/videos/free-brazz-premium-2026/') || currentUrl.endsWith('/videos/free-brazz-premium-2026');
+                    var isSort = currentUrl.indexOf('/videos/sortby/') !== -1;
+                    
+                    if (!isHome && !isSort) return null;
 
                     var activeSort = 'Newest';
                     if (currentUrl.indexOf('/sortby/rating/') !== -1) activeSort = 'Top Rated';
@@ -204,13 +208,20 @@ var css = '<style>\
                 getNavItems: function() {
                     return [
                         { title: '🗄️ Категорії', action: 'nav', url: this.domain + '/categories/free-brazz-premium-2026/', is_categories: true },
-                        // Передаємо is_categories: true для моделей, щоб застосувалась горизонтальна сітка, а не вертикальна
-                        { title: '👸 Моделі', action: 'nav', url: this.domain + '/pornstars/gender/female/free-brazz-premium-2026/', is_categories: true },
+                        { title: '👸 Моделі', action: 'nav', url: this.domain + '/pornstars/gender/female/free-brazz-premium-2026/', is_models: true },
                         { title: '🎬 Студії', action: 'nav', url: this.domain + '/sites/free-brazz-premium-2026/', is_studios: true }
                     ];
                 },
 
                 parse: function(doc, currentUrl, object) {
+                    // Додаємо CSS для відображення студій по ширині (contain)
+                    if (!document.getElementById('brazz_custom_css')) {
+                        var style = document.createElement('style');
+                        style.id = 'brazz_custom_css';
+                        style.innerHTML = '.main-grid.studios-grid .card__img { object-fit: contain !important; padding: 10px; background: #fff !important; }';
+                        document.head.appendChild(style);
+                    }
+
                     var results = [];
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0];
                     
@@ -233,7 +244,8 @@ var css = '<style>\
                                         name: sTitle, 
                                         url: sUrl, 
                                         picture: sImgSrc, img: sImgSrc, 
-                                        is_grid: true
+                                        is_grid: true, 
+                                        card_grid: 'categories-grid studios-grid' // studios-grid активує наш CSS
                                     });
                                 }
                             }
@@ -242,7 +254,7 @@ var css = '<style>\
                     }
 
                     // --- 2. ПАРСИНГ КАТЕГОРІЙ ТА МОДЕЛЕЙ ---
-                    if (object.is_categories || targetPath.indexOf('/categories/') !== -1 || targetPath.indexOf('/pornstars/') !== -1) {
+                    if (object.is_categories || object.is_models || targetPath.indexOf('/categories/') !== -1 || targetPath.indexOf('/pornstars/') !== -1) {
                         var items = doc.querySelectorAll('article.thumb-block');
                         for (var i = 0; i < items.length; i++) {
                             var el = items[i];
@@ -258,14 +270,15 @@ var css = '<style>\
                                     name: titleEl.textContent.trim(),
                                     url: mUrl,
                                     picture: imgSrc, img: imgSrc,
-                                    is_grid: true
+                                    is_grid: true,
+                                    card_grid: 'categories-grid'
                                 });
                             }
                         }
                         return results;
                     }
 
-                    // --- 3. ПАРСИНГ ВІДЕО ТА СХОЖИХ ВІДЕО ---
+                    // --- 3. ПАРСИНГ ВІДЕО ---
                     var videosContainer = doc;
                     if (object.is_related) {
                         var underBlock = doc.querySelector('.under-video-block');
@@ -311,12 +324,10 @@ var css = '<style>\
                 },
 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
-                    // Дістаємо ID відео прямо з поточного посилання картики, наприклад /video/11475135/
                     var match = element.url.match(/\/video\/(\d+)\//);
                     
                     if (match && match[1]) {
                         var videoId = match[1];
-                        // Використовуємо твою формулу
                         var streamUrl = 'https://brazzpw.com/player/m3u8_' + videoId + '.m3u8?hash=1&time=1';
                         startPlayback([{ title: 'Auto', url: streamUrl }]);
                     } else {
@@ -331,14 +342,14 @@ var css = '<style>\
                     for (var i = 0; i < actors.length; i++) {
                         var aUrl = actors[i].getAttribute('href');
                         if (aUrl && aUrl.indexOf('http') !== 0) aUrl = this.domain + aUrl;
-                        menu.push({ title: '👸 ' + actors[i].textContent.trim(), action: 'direct', url: aUrl, is_categories: true });
+                        menu.push({ title: '👸 ' + actors[i].textContent.trim(), action: 'direct', url: aUrl, is_models: true });
                     }
 
                     var studio = doc.querySelector('#video-author a');
                     if (studio) {
                         var sUrl = studio.getAttribute('href');
                         if (sUrl && sUrl.indexOf('http') !== 0) sUrl = this.domain + sUrl;
-                        menu.push({ title: '🎬 ' + studio.textContent.trim(), action: 'direct', url: sUrl, is_categories: true });
+                        menu.push({ title: '🎬 ' + studio.textContent.trim(), action: 'direct', url: sUrl, is_studios: true });
                     }
 
                     menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: '.tags-list a' });
