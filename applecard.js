@@ -771,7 +771,7 @@
     </div>`;
 
         Lampa.Template.add('full_start_new', template);
-    }
+    
     
         
 
