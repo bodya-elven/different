@@ -1378,47 +1378,45 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 }
 
 /* =========================================================
-   ПЕРСОНИ - ГОРИЗОНТАЛЬНИЙ ВИГЛЯД
+   ПЕРСОНИ
    ========================================================= */
 
-.applecation .full-person {
-    display: flex !important;
-    flex-direction: row !important; /* Фото зліва, текст справа */
-    align-items: center !important;
-    width: 22em !important; /* Ширина стандартної картки Lampa */
+/* ТРЮК З ФОНОМ: Наш фон застосовується ТІЛЬКИ коли картка не у фокусі. 
+   Коли наводимо фокус, цей фон зникає, і плагін тем вільно заливає картку своїм градієнтом! */
+.applecation .full-person:not(.focus) {
     background: rgba(255, 255, 255, 0.04) !important;
-    border-radius: 12px !important;
-    padding: 0.5em !important;
-    margin: 0.5em 0.8em 0.5em 0 !important;
-    border: 2px solid transparent !important; /* Рамка під системний фокус */
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s, background-color 0.3s !important;
-    will-change: transform;
-    -webkit-animation: none !important;
-    animation: none !important;
-    box-sizing: border-box !important;
+    border: 2px solid transparent !important;
 }
 
-/* Стан фокусу - лише рамка системного кольору */
+/* Сама картка - суттєво збільшуємо розміри */
+.applecation .full-person {
+    display: flex !important;
+    flex-direction: row !important; 
+    align-items: center !important;
+    width: 26em !important; /* Збільшено з 22em */
+    border-radius: 14px !important; /* Трохи м'якші кути */
+    padding: 0.8em !important; /* Збільшено з 0.5em */
+    margin: 0.5em 1.2em 0.5em 0 !important;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s !important;
+    box-sizing: border-box !important;
+    will-change: transform;
+}
+
+/* Стан фокусу */
 .applecation .full-person.focus {
-    transform: scale(1.04) !important;
-    /* Жорстко тримаємо фон напівпрозорим, не даючи темі залити його градієнтом */
-    background: rgba(255, 255, 255, 0.1) !important;
-    
-    /* Беремо колір теми через змінну --main-color. 
-       Якщо в темі змінної немає, рамка буде красивого білого кольору (#fff) */
-    border-color: var(--main-color, #fff) !important; 
-    
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3) !important;
+    transform: scale(1.05) !important;
+    /* Тут НЕМАЄ background !important, щоб тема могла застосувати свій колір */
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4) !important;
     z-index: 10;
 }
 
-/* Фото персони - квадрат із заокругленими краями */
+/* Фото персони - робимо значно більшим */
 .applecation .full-person__photo {
     position: relative !important;
-    width: 3.8em !important;
-    height: 3.8em !important;
+    width: 5.2em !important; /* Збільшено з 3.8em */
+    height: 5.2em !important; /* Збільшено з 3.8em */
     margin: 0 !important;
-    border-radius: 10px !important; 
+    border-radius: 12px !important; 
     overflow: hidden !important;
     background: rgba(255, 255, 255, 0.05) !important;
     flex-shrink: 0 !important;
@@ -1428,36 +1426,25 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
-    border-radius: 10px !important; 
-    transition: none !important; /* Прибрали анімації радіуса, щоб не фрізило */
+    border-radius: 12px !important; 
+    transition: none !important;
 }
 
-/* Зміщуємо обличчя тільки при високій якості (w500) */
-.applecation.applecation--poster-high .full-person__photo img {
-    object-position: center top !important; /* Для горизонтальних карток краще фокус зверху */
-}
-
-/* Дефолтні заглушки залишаємо по центру, щоб не ламати симетрію іконок */
-.applecation .full-person__photo img[src*="actor.svg"],
-.applecation .full-person__photo img[src*="img_broken.svg"] {
-    object-position: center !important;
-}
-
-/* Текстова інформація */
+/* Текстова інформація - підганяємо під нове велике фото */
 .applecation .full-person__body {
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-start !important;
     text-align: left !important;
-    padding-left: 0.8em !important;
+    padding-left: 1.2em !important; /* Збільшено відступ від фото */
     overflow: hidden !important;
     flex-grow: 1 !important;
-    width: calc(100% - 3.8em) !important; /* Обмежуємо ширину під рухомий рядок */
+    width: calc(100% - 5.2em) !important; 
 }
 
-/* Ім'я персони */
+/* Ім'я персони - більший шрифт */
 .applecation .full-person__name {
-    font-size: 1.1em !important;
+    font-size: 1.2em !important; /* Збільшено */
     font-weight: 500 !important;
     color: #fff !important;
     line-height: 1.3 !important;
@@ -1468,14 +1455,53 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     position: relative !important;
 }
 
-/* Рухомий рядок для довгих імен */
+/* Роль персони */
+.applecation .full-person__role {
+    font-size: 0.9em !important; /* Збільшено */
+    color: rgba(255, 255, 255, 0.5) !important;
+    line-height: 1.3 !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-top: 0.3em !important;
+}
+
+.applecation .full-person.focus .full-person__role {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Корекція кропу для обличчя */
+.applecation.applecation--poster-high .full-person__photo img {
+    object-position: center top !important; 
+}
+
+.applecation .full-person__photo img[src*="actor.svg"],
+.applecation .full-person__photo img[src*="img_broken.svg"] {
+    object-position: center !important;
+}
+
+/* =========================================================
+   ВІДСТУПИ ЗАГОЛОВКІВ (РЕЖИСЕР, АКТОРИ, РЕКОМЕНДАЦІЇ)
+   ========================================================= */
+.applecation .full-start__title {
+    margin-top: 2em !important; /* Робимо великий відступ зверху */
+    margin-bottom: 0.8em !important; /* Відступ до карток */
+    font-size: 1.4em !important;
+    font-weight: 600 !important;
+    padding-left: 0 !important;
+}
+
+/* =========================================================
+   РУХОМИЙ РЯДОК (MARQUEE)
+   ========================================================= */
+
 .applecation .full-person__name.marquee-active {
     text-overflow: clip !important;
     mask-image: linear-gradient(to right, #000 92%, transparent 100%);
     -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
 }
 
-/* При фокусі (коли рядок рухається) прозорість з обох сторін */
 .applecation .full-person.focus .full-person__name.marquee-active {
     mask-image: linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%);
     -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%);
@@ -1491,7 +1517,6 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     display: inline-block;
 }
 
-/* Запуск анімації при фокусі */
 .applecation .full-person.focus .full-person__name.marquee-active .marquee__inner {
     animation: marquee var(--marquee-duration, 5s) linear infinite;
 }
@@ -1500,6 +1525,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     0% { transform: translateX(0); }
     100% { transform: translateX(-50%); }
 }
+
 
 /* Роль персони */
 .applecation .full-person__role {
