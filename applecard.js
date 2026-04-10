@@ -695,12 +695,11 @@
                             <div class="applecation__description"></div>
                         </div>
                         
-                        ${ratingsPosition === 'under_desc' ? ratingsBlock : ''}
-                        
                         <div class="applecation__info"></div>
                     </div>
                     
-                    <!-- Приховані оригінальні елементи -->
+                        ${ratingsPosition === 'under_desc' ? ratingsBlock : ''}
+                                            
                     <div class="full-start-new__head" style="display: none;"></div>
                     <div class="full-start-new__details" style="display: none;"></div>
 
@@ -972,6 +971,12 @@
     opacity: 1;
     transform: translateY(0);
 }
+
+/* Відступ, коли рейтинги під тривалістю */
+body.applecation--ratings-under_desc .applecation__ratings {
+    margin-top: 0.8em !important;
+}
+
 
 /* Керування видимістю рейтингів через налаштування */
 body.applecation--hide-ratings .applecation__ratings {
@@ -1393,7 +1398,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     display: flex !important;
     flex-direction: row !important; 
     align-items: center !important;
-    width: 20em !important; /* Звузили ширину з 26em */
+    width: 18em !important; /* Звузили ширину з 26em */
     border-radius: 14px !important; /* Трохи м'якші кути */
     padding: 0.8em !important; /* Збільшено з 0.5em */
     margin: 0.5em 1.2em 0.5em 0 !important;
@@ -1483,16 +1488,22 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
 
 /* =========================================================
-   РУХОМИЙ РЯДОК (MARQUEE)
+   РУХОМИЙ РЯДОК (MARQUEE) - ІМ'Я ТА РОЛЬ
    ========================================================= */
 
-.applecation .full-person__name.marquee-active {
+/* Ефект згасання по краях для імені та ролі */
+.applecation .full-person__name.marquee-active,
+.applecation .full-person__role.marquee-active {
     text-overflow: clip !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
     mask-image: linear-gradient(to right, #000 92%, transparent 100%);
     -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
 }
 
-.applecation .full-person.focus .full-person__name.marquee-active {
+/* При фокусі додаємо згасання і з лівого боку */
+.applecation .full-person.focus .full-person__name.marquee-active,
+.applecation .full-person.focus .full-person__role.marquee-active {
     mask-image: linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%);
     -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%);
 }
@@ -1503,11 +1514,12 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 }
 
 .applecation .marquee__inner span {
-    padding-right: 2.5em;
+    padding-right: 2.5em; /* Відступ між повтореннями тексту */
     display: inline-block;
 }
 
-.applecation .full-person.focus .full-person__name.marquee-active .marquee__inner {
+/* Запуск анімації при фокусі для обох рядків */
+.applecation .full-person.focus .marquee-active .marquee__inner {
     animation: marquee var(--marquee-duration, 5s) linear infinite;
 }
 
@@ -1875,7 +1887,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         const infoContainer = activity.render().find('.applecation__info');
         const infoParts = [];
 
-        // Длительность
+        // Тривалість
         if (data.name) {
             // Сериал - показываем и продолжительность эпизода, и количество сезонов
             if (data.episode_run_time && data.episode_run_time.length) {
@@ -1884,13 +1896,13 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                 infoParts.push(`${avgRuntime} ${timeM}`);
             }
             
-            // Всегда показываем количество сезонов для сериалов
+            // Завжди показувати кількість сезонів для серіалів
             const seasons = Lampa.Utils.countSeasons(data);
             if (seasons) {
                 infoParts.push(formatSeasons(seasons));
             }
 
-            // Показываем количество серий, если включено в настройках
+            // Показувати кількість серій, якщо увімкнено в налаштуваннях
             if (Lampa.Storage.get('applecation_show_episode_count', false)) {
                 const episodes = data.number_of_episodes;
                 if (episodes) {
@@ -1898,7 +1910,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                 }
             }
         } else {
-            // Фильм - общая продолжительность
+            // Фільм - загальна тривалість
             if (data.runtime && data.runtime > 0) {
                 const hours = Math.floor(data.runtime / 60);
                 const minutes = data.runtime % 60;
@@ -1954,98 +1966,8 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         if (target.length) target.before(html);
     }
 
-    // ===================================================================
-    // ЗНІМАЛЬНА ГРУПА (CREW) ЗАМІСТЬ РЕЖИСЕРА - ВИПРАВЛЕНА ВЕРСІЯ
-    // ===================================================================
-
-    function getMainCrew(crewArray) {
-        if (!crewArray || !crewArray.length) return [];
-        const targetJobs = ['Director', 'Original Music Composer', 'Screenplay', 'Writer', 'Story', 'Producer'];
-        let uniqueCrew = {};
-
-        crewArray.forEach(person => {
-            if (targetJobs.includes(person.job)) {
-                if (!uniqueCrew[person.id]) {
-                    uniqueCrew[person.id] = { 
-                        id: person.id, name: person.name, profile_path: person.profile_path, jobs: [person.job] 
-                    };
-                } else if (!uniqueCrew[person.id].jobs.includes(person.job)) {
-                    uniqueCrew[person.id].jobs.push(person.job);
-                }
-            }
-        });
-
-        let finalCrew = Object.values(uniqueCrew);
-        const jobWeight = { 'Director': 1, 'Original Music Composer': 2, 'Screenplay': 3, 'Writer': 3, 'Story': 4, 'Producer': 5 };
-        
-        finalCrew.sort((a, b) => {
-            let weightA = Math.min(...a.jobs.map(j => jobWeight[j] || 99));
-            let weightB = Math.min(...b.jobs.map(j => jobWeight[j] || 99));
-            return weightA - weightB;
-        });
-
-        return finalCrew.slice(0, 8).map(person => {
-            person.character = person.jobs.join(' / ');
-            return person;
-        });
-    }
-
-    function renderCustomCrew(crewArray, activity, activityRender) {
-        // Перевірка чи активність ще жива, щоб уникнути помилок undefined
-        if (!isAlive(activity) || !activityRender || !crewArray) return;
-
-        const finalCrew = getMainCrew(crewArray);
-        if (!finalCrew.length) return;
-
-        // Використовуємо таймаут, щоб не заважати основному циклу draw() Лампи
-        setTimeout(() => {
-            if (!isAlive(activity)) return;
-
-            let directorTitle = activityRender.find('.full-start__title').filter(function() {
-                const text = $(this).text().trim().toLowerCase();
-                return text === 'режисер' || text === 'режиссер' || text === 'director';
-            }).first();
-
-            if (directorTitle.length) {
-                const lang = Lampa.Storage.get('language', 'uk');
-                directorTitle.text(lang === 'en' ? 'Crew' : 'Знімальна група');
-                
-                const scroll = directorTitle.next('.scroll');
-                const scrollBody = scroll.find('.scroll__body');
-                
-                if (scrollBody.length) {
-                    scrollBody.empty(); // Тепер це безпечно всередині setTimeout
-                    
-                    finalCrew.forEach(person => {
-                        const img = person.profile_path ? Lampa.TMDB.image('t/p/w200' + person.profile_path) : './img/actor.svg';
-                        const html = `
-                            <div class="full-person selector" data-id="${person.id}">
-                                <div class="full-person__photo">
-                                    <img src="${img}" class="full-person__img" loading="lazy">
-                                </div>
-                                <div class="full-person__body">
-                                    <div class="full-person__name">${person.name}</div>
-                                    <div class="full-person__role">${person.character}</div>
-                                </div>
-                            </div>`;
-                        scrollBody.append(html);
-                    });
-                    
-                    scrollBody.find('.selector').on('hover:enter', function() {
-                        const id = $(this).data('id');
-                        if (id) Lampa.Activity.push({ url: '', title: 'Персона', component: 'actor', id: id });
-                    });
-
-                    // Оновлюємо бегучу строку, якщо вона є
-                    if (typeof attachPersonMarquee === 'function') {
-                        attachPersonMarquee(activity);
-                    }
-                }
-            }
-        }, 100);
-    }
-
-    function checkLogoAndRenderExtra(card, activity, activityRender) {
+    function checkLogoAndRenderExtra(card, activityRender) {
+        // Якщо вимкнено в налаштуваннях - нічого не робимо (залишаємо рідну логіку Lampa)
         if (!Lampa.Storage.get('applecation_extra_title_show', true)) return;
 
         cleanOldTitleCache();
@@ -2054,14 +1976,13 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
         if (cached && (now - cached.timestamp < EXTRA_TITLE_CACHE_TTL)) {
             renderExtraTitle(cached.ukTitle, cached.enTitle, cached.hasLogo, cached.year, cached.country, activityRender);
+            return;
         }
 
         const type = card.first_air_date ? "tv" : "movie";
-        const url = `https://api.themoviedb.org/3/${type}/${card.id}?api_key=${Lampa.TMDB.key()}&append_to_response=translations,images,credits&include_image_language=uk,en,null`;
+        const url = `https://api.themoviedb.org/3/${type}/${card.id}?api_key=${Lampa.TMDB.key()}&append_to_response=translations,images&include_image_language=uk,en,null`;
 
         $.getJSON(url, function (data) {
-            if (!isAlive(activity)) return;
-
             let hasUkrainianLogo = false;
             if (data.images && data.images.logos) {
                 hasUkrainianLogo = data.images.logos.some(l => l.iso_639_1 === "uk");
@@ -2073,28 +1994,33 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
             if (data.translations && data.translations.translations) {
                 const translation = data.translations.translations.find(t => t.iso_3166_1 === "UA" || t.iso_639_1 === "uk");
-                if (translation) ukTitle = translation.data.title || translation.data.name || enTitle;
+                if (translation) {
+                    ukTitle = translation.data.title || translation.data.name || enTitle;
+                }
             }
 
             const dateStr = data.release_date || data.first_air_date || "";
             const year = dateStr ? dateStr.split("-")[0] : "";
-            const countryString = (data.production_countries || []).map(c => getCountryUA(c.iso_3166_1)).join(", "); 
+            
+            const countryList = (data.production_countries || []).map(c => getCountryUA(c.iso_3166_1));
+            const countryString = countryList.join(", "); 
 
             titleCache[card.id] = {
-                ukTitle: ukTitle, enTitle: enTitle, hasLogo: hasUkrainianLogo,
-                year: year, country: countryString, timestamp: now
+                ukTitle: ukTitle || "",
+                enTitle: enTitle || "",
+                hasLogo: hasUkrainianLogo,
+                year: year || "",
+                country: countryString || "",
+                timestamp: now
             };
             Lampa.Storage.set(EXTRA_TITLE_CACHE_KEY, titleCache);
 
             renderExtraTitle(ukTitle, enTitle, hasUkrainianLogo, year, countryString, activityRender);
-
-            // Передаємо activity у функцію відмальовування знімальної групи
-            if (data.credits && data.credits.crew) {
-                renderCustomCrew(data.credits.crew, activity, activityRender);
-            }
+        }).fail(function() {
+            const fallbackTitle = card.title || card.name || card.original_title || "";
+            renderExtraTitle(fallbackTitle, fallbackTitle, false, "", "", activityRender);
         });
     }
-
     
 
     // Завантажуємо логотип фільму
@@ -2322,61 +2248,63 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         });
     }
 
-    // Добавляем бегущую строку для длинных имен персон
+    // Додаємо рухому стрічку для довгих імен та ролей персон
     function attachPersonMarquee(activity) {
         const render = activity.render();
-        const names = render.find('.full-person__name');
+        // Тепер шукаємо і імена, і ролі акторів
+        const targets = render.find('.full-person__name, .full-person__role');
         
-        // Очищаем старые marquee если они есть (на случай повторного вызова)
-        names.each(function() {
-            const nameElement = $(this);
-            if (nameElement.hasClass('marquee-processed')) {
-                const originalText = nameElement.find('span').first().text();
+        // Очищаємо старі marquee, якщо вони є (на випадок повторного виклику)
+        targets.each(function() {
+            const el = $(this);
+            if (el.hasClass('marquee-processed')) {
+                const originalText = el.find('span').first().text();
                 if (originalText) {
-                    nameElement.text(originalText);
-                    nameElement.removeClass('marquee-processed marquee-active');
-                    nameElement.css('--marquee-duration', '');
+                    el.text(originalText);
+                    el.removeClass('marquee-processed marquee-active');
+                    el.css('--marquee-duration', '');
                 }
             }
         });
 
-        // Функция для проверки переполнения
+        // Функція для перевірки переповнення тексту
         function isTextOverflowing(element) {
-            // Для корректной проверки на скрытых элементах или в процессе отрисовки
+            // Для коректної перевірки на прихованих елементах або в процесі малювання
             return element.scrollWidth > element.clientWidth + 1;
         }
         
-        // Инициализируем marquee для тех, кто переполнен
-        // Небольшая задержка, чтобы лайаут успел пересчитаться
+        // Ініціалізуємо marquee для тих, хто не вміщується в ширину
+        // Невелика затримка 200мс, щоб лейаут встиг перерахуватися на ТБ
         setTimeout(() => {
             if (!isAlive(activity)) return;
 
-            names.each(function() {
-                const nameElement = $(this);
-                const text = nameElement.text().trim();
+            targets.each(function() {
+                const el = $(this);
+                const text = el.text().trim();
                 
                 if (!text) return;
                 
-                if (isTextOverflowing(nameElement[0])) {
-                    // Рассчитываем длительность: ~250мс на символ, но не менее 5с и не более 20с
+                if (isTextOverflowing(el[0])) {
+                    // Розраховуємо тривалість: ~250мс на символ, але не менше 5с і не більше 20с
                     const duration = Math.min(Math.max(text.length * 0.25, 5), 20);
                     
-                    nameElement.addClass('marquee-processed marquee-active');
-                    nameElement.css('--marquee-duration', duration + 's');
+                    el.addClass('marquee-processed marquee-active');
+                    el.css('--marquee-duration', duration + 's');
                     
-                    // Оборачиваем в структуру для анимации
-                    // Используем text() для безопасности от XSS
+                    // Огортаємо в структуру для анімації
+                    // Використовуємо text() для безпеки від XSS
                     const span1 = $('<span>').text(text);
                     const span2 = $('<span>').text(text);
                     const inner = $('<div class="marquee__inner">').append(span1).append(span2);
                     
-                    nameElement.empty().append(inner);
+                    el.empty().append(inner);
                 } else {
-                    nameElement.addClass('marquee-processed');
+                    el.addClass('marquee-processed');
                 }
             });
-        }, 100);
+        }, 200);
     }
+    
 
     // Подключаем загрузку логотипов
     function attachLogoLoader() {
@@ -2413,7 +2341,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                 // Запуск логіки Додаткової Назви
                 const movieData = event.data && event.data.movie;
                 if (movieData) {
-                    checkLogoAndRenderExtra(movieData, activity, render);
+                    checkLogoAndRenderExtra(movieData, render);
                 }                                
                                 
                 attachScrollBlur(activity);
