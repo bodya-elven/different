@@ -814,7 +814,6 @@
 .applecation .full-start-new__body {
     height: 80vh;
     position: relative;
-    z-index: 10 !important;
 }
 
 .applecation .full-start-new__right {
@@ -997,7 +996,7 @@ body.applecation--ratings-corner .applecation__ratings {
     border-radius: 1em;
     width: fit-content;
     position: relative;
-    z-index: 1;
+    z-index: 1; 
     transform-origin: left center;
     opacity: 0;
     transform: translateY(15px) scale(1);
@@ -1014,7 +1013,7 @@ body.applecation--ratings-corner .applecation__ratings {
 
 .applecation__description-wrapper.focus {
     background-color: rgba(0, 0, 0, 0.6) !important;
-    z-index: 11 !important;
+    z-index: 10;
     transform: translateY(0) scale(1.05);
     transition-delay: 0s;
 }
@@ -1061,7 +1060,6 @@ body.applecation--ratings-corner .applecation__ratings {
 .applecation__left {
     flex-grow: 1;
     position: relative;
-    z-index: 10;
 }
 
 .applecation__right {
@@ -1085,7 +1083,7 @@ body.applecation--ratings-corner .applecation__right {
 }
 
 /* ==================================================================
-   ФОН ТА ОВЕРЛЕЙ (БЕЗ ЖОРСТКИХ Z-INDEX)
+   ФОН ТА ОВЕРЛЕЙ
    ================================================================== */
 
 .full-start__background {
@@ -1101,7 +1099,6 @@ body.applecation--ratings-corner .applecation__right {
     object-fit: cover !important; 
     background-size: cover !important; 
     background-position: center top !important;
-    z-index: 1 !important;
 }
 
 .full-start__background.loaded {
@@ -1131,15 +1128,9 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
 /* Оверлей затемнення */
 .applecation__overlay {
-    z-index: 2 !important;
     width: 90vw;
     background: linear-gradient(to right, rgba(0, 0, 0, 0.792) 0%, rgba(0, 0, 0, 0.504) 25%, rgba(0, 0, 0, 0.264) 45%, rgba(0, 0, 0, 0.12) 55%, rgba(0, 0, 0, 0.043) 60%, rgba(0, 0, 0, 0) 65%);
     pointer-events: none;
-}
-
-.applecation .scroll__body {
-    position: relative;
-    z-index: 10 !important;
 }
 
 
@@ -2052,8 +2043,8 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         if (!backdrops || backdrops.length <= 1 || !isAlive(activity)) return;
 
         let currentIndex = 0;
-        const fadeDuration = 1500; // 1.5с на перехід
-        const slideDuration = 7000; // 7с показ
+        const fadeDuration = 1500;
+        const slideDuration = 7000;
 
         function rotateBackground() {
             if (!isAlive(activity)) {
@@ -2065,6 +2056,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
             const backdropUrl = backdrops[currentIndex];
             const render = activity.render();
             
+            // Знаходимо останній фон (це картинка, не оверлей)
             const $currentBg = render.find('.full-start__background:not(.applecation__overlay)').last();
             if ($currentBg.length === 0) return;
 
@@ -2073,10 +2065,8 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                 if (!isAlive(activity)) return;
 
                 const $newBg = $currentBg.clone();
-                // Знімаємо клас, щоб фон був прозорим при появі
+                // Знімаємо клас .loaded, щоб фон був прозорим при появі
                 $newBg.removeClass('loaded applecation-animated');
-                
-                // Зверни увагу: клас .dim (блюр) скопіюється автоматично, якщо ти прокрутив вниз!
                 
                 if ($newBg.is('img')) {
                     $newBg.attr('src', backdropUrl);
@@ -2084,6 +2074,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                     $newBg.css('background-image', 'url(' + backdropUrl + ')');
                 }
 
+                // ГОЛОВНЕ: Вставляємо новий фон СТРОГО перед оверлеєм (нативна логіка DOM)
                 const $overlay = render.find('.applecation__overlay');
                 if ($overlay.length) {
                     $overlay.before($newBg);
@@ -2093,16 +2084,16 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
                 $newBg[0].offsetHeight; // Форсуємо рендер
 
-                // Плавно проявляємо новий (вмикається opacity 1 через CSS)
+                // Плавно проявляємо новий (вмикається opacity 1)
                 $newBg.addClass('loaded'); 
                 
-                // Плавно гасимо старий (вмикається opacity 0 через CSS)
+                // Плавно гасимо старий (вмикається opacity 0)
                 $currentBg.removeClass('loaded');
 
                 setTimeout(() => {
                     if (!isAlive(activity)) return;
                     $currentBg.remove();
-                    // Підчищаємо дублікати, якщо швидко перемкнули
+                    // Підчищаємо сміття
                     render.find('.full-start__background:not(.applecation__overlay)').not($newBg).remove();
                 }, fadeDuration + 50);
             };
