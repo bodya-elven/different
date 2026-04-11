@@ -1065,6 +1065,8 @@ body.applecation--ratings-corner .applecation__ratings {
 /* Ліва та права частини */
 .applecation__left {
     flex-grow: 1;
+    position: relative;
+    z-index: 10;
 }
 
 .applecation__right {
@@ -1155,6 +1157,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     z-index: 1;
     width: 90vw;
     background: linear-gradient(to right, rgba(0, 0, 0, 0.792) 0%, rgba(0, 0, 0, 0.504) 25%, rgba(0, 0, 0, 0.264) 45%, rgba(0, 0, 0, 0.12) 55%, rgba(0, 0, 0, 0.043) 60%, rgba(0, 0, 0, 0) 65%);
+    pointer-events: none;
 }
 
 
@@ -1954,15 +1957,14 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     }
     
 
-    function renderExtraTitle(ukTitle, enTitle, hasLogo, year, country, activityRender) {
+    function renderExtraTitle(ukTitle, enTitle, hasLogo, year, country, network, activityRender) {
+        // Додано аргумент network. Тепер їх 7, і activityRender на своєму місці.
         if (!activityRender || !activityRender.parent().length) return;
         $(".applecation-extra-title", activityRender).remove();
 
-        // Сценарій відображення
         let displayTitle = hasLogo ? enTitle : ukTitle;
         if (!displayTitle || displayTitle === "undefined") displayTitle = "";
 
-        // Примусове приховування гігантської стандартної назви Lampa, якщо лого немає (Сценарій В)
         const nativeTitle = activityRender.find('.full-start-new__title, .full-start__title');
         if (!hasLogo) {
             nativeTitle.hide(); 
@@ -1987,7 +1989,6 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                 ${infoSpan}
             </div>`;
 
-        // Вставляємо безпосередньо над мета-даними
         const target = $(".applecation__meta", activityRender);
         if (target.length) target.before(html);
     }
@@ -2000,9 +2001,8 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         const cached = titleCache[card.id];
         const now = Date.now();
 
-        // Якщо є кеш, малюємо відразу, але не зупиняємось, щоб завантажити фони
         if (cached && (now - cached.timestamp < EXTRA_TITLE_CACHE_TTL)) {
-            renderExtraTitle(cached.ukTitle, cached.enTitle, cached.hasLogo, cached.year, cached.country, cached.network, activityRender);
+            renderExtraTitle(cached.ukTitle, cached.enTitle, cached.hasLogo, cached.year, cached.country, activityRender);
         }
 
         const type = card.first_air_date ? "tv" : "movie";
@@ -2015,11 +2015,6 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
             if (data.images && data.images.logos) {
                 hasUkrainianLogo = data.images.logos.some(l => l.iso_639_1 === "uk");
             }
-
-            // Визначаємо Студію/Бренд
-            let networkName = "";
-            if (data.networks && data.networks.length) networkName = data.networks[0].name;
-            else if (data.production_companies && data.production_companies.length) networkName = data.production_companies[0].name;
 
             const originalName = data.original_title || data.original_name || card.original_title || card.original_name || "";
             const enTitle = data.title || data.name || originalName;
@@ -2037,22 +2032,23 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
             titleCache[card.id] = {
                 ukTitle: ukTitle, enTitle: enTitle, hasLogo: hasUkrainianLogo,
-                year: year, country: countryString, network: networkName, timestamp: now
+                year: year, country: countryString, timestamp: now
             };
             Lampa.Storage.set(EXTRA_TITLE_CACHE_KEY, titleCache);
 
-            // Рендер верхнього блоку
-            renderExtraTitle(ukTitle, enTitle, hasUkrainianLogo, year, countryString, networkName, activityRender);
-            
+            renderExtraTitle(ukTitle, enTitle, hasUkrainianLogo, year, countryString, activityRender);
 
-            // ЗАПУСК СЛАЙД-ШОУ
+            // ЗАПУСК СЛАЙД-ШОУ ФОНІВ
             if (data.images && data.images.backdrops) {
                 const anchorPath = data.backdrop_path;
                 let otherBackdrops = data.images.backdrops
                     .filter(b => b.iso_639_1 === null && b.file_path !== anchorPath)
                     .map(b => Lampa.TMDB.image('t/p/original' + b.file_path));
 
-                otherBackdrops = shuffleArray(otherBackdrops).slice(0, 5);
+                if (typeof shuffleArray === 'function') {
+                    otherBackdrops = shuffleArray(otherBackdrops).slice(0, 5);
+                }
+                
                 const finalBackdrops = [Lampa.TMDB.image('t/p/original' + anchorPath), ...otherBackdrops];
 
                 if (finalBackdrops.length > 1) {
@@ -2061,7 +2057,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
             }
         });
     }
-    
+
 
     // Функція для запуску слайд-шоу фонів
     function startBackdropSlideshow(activity, backdrops) {
@@ -2249,7 +2245,8 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         });
     }
 
-    // Ждем загрузки и появления фона
+
+    // Чекаємо завантаження та появи фону
     function waitForBackgroundLoad(activity, callback) {
         const background = activity.render().find('.full-start__background:not(.applecation__overlay)');
         
@@ -2258,23 +2255,24 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
             return;
         }
 
-        // Если фон уже загружен и анимация завершена
+        // Якщо фон уже завантажений і анімація завершена
         if (background.hasClass('loaded') && background.hasClass('applecation-animated')) {
             callback();
             return;
         }
 
-        // Если фон загружен но анимация еще идет
+        // Якщо фон завантажений, але анімація ще триває
         if (background.hasClass('loaded')) {
-            // Ждем завершения transition + небольшая задержка для надежности
+            // Чекаємо завершення transition + невелика затримка для надійності
             setTimeout(() => {
+                if (!isAlive(activity)) return;
                 background.addClass('applecation-animated');
                 callback();
-            }, 350); // 600ms transition + 50ms запас
+            }, 350); // 600ms transition + запас
             return;
         }
 
-        // Ждем загрузки фона
+        // Чекаємо на завантаження фону через інтервал
         const checkInterval = setInterval(() => {
             if (!isAlive(activity)) {
                 clearInterval(checkInterval);
@@ -2283,51 +2281,64 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
             if (background.hasClass('loaded')) {
                 clearInterval(checkInterval);
-                // Ждем завершения transition + небольшая задержка
+                // Чекаємо завершення transition + затримка
                 setTimeout(() => {
                     if (!isAlive(activity)) return;
                     
                     background.addClass('applecation-animated');
                     callback();
-                }, 650); // 600ms transition + 50ms запас
+                }, 650); 
             }
         }, 50);
 
-        // Таймаут на случай если что-то пошло не так
+        // Таймаут (запобіжник) на випадок, якщо фон не завантажився
         setTimeout(() => {
             clearInterval(checkInterval);
-            if (!background.hasClass('applecation-animated')) {
+            if (isAlive(activity) && !background.hasClass('applecation-animated')) {
                 background.addClass('applecation-animated');
                 callback();
             }
         }, 2000);
     }
 
-    // Добавляем оверлей рядом с фоном
+    // Додаємо оверлей затемнення поруч із фоном
     function addOverlay(activity) {
-        const background = activity.render().find('.full-start__background');
+        const render = activity.render();
+        const background = render.find('.full-start__background').first();
+        
+        // Перевіряємо, чи немає оверлею вже, щоб не дублювати шари
         if (background.length && !background.next('.applecation__overlay').length) {
-            background.after('<div class="full-start__background loaded applecation__overlay"></div>');
+            const overlay = $('<div class="full-start__background loaded applecation__overlay"></div>');
+            
+            // Встановлюємо pointer-events: none, щоб оверлей НЕ перехоплював кліки по кнопках
+            // та не перекривав взаємодію з текстом
+            overlay.css({
+                'pointer-events': 'none',
+                'z-index': '1'
+            });
+            
+            background.after(overlay);
         }
     }
 
-    // Применяем размытие фона при прокрутке
+    // Застосовуємо розмиття (blur) фону при прокручуванні сторінки вниз (до акторів)
     function attachScrollBlur(activity) {
-        const background = activity.render().find('.full-start__background:not(.applecation__overlay)')[0];
-        const scrollBody = activity.render().find('.scroll__body')[0];
+        const render = activity.render();
+        // Знаходимо саме контейнер фону (де тепер живуть наші слайди)
+        const background = render.find('.full-start__background:not(.applecation__overlay)')[0];
+        const scrollBody = render.find('.scroll__body')[0];
         
         if (!background || !scrollBody) return;
         
-        // Кешируем состояние для избежания лишних DOM операций
+        // Кешуємо стан для уникнення зайвих DOM-операцій (економія ресурсів ТБ)
         let isBlurred = false;
         
-        // Перехватываем сеттер стиля - самый быстрый и синхронный способ
+        // Перехоплюємо сеттер стилю трансформації — найбільш продуктивний спосіб для ТБ
         const originalDescriptor = Object.getOwnPropertyDescriptor(scrollBody.style, '-webkit-transform') || 
                                    Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype, 'webkitTransform');
         
         Object.defineProperty(scrollBody.style, '-webkit-transform', {
             set: function(value) {
-                // Оптимизированный парсинг без regex
                 if (value) {
                     const yStart = value.indexOf(',') + 1;
                     const yEnd = value.indexOf(',', yStart);
@@ -2335,15 +2346,17 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                         const yValue = parseFloat(value.substring(yStart, yEnd));
                         const shouldBlur = yValue < 0;
                         
-                        // Применяем только если состояние изменилось
+                        // Змінюємо клас 'dim' тільки при зміні стану
                         if (shouldBlur !== isBlurred) {
                             isBlurred = shouldBlur;
-                            background.classList.toggle('dim', shouldBlur);
+                            if (background && background.classList) {
+                                background.classList.toggle('dim', shouldBlur);
+                            }
                         }
                     }
                 }
                 
-                // Вызываем оригинальный сеттер
+                // Викликаємо оригінальний сеттер Lampa
                 if (originalDescriptor && originalDescriptor.set) {
                     originalDescriptor.set.call(this, value);
                 } else {
@@ -2359,6 +2372,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
             configurable: true
         });
     }
+    
 
     // Додаємо рухому стрічку для довгих імен та ролей персон
     function attachPersonMarquee(activity) {
