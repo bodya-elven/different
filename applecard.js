@@ -1088,7 +1088,8 @@ body.applecation--ratings-corner .applecation__right {
     pointer-events: none;
 }
 
-/* Фон - перевизначаємо стандартну анімацію на fade (згасання) */
+
+/* Фон - перевизначаємо стандартну анімацію на fade (згасання) та додаємо підтримку слайд-шоу */
 .full-start__background {
     height: calc(100% + 6em);
     left: 0 !important;
@@ -1097,17 +1098,40 @@ body.applecation--ratings-corner .applecation__right {
     animation: none !important;
     transform: none !important;
     will-change: opacity, filter;
+    overflow: hidden; /* Щоб фони слайд-шоу не виходили за межі контейнера */
+}
+
+/* Шари для слайд-шоу фонів */
+.applecation-slideshow__layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    /* Наш перехід в 1 секунду між слайдами */
+    transition: opacity 1000ms ease-in-out !important; 
+    will-change: opacity;
+}
+
+/* Активний шар, який ми зараз бачимо */
+.applecation-slideshow__layer.active {
+    opacity: 1;
 }
 
 .full-start__background.loaded:not(.dim) {
     opacity: 1 !important;
 }
 
+/* Ефект блюру при скролі (застосовується до всього контейнера слайд-шоу) */
 .full-start__background.dim {
-  filter: blur(30px);
+    filter: blur(30px);
 }
 
-/* Утримуємо opacity під час завантаження нового фону */
+/* Утримуємо видимість під час зміни фонів */
 .full-start__background.loaded.applecation-animated {
     opacity: 1 !important;
 }
@@ -1126,11 +1150,13 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     display: none;
 }
 
-/* Оверлей для затемнення лівого краю */
+/* Оверлей для затемнення лівого краю (має бути поверх слайдів) */
 .applecation__overlay {
+    z-index: 1;
     width: 90vw;
     background: linear-gradient(to right, rgba(0, 0, 0, 0.792) 0%, rgba(0, 0, 0, 0.504) 25%, rgba(0, 0, 0, 0.264) 45%, rgba(0, 0, 0, 0.12) 55%, rgba(0, 0, 0, 0.043) 60%, rgba(0, 0, 0, 0) 65%);
 }
+
 
 /* Епізоди Apple TV */
 .applecation .full-episode--small {
@@ -1398,7 +1424,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     display: flex !important;
     flex-direction: row !important; 
     align-items: center !important;
-    width: 18em !important; /* Звузили ширину з 26em */
+    width: 20em !important;
     border-radius: 14px !important; /* Трохи м'якші кути */
     padding: 0.8em !important; /* Збільшено з 0.5em */
     margin: 0.5em 1.2em 0.5em 0 !important;
@@ -1966,27 +1992,34 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         if (target.length) target.before(html);
     }
 
-    function checkLogoAndRenderExtra(card, activityRender) {
-        // Якщо вимкнено в налаштуваннях - нічого не робимо (залишаємо рідну логіку Lampa)
+
+    function checkLogoAndRenderExtra(card, activity, activityRender) {
         if (!Lampa.Storage.get('applecation_extra_title_show', true)) return;
 
         cleanOldTitleCache();
         const cached = titleCache[card.id];
         const now = Date.now();
 
+        // Якщо є кеш, малюємо відразу, але не зупиняємось, щоб завантажити фони
         if (cached && (now - cached.timestamp < EXTRA_TITLE_CACHE_TTL)) {
-            renderExtraTitle(cached.ukTitle, cached.enTitle, cached.hasLogo, cached.year, cached.country, activityRender);
-            return;
+            renderExtraTitle(cached.ukTitle, cached.enTitle, cached.hasLogo, cached.year, cached.country, cached.network, activityRender);
         }
 
         const type = card.first_air_date ? "tv" : "movie";
         const url = `https://api.themoviedb.org/3/${type}/${card.id}?api_key=${Lampa.TMDB.key()}&append_to_response=translations,images&include_image_language=uk,en,null`;
 
         $.getJSON(url, function (data) {
+            if (!isAlive(activity)) return;
+
             let hasUkrainianLogo = false;
             if (data.images && data.images.logos) {
                 hasUkrainianLogo = data.images.logos.some(l => l.iso_639_1 === "uk");
             }
+
+            // Визначаємо Студію/Бренд
+            let networkName = "";
+            if (data.networks && data.networks.length) networkName = data.networks[0].name;
+            else if (data.production_companies && data.production_companies.length) networkName = data.production_companies[0].name;
 
             const originalName = data.original_title || data.original_name || card.original_title || card.original_name || "";
             const enTitle = data.title || data.name || originalName;
@@ -1999,27 +2032,106 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                 }
             }
 
-            const dateStr = data.release_date || data.first_air_date || "";
-            const year = dateStr ? dateStr.split("-")[0] : "";
-            
-            const countryList = (data.production_countries || []).map(c => getCountryUA(c.iso_3166_1));
-            const countryString = countryList.join(", "); 
+            const year = (data.release_date || data.first_air_date || "").split("-")[0];
+            const countryString = (data.production_countries || []).map(c => getCountryUA(c.iso_3166_1)).join(", ");
 
             titleCache[card.id] = {
-                ukTitle: ukTitle || "",
-                enTitle: enTitle || "",
-                hasLogo: hasUkrainianLogo,
-                year: year || "",
-                country: countryString || "",
-                timestamp: now
+                ukTitle: ukTitle, enTitle: enTitle, hasLogo: hasUkrainianLogo,
+                year: year, country: countryString, network: networkName, timestamp: now
             };
             Lampa.Storage.set(EXTRA_TITLE_CACHE_KEY, titleCache);
 
-            renderExtraTitle(ukTitle, enTitle, hasUkrainianLogo, year, countryString, activityRender);
-        }).fail(function() {
-            const fallbackTitle = card.title || card.name || card.original_title || "";
-            renderExtraTitle(fallbackTitle, fallbackTitle, false, "", "", activityRender);
+            // Рендер верхнього блоку
+            renderExtraTitle(ukTitle, enTitle, hasUkrainianLogo, year, countryString, networkName, activityRender);
+            
+
+            // ЗАПУСК СЛАЙД-ШОУ
+            if (data.images && data.images.backdrops) {
+                const anchorPath = data.backdrop_path;
+                let otherBackdrops = data.images.backdrops
+                    .filter(b => b.iso_639_1 === null && b.file_path !== anchorPath)
+                    .map(b => Lampa.TMDB.image('t/p/original' + b.file_path));
+
+                otherBackdrops = shuffleArray(otherBackdrops).slice(0, 5);
+                const finalBackdrops = [Lampa.TMDB.image('t/p/original' + anchorPath), ...otherBackdrops];
+
+                if (finalBackdrops.length > 1) {
+                    startBackdropSlideshow(activity, finalBackdrops);
+                }
+            }
         });
+    }
+    
+
+    // Функція для запуску слайд-шоу фонів
+    function startBackdropSlideshow(activity, backdrops) {
+        // Перевіряємо, чи є сенс запускати (мінімум 2 фони) і чи "жива" картка
+        if (!backdrops || backdrops.length <= 1 || !isAlive(activity)) return;
+
+        const render = activity.render();
+        // Шукаємо стандартний контейнер фону Lampa
+        let bgContainer = render.find('.full-start__background');
+        
+        // Якщо контейнер ще не створений (ТБ іноді тупить), пробуємо ще раз через 500мс
+        if (!bgContainer.length) {
+            setTimeout(() => startBackdropSlideshow(activity, backdrops), 500);
+            return;
+        }
+
+        // Очищаємо старі шари, якщо вони залишилися від попереднього запуску
+        bgContainer.find('.applecation-slideshow__layer').remove();
+
+        // Створюємо два шари для плавного перемикання (Cross-fade)
+        bgContainer.append('<div class="applecation-slideshow__layer active layer-1"></div>');
+        bgContainer.append('<div class="applecation-slideshow__layer layer-2"></div>');
+
+        const layers = [bgContainer.find('.layer-1'), bgContainer.find('.layer-2')];
+        let currentLayerIdx = 0;
+        let currentBackdropIdx = 0; // Починаємо з 0 (наш "якірний" фон)
+
+        // Встановлюємо перший (якірний) фон у перший шар
+        layers[0].css('background-image', 'url(' + backdrops[0] + ')');
+
+        function nextSlide() {
+            if (!isAlive(activity)) return;
+
+            // Визначаємо наступний фон та наступний шар для підготовки
+            const nextBackdropIdx = (currentBackdropIdx + 1) % backdrops.length;
+            const nextLayerIdx = (currentLayerIdx + 1) % 2;
+            
+            const nextLayer = layers[nextLayerIdx];
+            const currentLayer = layers[currentLayerIdx];
+
+            // 1. Завантажуємо наступну картинку в прихований шар
+            nextLayer.css('background-image', 'url(' + backdrops[nextBackdropIdx] + ')');
+
+            // 2. Даємо браузеру 200мс, щоб він "прожував" картинку перед анімацією
+            setTimeout(() => {
+                if (!isAlive(activity)) return;
+                
+                // 3. Міняємо класи. Transition (1с) відпрацює автоматично через CSS
+                nextLayer.addClass('active');
+                currentLayer.removeClass('active');
+
+                currentLayerIdx = nextLayerIdx;
+                currentBackdropIdx = nextBackdropIdx;
+
+                // 4. Плануємо наступну зміну через 7 секунд
+                activity.__backdropTimeout = setTimeout(nextSlide, 7000);
+            }, 200);
+        }
+
+        // Перший запуск після 8 секунд показу "якірного" фону
+        activity.__backdropTimeout = setTimeout(nextSlide, 8000);
+    }
+
+    // Допоміжна функція для перемішування масиву (Алгоритм Фішера-Єйтса)
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
     }
     
 
@@ -2306,10 +2418,10 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
     }
     
 
-    // Подключаем загрузку логотипов
+    // Підключаємо завантаження логотипів та логіку карток
     function attachLogoLoader() {
         Lampa.Listener.follow('full', (event) => {
-            // Отключаем блок "Подробно", если включен оверлей
+            // Вимикаємо стандартний блок "Докладно", якщо увімкнено наш оверлей опису
             if (Lampa.Storage.get('applecation_description_overlay', true)) {
                 disableFullDescription(event);
             }
@@ -2318,38 +2430,48 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
                 const activity = event.object.activity;
                 const render = activity.render();
                 
-                // Добавляем класс для применения стилей
+                // Додаємо основний клас плагіна для застосування стилів
                 render.addClass('applecation');
 
-                // Помечаем активность при уничтожении
+                // Позначаємо активність як "живу"
                 activity.__destroyed = false;
                 
-                // Сохраняем оригинальный метод destroy если он есть
+                // Перевизначаємо метод destroy для очищення пам'яті та таймерів
                 var originalDestroy = activity.destroy;
                 activity.destroy = function() {
                     activity.__destroyed = true;
+
+                    // ЗУПИНКА СЛАЙД-ШОУ: Очищаємо таймер, щоб він не спрацював після закриття картки
+                    if (activity.__backdropTimeout) {
+                        clearTimeout(activity.__backdropTimeout);
+                        activity.__backdropTimeout = null;
+                    }
+
                     if (originalDestroy) originalDestroy.apply(activity, arguments);
                 };
 
-                // Добавляем класс качества постеров для CSS
+                // Додаємо клас залежно від вибраного розміру постерів
                 const posterSize = Lampa.Storage.field('poster_size');
                 render.toggleClass('applecation--poster-high', posterSize === 'w500');
 
+                // Ініціалізація додаткових елементів інтерфейсу
                 addOverlay(activity);
                 loadLogo(event);
                 
-                // Запуск логіки Додаткової Назви
+                // Запуск логіки Додаткової Назви та Слайд-шоу фонів
                 const movieData = event.data && event.data.movie;
                 if (movieData) {
-                    checkLogoAndRenderExtra(movieData, render);
+                    // ТЕПЕР ПЕРЕДАЄМО ВСІ ТРИ АРГУМЕНТИ: дані, об'єкт активності та рендер
+                    checkLogoAndRenderExtra(movieData, activity, render);
                 }                                
                                 
+                // Підключаємо ефект блюру при скролі та рухомий рядок для довгих імен
                 attachScrollBlur(activity);
                 attachPersonMarquee(activity);
-
             }
         });
     }
+        
 
     // Регистрация плагина в манифесте
     var pluginManifest = {
@@ -2360,7 +2482,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         author: '@darkestclouds',
         icon: PLUGIN_ICON
     };
-
+    
     // Регистрируем плагин
     if (Lampa.Manifest && Lampa.Manifest.plugins) {
         Lampa.Manifest.plugins = pluginManifest;
