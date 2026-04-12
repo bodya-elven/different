@@ -34,13 +34,12 @@
     }
 
 
-    // Переводы для настроек
+    // Переклади для налаштувань
     const translations = {
         show_ratings: {
             en: 'Show ratings',
             uk: 'Показувати рейтинги'
         },
-
 
         settings_title_ratings: {
             en: 'Ratings',
@@ -127,6 +126,15 @@
             en: 'Show total episode count for TV shows',
             uk: 'Показувати загальну кількість серій для серіалів'
         },
+        show_slideshow: {
+            en: 'Dynamic Background',
+            uk: 'Динамічний фон'
+        },
+        show_slideshow_desc: {
+            en: 'Smoothly rotate background images',
+            uk: 'Плавна зміна фонових зображень'
+        },
+        
         description_overlay: {
             en: 'Description in Overlay',
             uk: 'Опис в оверлеї'
@@ -217,6 +225,9 @@
     // Добавляем настройки плагина
     function addSettings() {
         // Инициализируем значения по умолчанию
+        if (Lampa.Storage.get('applecation_show_slideshow') === undefined) {
+            Lampa.Storage.set('applecation_show_slideshow', true);
+        }
         if (Lampa.Storage.get('applecation_extra_title_show') === undefined) {
             Lampa.Storage.set('applecation_extra_title_show', true);
         }
@@ -364,7 +375,20 @@
             }
         });
 
-
+        // Слайд-шоу
+        Lampa.SettingsApi.addParam({
+            component: 'applecation_settings',
+            param: {
+                name: 'applecation_show_slideshow',
+                type: 'trigger',
+                default: true
+            },
+            field: {
+                name: t('show_slideshow'),
+                description: t('show_slideshow_desc')
+            }
+        });
+        
         // Показувати логотип іншою мовою
         Lampa.SettingsApi.addParam({
             component: 'applecation_settings',
@@ -379,7 +403,7 @@
             }
         });
 
-        // Додаткова назва (Увімк/Вимк)
+        // Додаткова назва
         Lampa.SettingsApi.addParam({
             component: 'applecation_settings',
             param: {
@@ -393,7 +417,7 @@
             }
         });
         
-        // Описание в оверлее
+        // Опис в оверлеї
         Lampa.SettingsApi.addParam({
             component: 'applecation_settings',
             param: {
@@ -410,7 +434,7 @@
             }
         });
 
-        // Количество серий
+        // Кількість серій
         Lampa.SettingsApi.addParam({
             component: 'applecation_settings',
             param: {
@@ -2012,7 +2036,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
             renderExtraTitle(ukTitle, enTitle, hasUkrainianLogo, year, countryString, "", activityRender);
 
             // ЗАПУСК СЛАЙД-ШОУ ФОНІВ
-            if (data.images && data.images.backdrops) {
+            if (data.images && data.images.backdrops && Lampa.Storage.get('applecation_show_slideshow', true)) {
                 const anchorPath = data.backdrop_path;
                 
                 // 1. Беремо ВСІ чисті фони (без мови/тексту), крім стартового
@@ -2022,7 +2046,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
                 // 2. Рандомізуємо весь цей масив
                 if (typeof shuffleArray === 'function') {
-                    otherBackdrops = shuffleArray(otherBackdrops);
+                    otherBackdrops = shuffleArray(otherBackdrops).slice(0, 20);
                 }
                 
                 // 3. Формуємо повний цикл: Стартовий фон -> Всі перемішані чисті фони
@@ -2044,7 +2068,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
 
         let currentIndex = 0;
         const fadeDuration = 1500;
-        const slideDuration = 7000;
+        const slideDuration = 8000;
 
         function rotateBackground() {
             if (!isAlive(activity)) {
@@ -2100,12 +2124,12 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
             img.src = backdropUrl;
         }
 
-        // Чекаємо 8 секунд і стартуємо цикл
+        // Чекаємо 9 секунд і стартуємо цикл
         activity.__backdropTimeout = setTimeout(() => {
             if (!isAlive(activity)) return;
             rotateBackground(); 
             activity.__backdropTimer = setInterval(rotateBackground, slideDuration);
-        }, 8000);
+        }, 9000);
     }
 
 
