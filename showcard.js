@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const SHOWCARD_VERSION = '1.6';
+    const SHOWCARD_VERSION = '1.6.1';
 
     // Іконка плагіна
     const PLUGIN_ICON = '<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="25" width="60" height="8" rx="4" fill="currentColor" opacity="0.3"/><rect x="20" y="45" width="40" height="12" rx="6" fill="currentColor" opacity="0.6"/><rect x="20" y="65" width="75" height="16" rx="8" fill="currentColor"/></svg>';
@@ -570,17 +570,13 @@
                 name: 'showcard_description_size',
                 type: 'select',
                 values: {
-                    '100': t('scale_default'),
-                    '110': '+10%',
-                    '120': '+20%',
-                    '130': '+30%',
-                    '140': '+40%',
-                    '150': '+50%',
-                    '160': '+60%',
-                    '170': '+70%',
-                    '180': '+80%',
-                    '190': '+90%',
-                    '200': '+100%'
+                    '100': '100% (' + t('scale_default') + ')',
+                    '105': '105%',
+                    '110': '110%',
+                    '115': '115%',
+                    '120': '120%',
+                    '125': '125%',
+                    '130': '130%'
                 },
                 default: '100'
             },
@@ -1127,6 +1123,13 @@ body.showcard--ratings-corner .showcard__ratings {
 .focus .showcard__description {
     text-shadow: 0 2px 3px rgba(0, 0, 0, 0.8);
 }
+
+/* Знімаємо обмеження рядків при фокусі */
+.showcard__description-wrapper.focus .showcard__description,
+.showcard.focus .showcard__description {
+    -webkit-line-clamp: 100; /* Ставимо велике число, щоб текст вліз повністю */
+}
+
 
 .showcard__info {
     color: rgba(255, 255, 255, 0.75);
