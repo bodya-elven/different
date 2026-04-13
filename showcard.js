@@ -1106,7 +1106,7 @@ body.showcard--ratings-corner .showcard__ratings {
 .showcard__description-wrapper.focus {
     background-color: transparent !important;
     z-index: 10;
-    transform: translateY(0) scale(1.1);
+    transform: translateY(0) scale(1.2);
     transition-delay: 0s;
 }
 
