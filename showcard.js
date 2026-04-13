@@ -2356,7 +2356,7 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         version: SHOWCARD_VERSION,
         name: 'Showcard',
         description: 'Заміна стандартного інтерфейсу картки фільму',
-        author: @bodya_elven
+        author: '@bodya_elven',
         // '@darkestclouds',
         icon: PLUGIN_ICON
     };
