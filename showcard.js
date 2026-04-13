@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const SHOWCARD_VERSION = '1.6.1';
+    const SHOWCARD_VERSION = '1.6.2';
 
     // Іконка плагіна
     const PLUGIN_ICON = '<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="25" width="60" height="8" rx="4" fill="currentColor" opacity="0.3"/><rect x="20" y="45" width="40" height="12" rx="6" fill="currentColor" opacity="0.6"/><rect x="20" y="65" width="75" height="16" rx="8" fill="currentColor"/></svg>';
@@ -2083,6 +2083,16 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         
         const useOverlay = Lampa.Storage.get('showcard_description_overlay', true);
         const descWrapper = activity.render().find('.showcard__description-wrapper').addClass('show');
+        
+        // --- ФІКСАЦІЯ ВИСОТИ ОПИСУ ---
+        const descText = activity.render().find('.showcard__description');
+        if (descText.length) {
+            const currentHeight = descText.height(); // Вимірюємо висоту тексту в пікселях
+            if (currentHeight > 0) {
+                descText.css('min-height', currentHeight + 'px'); // Фіксуємо цю мінімальну висоту
+            }
+        }
+        // ------------------------------
         
         if (useOverlay) {
             descWrapper.addClass('selector');
