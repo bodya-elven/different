@@ -42,9 +42,7 @@
     // Головна функція плагіна
     function initializePlugin() {
         console.log('Showcard', 'v' + SHOWCARD_VERSION);
-        
-        // ЗАПУСКАЄМО МІГРАЦІЮ ОСЬ ТУТ:
-        migrateSettings();
+           
         
         if (!Lampa.Platform.screen('tv')) {
             console.log('Showcard', 'TV mode only');
@@ -124,6 +122,14 @@
             en: 'Movie data text scale',
             uk: 'Масштаб тексту даних про фільм'
         },
+        description_size: {
+            en: 'Description Size',
+            uk: 'Розмір опису'
+        },
+        description_size_desc: {
+            en: 'Movie description scale relative to the rest of the data text',
+            uk: 'Масштаб опису фільму відносно решти тексту даних'
+        },
         scale_default: {
             en: 'Default',
             uk: 'За замовчуванням'
@@ -174,8 +180,8 @@
             uk: 'Автор'
         },
         about_description: {
-            en: 'Makes the movie card interface look like Apple TV and optimizes for 4K',
-            uk: 'Робить інтерфейс у картці фільму схожим на Apple TV та оптимізує під 4K'
+            en: 'Replaces the standard movie card interface. A modification of the Applecation plugin by DarkestClouds',
+            uk: 'Замінює стандартний інтерфейс картки фільму. Модифікація плагіна Applecation від DarkestClouds'
         },
         extra_title_show: {
             en: 'Extra Title',
@@ -273,6 +279,9 @@
         if (Lampa.Storage.get('showcard_text_scale') === undefined) {
             Lampa.Storage.set('showcard_text_scale', '100');
         }
+        if (Lampa.Storage.get('showcard_description_size') === undefined) {
+            Lampa.Storage.set('showcard_description_size', '100');
+        }
         if (Lampa.Storage.get('showcard_spacing_scale') === undefined) {
             Lampa.Storage.set('showcard_spacing_scale', '100');
         }
@@ -309,7 +318,7 @@
                     'font-size': '1.2em',
                     'margin-bottom': '0.3em'
                 });
-                item.append('<div style="font-size: 0.9em; padding: 0 1.2em; line-height: 1.4;">' + t('about_author') + ': DarkestClouds<br>' + t('about_description') + '</div>');
+                item.append('<div style="font-size: 0.9em; padding: 0 1.2em; line-height: 1.4;">' + t('about_author') + ': @bodya_elven<br>' + t('about_description') + '</div>');
             }
         });
 
@@ -554,6 +563,38 @@
             }
         });
 
+        // Розмір опису
+        Lampa.SettingsApi.addParam({
+            component: 'showcard_settings',
+            param: {
+                name: 'showcard_description_size',
+                type: 'select',
+                values: {
+                    '100': t('scale_default'),
+                    '110': '+10%',
+                    '120': '+20%',
+                    '130': '+30%',
+                    '140': '+40%',
+                    '150': '+50%',
+                    '160': '+60%',
+                    '170': '+70%',
+                    '180': '+80%',
+                    '190': '+90%',
+                    '200': '+100%'
+                },
+                default: '100'
+            },
+            field: {
+                name: t('description_size'),
+                description: t('description_size_desc')
+            },
+            onChange: function(value) {
+                Lampa.Storage.set('showcard_description_size', value);
+                applyScales();
+            }
+        });
+        
+
         // Розмір додаткової назви
         Lampa.SettingsApi.addParam({
             component: 'showcard_settings',
@@ -629,6 +670,7 @@
     function applyScales() {
         const logoScale = parseInt(Lampa.Storage.get('showcard_logo_scale', '100'));
         const textScale = parseInt(Lampa.Storage.get('showcard_text_scale', '100'));
+        const descScale = parseInt(Lampa.Storage.get('showcard_description_size', '100'));
         const spacingScale = parseInt(Lampa.Storage.get('showcard_spacing_scale', '100'));
 
         // Удаляем старые стили если есть
@@ -663,9 +705,11 @@
                 }
                 
                 .showcard .showcard__description {
+                    font-size: ${descScale}% !important;
                     max-width: ${35 * textScale / 100}vw !important;
                     margin-bottom: ${0.5 * spacingScale / 100}em !important;
                 }
+
                 
                 .showcard .showcard__info {
                     margin-bottom: ${0.5 * spacingScale / 100}em !important;
@@ -1060,7 +1104,7 @@ body.showcard--ratings-corner .showcard__ratings {
 .showcard__description-wrapper.focus {
     background-color: transparent !important;
     z-index: 10;
-    transform: translateY(0) scale(1.05);
+    transform: translateY(0) scale(1.1);
     transition-delay: 0s;
 }
 
@@ -2311,8 +2355,9 @@ body.advanced--animation:not(.no--animation) .full-start__background.loaded {
         type: 'other',
         version: SHOWCARD_VERSION,
         name: 'Showcard',
-        description: 'Делает интерфейс в карточке фильма похожим на Apple TV и оптимизирует под 4K',
-        author: '@darkestclouds',
+        description: 'Заміна стандартного інтерфейсу картки фільму',
+        author: @bodya_elven
+        // '@darkestclouds',
         icon: PLUGIN_ICON
     };
     
