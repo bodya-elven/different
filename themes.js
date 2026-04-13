@@ -2,7 +2,7 @@
     'use strict';
 
     /* ==========================================================================
-       1. ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ КОЛЬОРІВ ТА МАТЕМАТИКИ
+       1. ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ КОЛЬОРІВ ТА МАТЕМАТИКИ (ES5 Safe)
        ========================================================================== */
     function hexToHsl(hex) {
         var r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -10,8 +10,10 @@
         var b = parseInt(hex.slice(5, 7), 16) / 255;
         var max = Math.max(r, g, b), min = Math.min(r, g, b);
         var h, s, l = (max + min) / 2;
-        if (max == min) h = s = 0;
-        else {
+        
+        if (max === min) {
+            h = s = 0;
+        } else {
             var d = max - min;
             s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
             switch (max) {
@@ -26,13 +28,14 @@
 
     function hslToHex(h, s, l) {
         l /= 100;
-        const a = s * Math.min(l, 1 - l) / 100;
-        const f = n => {
-            const k = (n + h / 30) % 12;
-            const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-            return Math.round(255 * color).toString(16).padStart(2, '0');
-        };
-        return `#${f(0)}${f(8)}${f(4)}`;
+        var a = s * Math.min(l, 1 - l) / 100;
+        function f(n) {
+            var k = (n + h / 30) % 12;
+            var color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            var hex = Math.round(255 * color).toString(16);
+            return ('00' + hex).slice(-2); // Безпечний аналог padStart
+        }
+        return '#' + f(0) + f(8) + f(4);
     }
 
     function rgbToHex(r, g, b) {
@@ -47,7 +50,7 @@
         violet_stroke: ':root{--main-color:#8B29B9;--background-color:#1d1f20;--text-color:#fff;--transparent-white:rgba(255,255,255,.2)}body{background-color:#1d1f20;color:#fff}.menu__ico{color:#000;-webkit-filter:invert(1);filter:invert(1)}.activity__loader{position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}.modal-loading{height:6em;-webkit-background-size:contain;-moz-background-size:contain;-o-background-size:contain;background-size:contain}.console__tab.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-person.focus,.full-start__button.focus,.full-descr__tag.focus,.simple-button.focus,.head__action.focus,.head__action.hover,.player-panel .button.focus,.search-source.active{background:#8B29B9;color:#fff}.navigation-tabs__button.focus,.time-line>div,.player-panel__position,.player-panel__position>div:after{background-color:#8B29B9;color:#fff}.iptv-menu__list-item.focus,.iptv-program__timeline>div{background-color:#8B29B9!important;color:#fff!important}.radio-item.focus,.lang__selector-item.focus,.simple-keyboard .hg-button.focus,.modal__button.focus,.search-history-key.focus,.simple-keyboard-mic.focus,.torrent-serial__progress,.full-review-add.focus,.full-review.focus,.tag-count.focus,.settings-folder.focus,.settings-param.focus,.selectbox-item.focus,.selectbox-item.hover{background:#8B29B9;color:#fff}.online.focus{box-shadow:0 0 0 .2em #8B29B9}.online_modss.focus::after,.online-prestige.focus::after,.radio-item.focus .radio-item__imgbox:after,.iptv-channel.focus::before,.iptv-channel.last--focus::before{border-color:#8B29B9!important}.card-more.focus .card-more__box::after{border:.3em solid #8B29B9}.simple-button--filter>div{background-color:rgba(255,255,255,.1)}.iptv-playlist-item.focus::after,.iptv-playlist-item.hover::after{border-color:#8B29B9!important}.ad-bot.focus .ad-bot__content::after,.ad-bot.hover .ad-bot__content::after,.card-episode.focus .full-episode::after,.register.focus::after,.season-episode.focus::after,.full-episode.focus::after,.full-review-add.focus::after,.card.focus .card__view::after,.card.hover .card__view::after,.extensions__item.focus:after,.torrent-item.focus::after,.extensions__block-add.focus:after{border-color:#8B29B9}.items-line__more{background:rgba(255,255,255,.1)}.items-line__more.focus{background:#8B29B9!important;color:#fff!important}.torrent-serial__size{background-color:#fff;color:#000}.broadcast__scan>div,.broadcast__device.focus{background-color:#8B29B9;color:#fff}.card:hover .card__img,.card.focus .card__img{border-color:#8B29B9}.noty{background:#8B29B9;color:#fff}.radio-player.focus{background-color:#8B29B9;color:#fff}.explorer-card__head-img.focus::after{border:.3em solid #8B29B9}',
         mint_dark: '.navigation-bar__body{background: rgba(18, 32, 36, 0.96);}.card__quality, .card--tv .card__type {background: linear-gradient(to right, #1e6262dd, #3da18ddd);}.screensaver__preload {background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}body, .extensions {background: linear-gradient(135deg, #0a1b2a, #1a4036);color: #ffffff;}.company-start.icon--broken .company-start__icon,.explorer-card__head-img > img,.bookmarks-folder__layer,.card-more__box,.card__img,.extensions__block-add,.extensions__item {background-color: #1e2c2f;}.search-source.focus,.simple-button.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-start__button.focus,.full-descr__tag.focus,.player-panel .button.focus,.full-person.selector.focus,.tag-count.selector.focus,.full-review.focus {background: linear-gradient(to right, #1e6262, #3da18d);color: #fff;box-shadow: 0 0.0em 0.4em rgba(61, 161, 141, 0.0);}.selectbox-item.focus,.settings-folder.focus,.settings-param.focus {background: linear-gradient(to right, #1e6262, #3da18d);color: #fff;box-shadow: 0 0.0em 0.4em rgba(61, 161, 141, 0.0);border-radius: 0.5em 0 0 0.5em;}.full-episode.focus::after,.card-episode.focus .full-episode::after,.items-cards .selector.focus::after, .card-more.focus .card-more__box::after,.card-episode.focus .full-episode::after,.card-episode.hover .full-episode::after,.card.focus .card__view::after,.card.hover .card__view::after,.torrent-item.focus::after,.online-prestige.selector.focus::after,.online-prestige--full.selector.focus::after,.explorer-card__head-img.selector.focus::after,.extensions__item.focus::after,.extensions__block-add.focus::after,.full-review-add.focus::after {border: 0.2em solid #3da18d;box-shadow: 0 0 0.8em rgba(61, 161, 141, 0.0);}.head__action.focus,.head__action.hover {background: linear-gradient(45deg, #3da18d, #1e6262);}.modal__content {background: rgba(18, 32, 36, 0.96);border: 0em solid rgba(18, 32, 36, 0.96);}.settings__content,.settings-input__content,.selectbox__content,.settings-input {background: rgba(18, 32, 36, 0.96);}.torrent-serial {background: rgba(0, 0, 0, 0.22);border: 0.2em solid rgba(0, 0, 0, 0.22);}.torrent-serial.focus {background-color: #1a3b36cc;border: 0.2em solid #3da18d;}',
         retro: 'body{background-color: #564335;} body, .card__vote{color: #dfd9ce;} body.black--style {background: #201911;} .menu__item.focus, .menu__item.traverse, .menu__item.hover, .settings-folder.focus, .settings-param.focus, .selectbox-item.focus, .selectbox-item.hover, .full-person.focus, .full-start__button.focus, .full-descr__tag.focus, .simple-button.focus, .iptv-list__item.focus, .iptv-menu__list-item.focus, .head__action.focus, .head__action.hover, .player-panel .button.focus, .search-source.active{background: linear-gradient(to right, rgba(254,244,222,1) 1%,rgba(237,207,171,1) 100%); color: #000;} .settings-folder.focus .settings-folder__icon{filter: invert(1);} .settings-param-title > span{color: #fff;} .settings__content, .settings-input__content, .selectbox__content, .modal__content{background: linear-gradient(135deg, rgb(50,46,37) 1%,rgb(10,8,6) 100%);} .card.focus .card__view::after, .card.hover .card__view::after, .extensions__item.focus:after, .torrent-item.focus::after, .extensions__block-add.focus:after{border-color: rgb(254,244,222);} .online-prestige.focus::after, .iptv-channel.focus::before, .iptv-channel.last--focus::before{border-color: rgb(254,244,222) !important;} .time-line > div, .player-panel__position, .player-panel__position > div:after{background-color: rgb(254,244,222);} .extensions{background: #201911;} .extensions__item, .extensions__block-add{background-color: #423a32;} .torrent-item__size, .torrent-item__exe, .torrent-item__viewed, .torrent-serial__size{background-color: #dfd9ce; color: #000;} .torrent-serial{background-color: rgba(223,217,206,0.1);} .torrent-file.focus, .torrent-serial.focus{background-color: rgba(223,217,206,0.36);} .iptv-channel{background-color: #624e3f !important;} .activity__loader{position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}',
-        emerald: ':root{--main-color:#43cea2;--secondary-color:#185a9d;--background-color:rgba(26,42,58,.98);--text-color:#fff;--transparent-accent:rgba(67,206,162,.1)}body{background:linear-gradient(135deg,#1a2a3a 0%,#2C5364 50%,#203A43 100%);color:#fff}.menu__ico{color:#000;-webkit-filter:invert(1);filter:invert(1)}.activity__loader{position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}.modal-loading{height:6em;-webkit-background-size:contain;-moz-background-size:contain;-o-background-size:contain;background-size:contain}.console__tab.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-person.focus,.full-start__button.focus,.full-descr__tag.focus,.simple-button.focus,.head__action.focus,.head__action.hover,.player-panel .button.focus,.search-source.active,.navigation-tabs__button.focus,.radio-item.focus,.lang__selector-item.focus,.simple-keyboard .hg-button.focus,.modal__button.focus,.search-history-key.focus,.simple-keyboard-mic.focus,.torrent-serial__progress,.full-review-add.focus,.full-review.focus,.tag-count.focus,.settings-folder.focus,.settings-param.focus,.selectbox-item.focus,.selectbox-item.hover,.radio-player.focus,.broadcast__device.focus{background:linear-gradient(to right,#43cea2,#185a9d);color:#fff;box-shadow:0 4px 15px rgba(67,206,162,.3)}.time-line>div,.player-panel__position,.player-panel__position>div:after,.iptv-menu__list-item.focus,.iptv-program__timeline>div,.broadcast__scan>div{background-color:#43cea2;color:#fff}.card.focus .card__view::after,.card.hover .card__view::after{border:3px solid #43cea2!important;box-shadow:0 0 20px rgba(67,206,162,.4)}.online.focus{border:3px solid #43cea2!important;box-shadow:0 0 20px rgba(67,206,162,.4)}.online_modss.focus::after,.online-prestige.focus::after,.radio-item.focus .radio-item__imgbox:after,.iptv-channel.focus::before,.iptv-channel.last--focus::before,.iptv-playlist-item.focus::after,.iptv-playlist-item.hover::after,.ad-bot.focus .ad-bot__content::after,.ad-bot.hover .ad-bot__content::after,.card-episode.focus .full-episode::after,.register.focus::after,.season-episode.focus::after,.full-episode.focus::after,.full-review-add.focus::after,.extensions__item.focus:after,.torrent-item.focus::after,.extensions__block-add.focus:after,.card-more.focus .card-more__box::after,.explorer-card__head-img.focus::after{border:3px solid #43cea2!important;box-shadow:0 0 20px rgba(67,206,162,.4)}.items-line__more{background:rgba(67,206,162,.1)}.items-line__more.focus{background:linear-gradient(to right,#43cea2,#185a9d)!important;color:#fff!important;box-shadow:0 4px 15px rgba(67,206,162,.3)}.simple-button--filter>div{background-color:rgba(67,206,162,.1)}.torrent-serial__size{background-color:#fff;color:#000}.noty{background:linear-gradient(to right,#43cea2,#185a9d);color:#fff}.full-start__background{opacity:.85;filter:brightness(1.1) saturate(1.2)}.settings__content,.settings-input__content,.selectbox__content,.modal__content,.lang{background:rgba(26,42,58,.98) !important;border:1px solid rgba(67,206,162,.1) !important;box-shadow:0 0 20px rgba(67,206,162,.1) !important}',
+        emerald: ':root{--main-color:#43cea2;--secondary-color:#185a9d;--background-color:rgba(26,42,58,.98);--text-color:#fff;--transparent-accent:rgba(67,206,162,.1)}body{background:linear-gradient(135deg,#1a2a3a 0%,#2C5364 50%,#203A43 100%);color:#fff}.menu__ico{color:#000;-webkit-filter:invert(1);filter:invert(1)}.activity__loader{position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}.modal-loading{height:6em;-webkit-background-size:contain;-moz-background-size:contain;-o-background-size:contain;background-size:contain}.console__tab.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-person.focus,.full-start__button.focus,.full-descr__tag.focus,.simple-button.focus,.head__action.focus,.head__action.hover,.player-panel .button.focus,.search-source.active,.navigation-tabs__button.focus,.radio-item.focus,.lang__selector-item.focus,.simple-keyboard .hg-button.focus,.modal__button.focus,.search-history-key.focus,.simple-keyboard-mic.focus,.torrent-serial__progress,.full-review-add.focus,.full-review.focus,.tag-count.focus,.settings-folder.focus,.settings-param.focus,.selectbox-item.focus,.selectbox-item.hover,.radio-player.focus,.broadcast__device.focus{background:linear-gradient(to right,#43cea2,#185a9d);color:#fff;box-shadow:0 4px 15px rgba(67,206,162,.3)}.time-line>div,.player-panel__position,.player-panel__position>div:after,.iptv-menu__list-item.focus,.iptv-program__timeline>div,.broadcast__scan>div{background-color:#43cea2;color:#fff}.card.focus .card__view::after,.card.hover .card__view::after{border:3px solid #43cea2!important;box-shadow:0 0 20px rgba(67,206,162,.4)}.online.focus{border:3px solid #43cea2!important;box-shadow:0 0 20px rgba(67,206,162,.4)}.online_modss.focus::after,.online-prestige.focus::after,.radio-item.focus .radio-item__imgbox:after,.iptv-channel.focus::before,.iptv-channel.last--focus::before,.iptv-playlist-item.focus::after,.iptv-playlist-item.hover::after,.ad-bot.focus .ad-bot__content::after,.ad-bot.hover .ad-bot__content::after,.card-episode.focus .full-episode::after,.register.focus::after,.season-episode.focus::after,.full-episode.focus::after,.full-review-add.focus::after,.extensions__item.focus:after,.torrent-item.focus::after,.extensions__block-add.focus:after,.card-more.focus .card-more__box::after,.explorer-card__head-img.focus::after{border:3px solid #43cea2!important;box-shadow:0 0 20px rgba(67,206,162,.4)}.items-line__more{background:rgba(67,206,162,.1)}.items-line__more.focus{background:linear-gradient(to right,#43cea2,#185a9d)!important;color:#fff!important;box-shadow:0 4px 15px rgba(67,206,162,.3)}.simple-button--filter>div{background-color:rgba(67,206,162,.1)}.torrent-serial__size{background-color:#fff;color:#000}.noty{background:linear-gradient(to right,#43cea2,#185a9d);color:#fff}.full-start__background{opacity:.85;filter:brightness(1.1) saturate(1.2)}.settings__content,.settings-input__content,.selectbox__content,.modal__content,.lang{background:rgba(26,42,58,.98) !important;border:1px solid rgba(67,206,162,.1) !important;box-shadow:0 0 20px rgba(67,206,162,.1) !important}'
     };
 
     var loaderColors = {
@@ -58,31 +61,31 @@
         emerald: '#43cea2'
     };
 
-    // ГЕНЕРАТОР ТЕМИ ЗА ФОРМУЛОЮ MINT DARK
     function generateCustomMintCSS(mainHex, svgCode) {
         var hsl = hexToHsl(mainHex);
-        
         var secondary = hslToHex((hsl.h + 12) % 360, hsl.s + 8, hsl.l - 19);
         var bg1 = hslToHex((hsl.h + 40) % 360, 60, 10);
         var bg2 = hslToHex((hsl.h - 4 + 360) % 360, hsl.s - 3, hsl.l - 26);
-        var modal = `rgba(${parseInt(hslToHex((hsl.h + 25) % 360, 33, 11).slice(1,3), 16)}, ${parseInt(hslToHex((hsl.h + 25) % 360, 33, 11).slice(3,5), 16)}, ${parseInt(hslToHex((hsl.h + 25) % 360, 33, 11).slice(5,7), 16)}, 0.96)`;
+        
+        var modalHex = hslToHex((hsl.h + 25) % 360, 33, 11);
+        var mR = parseInt(modalHex.slice(1, 3), 16);
+        var mG = parseInt(modalHex.slice(3, 5), 16);
+        var mB = parseInt(modalHex.slice(5, 7), 16);
+        var modal = 'rgba(' + mR + ', ' + mG + ', ' + mB + ', 0.96)';
 
-        return `
-            .navigation-bar__body{background: ${modal}; transition: background 0.5s ease;}
-            .card__quality, .card--tv .card__type {background: linear-gradient(to right, ${secondary}dd, ${mainHex}dd);}
-            .screensaver__preload {background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}
-            .activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}
-            body, .extensions {background: linear-gradient(135deg, ${bg1}, ${bg2});color: #ffffff; transition: background 0.5s ease;}
-            .search-source.focus,.simple-button.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-start__button.focus,.full-descr__tag.focus,.player-panel .button.focus,.full-person.selector.focus,.tag-count.selector.focus,.full-review.focus {background: linear-gradient(to right, ${secondary}, ${mainHex});color: #fff; border:none;}
-            .selectbox-item.focus,.settings-folder.focus,.settings-param.focus {background: linear-gradient(to right, ${secondary}, ${mainHex});color: #fff;border-radius: 0.5em 0 0 0.5em;}
-            .full-episode.focus::after,.card.focus .card__view::after,.card.hover .card__view::after,.torrent-item.focus::after,.extensions__item.focus::after {border: 0.2em solid ${mainHex}; box-shadow:none !important;}
-            .modal__content, .settings__content, .selectbox__content {background: ${modal}; transition: background 0.5s ease;}
-            .torrent-serial.focus {background-color: ${bg2}cc; border: 0.2em solid ${mainHex};}
-            .time-line>div,.player-panel__position,.player-panel__position>div:after{background-color:${mainHex};color:#fff}
-        `;
+        return '.navigation-bar__body{background: ' + modal + '; transition: background 0.5s ease;} ' +
+               '.card__quality, .card--tv .card__type {background: linear-gradient(to right, ' + secondary + 'dd, ' + mainHex + 'dd);} ' +
+               '.screensaver__preload {background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50%} ' +
+               '.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50%} ' +
+               'body, .extensions {background: linear-gradient(135deg, ' + bg1 + ', ' + bg2 + ');color: #ffffff; transition: background 0.5s ease;} ' +
+               '.search-source.focus,.simple-button.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-start__button.focus,.full-descr__tag.focus,.player-panel .button.focus,.full-person.selector.focus,.tag-count.selector.focus,.full-review.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ');color: #fff; border:none;} ' +
+               '.selectbox-item.focus,.settings-folder.focus,.settings-param.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ');color: #fff;border-radius: 0.5em 0 0 0.5em;} ' +
+               '.full-episode.focus::after,.card.focus .card__view::after,.card.hover .card__view::after,.torrent-item.focus::after,.extensions__item.focus::after {border: 0.2em solid ' + mainHex + '; box-shadow:none !important;} ' +
+               '.modal__content, .settings__content, .selectbox__content {background: ' + modal + '; transition: background 0.5s ease;} ' +
+               '.torrent-serial.focus {background-color: ' + bg2 + 'cc; border: 0.2em solid ' + mainHex + ';} ' +
+               '.time-line>div,.player-panel__position,.player-panel__position>div:after{background-color:' + mainHex + ';color:#fff}';
     }
 
-    /* Глобальна змінна для збереження кольору поточної відкритої картки */
     window.look_dynamic_current_hex = null;
 
     function applyTheme() {
@@ -100,14 +103,13 @@
         var colorHex = (type === 'custom') ? customHex : (loaderColors[theme] || loaderColors.default);
         var isCurrentlyDynamic = false;
 
-        // ЯКЩО МИ В КАРТЦІ І УВІМКНЕНА ДИНАМІЧНА ТЕМА
         if (window.look_dynamic_current_hex && isDynamicEnabled) {
             colorHex = window.look_dynamic_current_hex;
             isCurrentlyDynamic = true;
         }
         
         var svgCode = encodeURIComponent(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="135" height="140" fill="${colorHex}"><rect width="15" height="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="30" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="140" x="60" rx="6"><animate attributeName="height" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="90" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect></svg>`
+            '<svg xmlns="http://www.w3.org/2000/svg" width="135" height="140" fill="' + colorHex + '"><rect width="15" height="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="30" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="140" x="60" rx="6"><animate attributeName="height" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="90" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect></svg>'
         );
 
         if (isCurrentlyDynamic || type === 'custom') {
@@ -120,7 +122,7 @@
     }
 
     /* ==========================================================================
-       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (адаптовано з mdb_ratings)
+       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (ES5 Safe)
        ========================================================================== */
     function getCachedLogoColor(card) {
         var type = card.name ? 'tv' : 'movie';
@@ -135,93 +137,107 @@
         return null;
     }
 
-    function fetchLogoColor(card) {
-        return new Promise(function(resolve) {
-            var tmdbKey = Lampa.Storage.get('tmdb_api_key', '');
-            if (!tmdbKey || tmdbKey.trim() === '' || tmdbKey.trim() === 'c87a543116135a4120443155bf680876') {
-                tmdbKey = '4ef0d7355d9ffb5151e987764708ce96';
+    function fetchLogoColor(card, callback) {
+        var tmdbKey = Lampa.Storage.get('tmdb_api_key', '');
+        if (!tmdbKey || tmdbKey.trim() === '' || tmdbKey.trim() === 'c87a543116135a4120443155bf680876') {
+            tmdbKey = '4ef0d7355d9ffb5151e987764708ce96';
+        }
+
+        var type = card.name ? 'tv' : 'movie';
+        var id = card.id;
+        var url = 'https://api.themoviedb.org/3/' + type + '/' + id + '/images?api_key=' + tmdbKey;
+        
+        var network = new Lampa.Reguest();
+        network.silent(url, function(data) {
+            if (!data || !data.logos || data.logos.length === 0) return callback(null);
+
+            var logo = null;
+            var i;
+            // Шукаємо українське лого
+            for (i = 0; i < data.logos.length; i++) {
+                if (data.logos[i].iso_639_1 === 'uk') { logo = data.logos[i]; break; }
             }
-
-            var type = card.name ? 'tv' : 'movie';
-            var id = card.id;
-            var url = 'https://api.themoviedb.org/3/' + type + '/' + id + '/images?api_key=' + tmdbKey;
+            // Якщо немає, шукаємо англійське
+            if (!logo) {
+                for (i = 0; i < data.logos.length; i++) {
+                    if (data.logos[i].iso_639_1 === 'en') { logo = data.logos[i]; break; }
+                }
+            }
+            // Якщо зовсім нічого - беремо перше-ліпше
+            if (!logo) logo = data.logos[0];
             
-            fetch(url).then(function(res) { return res.json(); }).then(function(data) {
-                if (!data.logos || data.logos.length === 0) return resolve(null);
+            if (!logo || !logo.file_path) return callback(null);
 
-                var logo = data.logos.find(function(l) { return l.iso_639_1 === 'uk'; }) || 
-                           data.logos.find(function(l) { return l.iso_639_1 === 'en'; }) || 
-                           data.logos[0];
-                
-                if (!logo) return resolve(null);
+            var img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
+                canvas.width = img.width; canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
 
-                var img = new Image();
-                img.crossOrigin = 'Anonymous';
-                img.onload = function() {
-                    var canvas = document.createElement('canvas');
-                    var ctx = canvas.getContext('2d');
-                    canvas.width = img.width; canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
+                var imgData;
+                try { imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data; } 
+                catch (e) { return callback(null); }
 
-                    var imgData;
-                    try { imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data; } 
-                    catch (e) { return resolve(null); }
+                var buckets = {};
+                var totalPixels = 0;
+                var j;
 
-                    var buckets = {};
-                    var totalPixels = 0;
+                for (j = 0; j < imgData.length; j += 16) {
+                    if (imgData[j + 3] < 50) continue; 
+                    var r = imgData[j], g = imgData[j + 1], b = imgData[j + 2];
+                    totalPixels++;
 
-                    for (var i = 0; i < imgData.length; i += 16) {
-                        if (imgData[i + 3] < 50) continue; // ігнор прозорості
-                        var r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
-                        totalPixels++;
-
-                        var step = 32;
-                        var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
-                        
-                        if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
-                        buckets[key].count++; buckets[key].r += r; buckets[key].g += g; buckets[key].b += b;
-                    }
-
-                    if (totalPixels === 0) return resolve(null);
-
-                    var validBuckets = [];
-                    for (var k in buckets) {
-                        if ((buckets[k].count / totalPixels) * 100 >= 10) validBuckets.push(buckets[k]);
-                    }
-
-                    if (validBuckets.length === 0) {
-                        var maxBkt = null;
-                        for (var key in buckets) { if (!maxBkt || buckets[key].count > maxBkt.count) maxBkt = buckets[key]; }
-                        if (maxBkt) validBuckets.push(maxBkt);
-                    }
-
-                    if (validBuckets.length === 0) return resolve(null);
-
-                    validBuckets.sort(function(a, b) { return b.count - a.count; });
-                    var best = validBuckets[0];
-
-                    var finalR = Math.floor(best.r / best.count);
-                    var finalG = Math.floor(best.g / best.count);
-                    var finalB = Math.floor(best.b / best.count);
-
-                    // Якщо колір занадто темний (чорний логотип), заміняємо на базовий сіро-синій
-                    var brightness = (finalR * 299 + finalG * 587 + finalB * 114) / 1000;
-                    if (brightness < 20) { finalR = 100; finalG = 110; finalB = 120; }
-
-                    var colorData = { r: finalR, g: finalG, b: finalB };
-
-                    try {
-                        var cacheKey = 'theme_color_' + type + '_' + id;
-                        var cache = JSON.parse(localStorage.getItem('look_plugin_cache') || '{}');
-                        cache[cacheKey] = { data: colorData, timestamp: Date.now() + (10 * 24 * 60 * 60 * 1000) };
-                        localStorage.setItem('look_plugin_cache', JSON.stringify(cache));
-                    } catch (e) {}
+                    var step = 32;
+                    var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
                     
-                    resolve(colorData);
-                };
-                img.onerror = function() { resolve(null); };
-                img.src = 'https://image.tmdb.org/t/p/w300' + logo.file_path;
-            }).catch(function() { resolve(null); });
+                    if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
+                    buckets[key].count++; buckets[key].r += r; buckets[key].g += g; buckets[key].b += b;
+                }
+
+                if (totalPixels === 0) return callback(null);
+
+                var validBuckets = [];
+                for (var k in buckets) {
+                    if ((buckets[k].count / totalPixels) * 100 >= 10) validBuckets.push(buckets[k]);
+                }
+
+                if (validBuckets.length === 0) {
+                    var maxBkt = null;
+                    for (var bucketKey in buckets) { 
+                        if (!maxBkt || buckets[bucketKey].count > maxBkt.count) maxBkt = buckets[bucketKey]; 
+                    }
+                    if (maxBkt) validBuckets.push(maxBkt);
+                }
+
+                if (validBuckets.length === 0) return callback(null);
+
+                validBuckets.sort(function(a, b) { return b.count - a.count; });
+                var best = validBuckets[0];
+
+                var finalR = Math.floor(best.r / best.count);
+                var finalG = Math.floor(best.g / best.count);
+                var finalB = Math.floor(best.b / best.count);
+
+                var brightness = (finalR * 299 + finalG * 587 + finalB * 114) / 1000;
+                if (brightness < 20) { finalR = 100; finalG = 110; finalB = 120; }
+
+                var colorData = { r: finalR, g: finalG, b: finalB };
+
+                try {
+                    var cacheKey = 'theme_color_' + type + '_' + id;
+                    var cache = JSON.parse(localStorage.getItem('look_plugin_cache') || '{}');
+                    cache[cacheKey] = { data: colorData, timestamp: Date.now() + (10 * 24 * 60 * 60 * 1000) };
+                    localStorage.setItem('look_plugin_cache', JSON.stringify(cache));
+                } catch (e) {}
+                
+                callback(colorData);
+            };
+            img.onerror = function() { callback(null); };
+            img.src = 'https://image.tmdb.org/t/p/w300' + logo.file_path;
+        }, function() { 
+            callback(null); // У разі помилки мережі
         });
     }
 
@@ -239,17 +255,18 @@
                 window.look_dynamic_current_hex = rgbToHex(cachedColor.r, cachedColor.g, cachedColor.b);
                 applyTheme();
             } else {
-                fetchLogoColor(card).then(function(colorData) {
-                    // Перевіряємо, чи ми все ще в картці (щоб не застосувати тему, якщо юзер вже вийшов)
-                    if (colorData && Lampa.Activity.active().component === 'full') {
-                        window.look_dynamic_current_hex = rgbToHex(colorData.r, colorData.g, colorData.b);
-                        applyTheme();
+                fetchLogoColor(card, function(colorData) {
+                    if (colorData) {
+                        var active = Lampa.Activity.active();
+                        if (active && active.component === 'full') {
+                            window.look_dynamic_current_hex = rgbToHex(colorData.r, colorData.g, colorData.b);
+                            applyTheme();
+                        }
                     }
                 });
             }
         }
 
-        // Коли користувач виходить з картки (натискає "Назад" в каталог)
         if (e.type === 'destroy' || e.type === 'clear') {
             window.look_dynamic_current_hex = null;
             applyTheme();
@@ -260,13 +277,12 @@
        5. НАЛАШТУВАННЯ В МЕНЮ
        ========================================================================== */
     function initPlugin() {
-        Lampa.Settings.main().push({
-            name: 'look_plugin',
-            header: 'Персоналізація',
-            icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3V4M12 20V21M4 12H3M21 12H20M18.364 5.636L17.6569 6.34315M6.34315 17.6569L5.63604 18.364M18.364 18.364L17.6569 17.6569M6.34315 6.34315L5.63604 5.636M12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+        Lampa.SettingsApi.addComponent({
+            component: 'look_plugin',
+            name: 'Персоналізація',
+            icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3V4M12 20V21M4 12H3M21 12H20M18.364 5.636L17.6569 6.34315M6.34315 17.6569L5.63604 18.364M18.364 18.364L17.6569 17.6569M6.34315 6.34315L5.63604 5.636M12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
         });
 
-        // 1. Вибір режиму
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
             param: {
@@ -279,7 +295,6 @@
             onChange: function() { applyTheme(); Lampa.Settings.update(); }
         });
 
-        // 2. Список пресетів
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
             param: {
@@ -292,7 +307,6 @@
             onChange: function() { applyTheme(); }
         });
 
-        // 3. Кастомний HEX
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
             param: { name: 'look_custom_hex', type: 'input', default: '#3da18d' },
@@ -300,13 +314,11 @@
             onChange: function() { applyTheme(); }
         });
 
-        // 4. НОВИЙ ПУНКТ: ДИНАМІЧНА ТЕМА
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
             param: { name: 'look_dynamic_theme', type: 'trigger', default: false },
-            field: { name: 'Динамічна тема в картці фільму', description: 'Автоматично підлаштовує кольори інтерфейсу під домінантний колір логотипу під час перегляду інформації про фільм/серіал' },
+            field: { name: 'Динамічна тема в картці фільму', description: 'Автоматично підлаштовує кольори інтерфейсу під домінантний колір логотипу' },
             onChange: function(val) {
-                // Якщо користувач вимкнув функцію прямо під час знаходження в картці
                 if (!val && window.look_dynamic_current_hex) {
                     window.look_dynamic_current_hex = null;
                     applyTheme();
