@@ -73,17 +73,18 @@
         var mB = parseInt(modalHex.slice(5, 7), 16);
         var modal = 'rgba(' + mR + ', ' + mG + ', ' + mB + ', 0.96)';
 
-        return '.navigation-bar__body{background: ' + modal + '; transition: background 0.5s ease;} ' +
-               '.card__quality, .card--tv .card__type {background: linear-gradient(to right, ' + secondary + 'dd, ' + mainHex + 'dd);} ' +
-               '.screensaver__preload {background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50%} ' +
-               '.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50%} ' +
-               'body, .extensions {background: linear-gradient(135deg, ' + bg1 + ', ' + bg2 + ');color: #ffffff; transition: background 0.5s ease;} ' +
-               '.search-source.focus,.simple-button.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-start__button.focus,.full-descr__tag.focus,.player-panel .button.focus,.full-person.selector.focus,.tag-count.selector.focus,.full-review.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ');color: #fff; border:none;} ' +
-               '.selectbox-item.focus,.settings-folder.focus,.settings-param.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ');color: #fff;border-radius: 0.5em 0 0 0.5em;} ' +
-               '.full-episode.focus::after,.card.focus .card__view::after,.card.hover .card__view::after,.torrent-item.focus::after,.extensions__item.focus::after {border: 0.2em solid ' + mainHex + '; box-shadow:none !important;} ' +
-               '.modal__content, .settings__content, .selectbox__content {background: ' + modal + '; transition: background 0.5s ease;} ' +
-               '.torrent-serial.focus {background-color: ' + bg2 + 'cc; border: 0.2em solid ' + mainHex + ';} ' +
-               '.time-line>div,.player-panel__position,.player-panel__position>div:after{background-color:' + mainHex + ';color:#fff}';
+        // Додано !important до всіх ключових стилів, щоб гарантовано перебивати рідні стилі Лампи (особливо в налаштуваннях)
+        return '.navigation-bar__body{background: ' + modal + ' !important; transition: background 0.5s ease;} ' +
+               '.card__quality, .card--tv .card__type {background: linear-gradient(to right, ' + secondary + 'dd, ' + mainHex + 'dd) !important;} ' +
+               '.screensaver__preload {background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50% !important} ' +
+               '.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50% !important} ' +
+               'body, .extensions {background: linear-gradient(135deg, ' + bg1 + ', ' + bg2 + ') !important; color: #ffffff !important; transition: background 0.5s ease;} ' +
+               '.search-source.focus,.simple-button.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-start__button.focus,.full-descr__tag.focus,.player-panel .button.focus,.full-person.selector.focus,.tag-count.selector.focus,.full-review.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ') !important; color: #fff !important; border:none !important;} ' +
+               '.selectbox-item.focus,.settings-folder.focus,.settings-param.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ') !important; color: #fff !important; border-radius: 0.5em 0 0 0.5em !important;} ' +
+               '.full-episode.focus::after,.card.focus .card__view::after,.card.hover .card__view::after,.torrent-item.focus::after,.extensions__item.focus::after {border: 0.2em solid ' + mainHex + ' !important; box-shadow:none !important;} ' +
+               '.modal__content, .settings__content, .selectbox__content {background: ' + modal + ' !important; transition: background 0.5s ease;} ' +
+               '.torrent-serial.focus {background-color: ' + bg2 + 'cc !important; border: 0.2em solid ' + mainHex + ' !important;} ' +
+               '.time-line>div,.player-panel__position,.player-panel__position>div:after{background-color:' + mainHex + ' !important; color:#fff !important}';
     }
 
     window.look_dynamic_current_hex = null;
@@ -122,7 +123,7 @@
     }
 
     /* ==========================================================================
-       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (ES5 Safe)
+       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (Повернуті розумні фільтри)
        ========================================================================== */
     function getCachedLogoColor(card) {
         var type = card.name ? 'tv' : 'movie';
@@ -180,18 +181,31 @@
 
                 var buckets = {};
                 var totalPixels = 0;
+                var wCount = 0, wR = 0, wG = 0, wB = 0;
+                var bCount = 0, bR = 0, bG = 0, bB = 0;
                 var j;
 
                 for (j = 0; j < imgData.length; j += 16) {
-                    if (imgData[j + 3] < 50) continue; 
+                    var a = imgData[j + 3];
+                    if (a < 50) continue; 
                     var r = imgData[j], g = imgData[j + 1], b = imgData[j + 2];
                     totalPixels++;
 
-                    var step = 32;
-                    var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
-                    
-                    if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
-                    buckets[key].count++; buckets[key].r += r; buckets[key].g += g; buckets[key].b += b;
+                    var isWhite = r > 240 && g > 240 && b > 240;
+                    var isBlack = r < 25 && g < 25 && b < 25;
+
+                    // Знову фільтруємо білий/чорний текст
+                    if (isWhite) {
+                        wCount++; wR += r; wG += g; wB += b;
+                    } else if (isBlack) {
+                        bCount++; bR += r; bG += g; bB += b;
+                    } else {
+                        var step = 32;
+                        var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
+                        
+                        if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
+                        buckets[key].count++; buckets[key].r += r; buckets[key].g += g; buckets[key].b += b;
+                    }
                 }
 
                 if (totalPixels === 0) return callback(null);
@@ -201,12 +215,21 @@
                     if ((buckets[k].count / totalPixels) * 100 >= 10) validBuckets.push(buckets[k]);
                 }
 
+                var wPercent = (wCount / totalPixels) * 100;
+                var bPercent = (bCount / totalPixels) * 100;
+
+                // Додаємо білий або чорний лише якщо їх від 10% до 35%
+                if (wPercent >= 10 && wPercent <= 35) validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
+                if (bPercent >= 10 && bPercent <= 35) validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
+
                 if (validBuckets.length === 0) {
                     var maxBkt = null;
                     for (var bucketKey in buckets) { 
                         if (!maxBkt || buckets[bucketKey].count > maxBkt.count) maxBkt = buckets[bucketKey]; 
                     }
                     if (maxBkt) validBuckets.push(maxBkt);
+                    else if (wCount > bCount) validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
+                    else validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
                 }
 
                 if (validBuckets.length === 0) return callback(null);
@@ -219,7 +242,9 @@
                 var finalB = Math.floor(best.b / best.count);
 
                 var brightness = (finalR * 299 + finalG * 587 + finalB * 114) / 1000;
+                // Захист від чисто чорного та чисто білого
                 if (brightness < 20) { finalR = 100; finalG = 110; finalB = 120; }
+                if (brightness > 240) { finalR = 150; finalG = 160; finalB = 170; }
 
                 var colorData = { r: finalR, g: finalG, b: finalB };
 
@@ -246,6 +271,16 @@
         if (!Lampa.Storage.get('look_dynamic_theme', false)) return;
 
         if (e.type === 'complite') {
+            // МИттєво перехоплюємо метод знищення САМЕ ЦІЄЇ картки (щоб скинути тему)
+            if (e.object && e.object.activity && e.object.activity.destroy) {
+                var origDestroy = e.object.activity.destroy;
+                e.object.activity.destroy = function() {
+                    window.look_dynamic_current_hex = null;
+                    applyTheme();
+                    origDestroy.call(e.object.activity);
+                };
+            }
+
             var card = e.data.movie || e.object || {};
             var cachedColor = getCachedLogoColor(card);
             
@@ -263,11 +298,6 @@
                     }
                 });
             }
-        }
-
-        if (e.type === 'destroy' || e.type === 'clear') {
-            window.look_dynamic_current_hex = null;
-            applyTheme();
         }
     });
 
@@ -305,7 +335,6 @@
             onChange: function() { applyTheme(); }
         });
 
-        // ВИПРАВЛЕНО: Додано values: '' для input
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
             param: { name: 'look_custom_hex', type: 'input', values: '', 'default': '#3da18d' },
@@ -313,7 +342,6 @@
             onChange: function() { applyTheme(); }
         });
 
-        // ВИПРАВЛЕНО: Додано values: '' для trigger
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
             param: { name: 'look_dynamic_theme', type: 'trigger', values: '', 'default': false },
