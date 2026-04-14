@@ -91,6 +91,7 @@
                '.screensaver__preload {background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50% !important} ' +
                '.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50% !important} ' +
                'body, .extensions {background: linear-gradient(135deg, ' + bg1 + ', ' + bg2 + ') !important; color: #ffffff !important; transition: background 0.5s ease;} ' +
+               '.explorer-card__head-img > img, .bookmarks-folder__layer, .card-more__box, .card__img, .extensions__item { background-color: #1e2c2f; } ' +
                
                'html body .search-source.focus, html body .simple-button.focus, html body .menu__item.focus, html body .menu__item.traverse, html body .menu__item.hover, html body .full-start__button.focus, html body .full-descr__tag.focus, html body .player-panel .button.focus, html body .full-person.selector.focus, html body .tag-count.selector.focus, html body .full-review.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ') !important; color: ' + txtCol + ' !important; border:none !important;} ' +
                'html body .search-source.focus svg, html body .simple-button.focus svg, html body .menu__item.focus svg, html body .menu__item.traverse svg, html body .menu__item.hover svg, html body .full-start__button.focus svg, html body .full-descr__tag.focus svg, html body .player-panel .button.focus svg, html body .full-person.selector.focus svg, html body .tag-count.selector.focus svg, html body .full-review.focus svg { fill: ' + txtCol + ' !important; color: ' + txtCol + ' !important; } ' +
@@ -116,12 +117,12 @@
         var isLight = yiq >= 140;
         var txtCol = isLight ? '#000000' : '#ffffff';
         
-        // 70/30 мікро-градієнт
-        var gradL = isLight ? hsl.l - 5 : hsl.l + 5;
+        // Градієнт 10% для фокусу в картці
+        var gradL = isLight ? hsl.l - 10 : hsl.l + 10;
         gradL = Math.max(0, Math.min(100, gradL));
         var secondaryHex = hslToHex(hsl.h, hsl.s, gradL);
 
-        // Жорсткий !important для скасування анімації кольору тексту
+        // Жорстко скасовуємо анімацію кольору тексту для уникнення мерехтіння
         var resetTransition = 'transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease !important; ';
 
         return 'html body .full-start__button.focus, html body .player-panel .button.focus, html body .full-person.selector.focus, html body .tag-count.selector.focus, html body .full-review.focus, html body .navigation-tabs__button.focus, html body .radio-item.focus { ' +
@@ -175,7 +176,7 @@
     }
 
     /* ==========================================================================
-       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (Екстремальний фільтр)
+       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (Без штучних кольорів)
        ========================================================================== */
     function getCachedLogoColor(card) {
         var type = card.name ? 'tv' : 'movie';
@@ -271,7 +272,7 @@
 
                     if (wPercent >= 10 || bPercent >= 10) {
                         if (wPercent > bPercent) {
-                            // Якщо переважає білий колір
+                            // Якщо переважає білий колір і увімкнений ігнор
                             if (ignoreWhite) return callback(null); 
                             validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
                         } else {
@@ -286,14 +287,10 @@
                 validBuckets.sort(function(a, b) { return b.count - a.count; });
                 var best = validBuckets[0];
 
+                // Колір береться РІВНО ТАКИМ, ЯКИМ ВІН Є (без штучного висвітлення чи затемнення)
                 var finalR = Math.floor(best.r / best.count);
                 var finalG = Math.floor(best.g / best.count);
                 var finalB = Math.floor(best.b / best.count);
-
-                var brightness = (finalR * 299 + finalG * 587 + finalB * 114) / 1000;
-                // Захист: якщо виграв чорний (або він був єдиним), підфарбовуємо його в графітовий
-                if (brightness < 20) { finalR = 100; finalG = 110; finalB = 120; }
-                if (brightness > 240) { finalR = 150; finalG = 160; finalB = 170; }
 
                 var colorData = { r: finalR, g: finalG, b: finalB };
 
@@ -361,7 +358,7 @@
 
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
-            param: { name: 'look_theme_type', type: 'select', values: { presets: 'Готові пресети', custom: 'Власний колір (Mint Formula)' }, 'default': 'presets' },
+            param: { name: 'look_theme_type', type: 'select', values: { presets: 'Готові пресети', custom: 'Власний колір' }, 'default': 'presets' },
             field: { name: 'Режим оформлення', description: 'Оберіть готову тему або створіть свою' },
             onChange: function() { applyTheme(); Lampa.Settings.update(); }
         });

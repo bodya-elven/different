@@ -1274,10 +1274,10 @@ function fetchLogoColor(card, apiKey) {
     });
 }
 
-
-/* Застосування динамічного кольору до іконки (з плавною появою та динамічною тінню) */
+/* Застосування динамічного кольору до іконки (фікс масок і тіней) */
 function applyDynamicColorToIcon($iconElement, colorData, isWide) {
-    if (!colorData || !$iconElement.length || $iconElement.closest('.mdb-dynamic-shadow-wrapper').length || $iconElement.closest('.mdb-wide-color-wrapper').length) return;
+    // Шукаємо правильні класи батьківських контейнерів
+    if (!colorData || !$iconElement.length || $iconElement.closest('.mdb-dynamic-shadow-wrapper').length || $iconElement.closest('.mdb-wide-shadow-wrapper').length) return;
 
     var rgb = 'rgb(' + colorData.r + ',' + colorData.g + ',' + colorData.b + ')';
     var iconSrc = $iconElement.attr('src') || $iconElement.css('background-image').replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '');
@@ -1290,41 +1290,65 @@ function applyDynamicColorToIcon($iconElement, colorData, isWide) {
     // Захист від чорного: примусово робимо іконку білою
     if (brightness < 20) {
         rgb = 'rgb(255, 255, 255)';
-        brightness = 255; // Оновлюємо яскравість, щоб для білої іконки створилася чорна тінь
+        brightness = 255; 
     }
 
-    // --- РОЗРАХУНОК ДИНАМІЧНОЇ ТІНІ ---
-    // Якщо яскравість > 76 (світліші) — чорна тінь, інакше — біла тінь (непрозорість 50%)
+    // Тінь: чорна (0.5) для світлих кольорів (>76), біла (0.5) для темних
     var shadowColor = brightness > 76 ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.5)';
     var dropShadowStyle = 'drop-shadow(0px 2px 3px ' + shadowColor + ')';
 
     if (isWide) {
-        // --- ЛОГІКА ДЛЯ ШИРОКИХ ЛОГО ---
-        var $wideWrapper = $('<div class="mdb-wide-color-wrapper"></div>');
-        $wideWrapper.css({
+        // --- ШИРОКІ ЛОГОТИПИ ---
+        // 1. Батьківський контейнер (тільки тінь і анімація появи)
+        var $wideShadow = $('<div class="mdb-wide-shadow-wrapper"></div>');
+        $wideShadow.css({
             'display': 'inline-block',
             'width': $iconElement.width() + 'px',
             'height': $iconElement.height() + 'px',
+            'filter': dropShadowStyle,
+            '-webkit-filter': dropShadowStyle,
+            'opacity': '0',
+            'transition': 'opacity 0.4s ease'
+        });
+
+        // 2. Внутрішній контейнер (тільки колір і маска)
+        var $wideMask = $('<div class="mdb-wide-color-mask"></div>');
+        $wideMask.css({
+            'display': 'block',
+            'width': '100%',
+            'height': '100%',
             'background-color': rgb,
             '-webkit-mask-image': 'url(' + iconSrc + ')',
             '-webkit-mask-size': 'contain',
             '-webkit-mask-repeat': 'no-repeat',
             '-webkit-mask-position': 'center',
-            'filter': dropShadowStyle, // Динамічна тінь
-            'opacity': '0', // Старт з невидимості (плавна поява)
-            'transition': 'opacity 0.4s ease, background-color 0.4s ease'
+            'transition': 'background-color 0.4s ease'
         });
 
         $iconElement.css('opacity', '0'); // Оригінал ховаємо
-        $iconElement.wrap($wideWrapper);
+        $iconElement.wrap($wideShadow).wrap($wideMask); // Загортаємо правильно
 
-        // Даємо браузеру мілісекунду на рендер і плавно проявляємо
+        // Плавна поява
         setTimeout(function() {
-            $iconElement.closest('.mdb-wide-color-wrapper').css('opacity', '1');
+            $iconElement.closest('.mdb-wide-shadow-wrapper').css('opacity', '1');
         }, 50);
 
     } else {
-        // --- ЛОГІКА ДЛЯ КВАДРАТНИХ ІКОНОК ---
+        // --- КВАДРАТНІ ІКОНКИ ---
+        // 1. Батьківський контейнер (тільки тінь і анімація)
+        var $shadowWrapper = $('<div class="mdb-dynamic-shadow-wrapper"></div>');
+        $shadowWrapper.css({
+            'display': 'inline-block',
+            'width': $iconElement.width() + 'px',
+            'height': $iconElement.height() + 'px',
+            'position': 'relative',
+            'filter': dropShadowStyle,
+            '-webkit-filter': dropShadowStyle,
+            'opacity': '0',
+            'transition': 'opacity 0.4s ease'
+        });
+
+        // 2. Внутрішній контейнер (колір і маска)
         var $maskWrapper = $('<div class="mdb-dynamic-color-wrapper"></div>');
         $maskWrapper.css({
             'display': 'block',
@@ -1334,30 +1358,21 @@ function applyDynamicColorToIcon($iconElement, colorData, isWide) {
             '-webkit-mask-image': 'url(' + iconSrc + ')',
             '-webkit-mask-size': 'contain',
             '-webkit-mask-repeat': 'no-repeat',
-            '-webkit-mask-position': 'center'
-        });
-
-        var $shadowWrapper = $('<div class="mdb-dynamic-shadow-wrapper"></div>');
-        $shadowWrapper.css({
-            'display': 'inline-block',
-            'width': $iconElement.width() + 'px',
-            'height': $iconElement.height() + 'px',
-            'position': 'relative',
-            'filter': dropShadowStyle, // Динамічна тінь
-            'opacity': '0', // Старт з невидимості (плавна поява)
-            'transition': 'opacity 0.4s ease'
+            '-webkit-mask-position': 'center',
+            'transition': 'background-color 0.4s ease'
         });
 
         $iconElement.css({
             'mix-blend-mode': 'multiply',
             'filter': 'none',
+            '-webkit-filter': 'none', // Примусово скидаємо стару тінь
             'opacity': '1', 
             'display': 'block', 
             'width': '100%', 
             'height': '100%'
         });
 
-        $iconElement.wrap($shadowWrapper).wrap($maskWrapper);
+        $iconElement.wrap($shadowWrapper).wrap($maskWrapper); // Загортаємо
 
         // Плавна поява
         setTimeout(function() {
@@ -1365,7 +1380,6 @@ function applyDynamicColorToIcon($iconElement, colorData, isWide) {
         }, 50);
     }
 }
-
 
 
 
