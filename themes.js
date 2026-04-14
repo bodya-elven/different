@@ -42,18 +42,17 @@
         return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
     }
 
-    // НОВЕ: Вираховує світлість кольору та повертає чорний або білий колір тексту
+    // Вираховує світлість кольору та повертає чорний або білий текст
     function getContrastColor(hex) {
         var r = parseInt(hex.slice(1, 3), 16);
         var g = parseInt(hex.slice(3, 5), 16);
         var b = parseInt(hex.slice(5, 7), 16);
         var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-        // Якщо колір світлий (yiq >= 140), повертаємо чорний, інакше - білий
         return (yiq >= 140) ? '#000000' : '#ffffff';
     }
 
     /* ==========================================================================
-       2. ПРЕСЕТИ ТА ФОРМУЛА ГЕНЕРАЦІЇ ТЕМ
+       2. ПРЕСЕТИ ТА БАЗОВІ ТЕМИ
        ========================================================================== */
     var themes = {
         'default': '.activity__loader{position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}',
@@ -71,6 +70,7 @@
         emerald: '#43cea2'
     };
 
+    // ГЕНЕРАТОР БАЗОВОЇ ТЕМИ (працює завжди, якщо обрано Custom Mint Formula)
     function generateCustomMintCSS(mainHex, svgCode) {
         var hsl = hexToHsl(mainHex);
         var secondary = hslToHex((hsl.h + 12) % 360, hsl.s + 8, hsl.l - 19);
@@ -83,34 +83,59 @@
         var mB = parseInt(modalHex.slice(5, 7), 16);
         var modal = 'rgba(' + mR + ', ' + mG + ', ' + mB + ', 0.96)';
 
-        // Отримуємо колір тексту (Чорний або Білий) в залежності від яскравості фону
         var txtCol = getContrastColor(mainHex);
-        // Фільтр для картинок-іконок у налаштуваннях (інверсія, якщо колір тексту чорний)
         var iconFilter = (txtCol === '#000000') ? 'brightness(0) !important' : 'brightness(0) invert(1) !important';
 
-        // Використовуємо супер-селектори 'html body', щоб жорстко перебити всі стилі Lampa
         return 'html body .navigation-bar__body{background: ' + modal + ' !important; transition: background 0.5s ease;} ' +
                'html body .card__quality, html body .card--tv .card__type {background: linear-gradient(to right, ' + secondary + 'dd, ' + mainHex + 'dd) !important;} ' +
                '.screensaver__preload {background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50% !important} ' +
                '.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50% !important} ' +
                'body, .extensions {background: linear-gradient(135deg, ' + bg1 + ', ' + bg2 + ') !important; color: #ffffff !important; transition: background 0.5s ease;} ' +
                
-               // Кнопки (з кольором тексту)
                'html body .search-source.focus, html body .simple-button.focus, html body .menu__item.focus, html body .menu__item.traverse, html body .menu__item.hover, html body .full-start__button.focus, html body .full-descr__tag.focus, html body .player-panel .button.focus, html body .full-person.selector.focus, html body .tag-count.selector.focus, html body .full-review.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ') !important; color: ' + txtCol + ' !important; border:none !important;} ' +
-               
-               // Іконки SVG всередині кнопок
                'html body .search-source.focus svg, html body .simple-button.focus svg, html body .menu__item.focus svg, html body .menu__item.traverse svg, html body .menu__item.hover svg, html body .full-start__button.focus svg, html body .full-descr__tag.focus svg, html body .player-panel .button.focus svg, html body .full-person.selector.focus svg, html body .tag-count.selector.focus svg, html body .full-review.focus svg { fill: ' + txtCol + ' !important; color: ' + txtCol + ' !important; } ' +
                
-               // Налаштування та списки вибору (Жорсткий Override)
                'html body .selectbox-item.focus, html body .settings-folder.focus, html body .settings-param.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ') !important; color: ' + txtCol + ' !important; border-radius: 0.5em 0 0 0.5em !important;} ' +
                'html body .selectbox-item.focus svg, html body .settings-folder.focus svg, html body .settings-param.focus svg { fill: ' + txtCol + ' !important; color: ' + txtCol + ' !important; } ' +
                'html body .settings-folder.focus .settings-folder__icon img { filter: ' + iconFilter + '; } ' +
                
-               // Інше
                '.full-episode.focus::after, .card.focus .card__view::after, .card.hover .card__view::after, .torrent-item.focus::after, .extensions__item.focus::after {border: 0.2em solid ' + mainHex + ' !important; box-shadow:none !important;} ' +
                '.modal__content, .settings__content, .selectbox__content {background: ' + modal + ' !important; transition: background 0.5s ease;} ' +
                '.torrent-serial.focus {background-color: ' + bg2 + 'cc !important; border: 0.2em solid ' + mainHex + ' !important;} ' +
                '.time-line>div,.player-panel__position,.player-panel__position>div:after{background-color:' + mainHex + ' !important; color:#fff !important}';
+    }
+
+    // ГЕНЕРАТОР ДИНАМІЧНОГО ФОКУСУ ТІЛЬКИ ДЛЯ ЕЛЕМЕНТІВ КАРТКИ ФІЛЬМУ
+    function generateDynamicFocusCSS(mainHex) {
+        var hsl = hexToHsl(mainHex);
+        var r = parseInt(mainHex.slice(1, 3), 16);
+        var g = parseInt(mainHex.slice(3, 5), 16);
+        var b = parseInt(mainHex.slice(5, 7), 16);
+        var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        
+        var isLight = yiq >= 140;
+        var txtCol = isLight ? '#000000' : '#ffffff';
+        
+        // 70/30 мікро-градієнт
+        var gradL = isLight ? hsl.l - 5 : hsl.l + 5;
+        gradL = Math.max(0, Math.min(100, gradL));
+        var secondaryHex = hslToHex(hsl.h, hsl.s, gradL);
+
+        // Жорсткий !important для скасування анімації кольору тексту
+        var resetTransition = 'transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease !important; ';
+
+        return 'html body .full-start__button.focus, html body .player-panel .button.focus, html body .full-person.selector.focus, html body .tag-count.selector.focus, html body .full-review.focus, html body .navigation-tabs__button.focus, html body .radio-item.focus { ' +
+               'background: linear-gradient(to right, ' + secondaryHex + ', ' + mainHex + ') !important; ' +
+               'color: ' + txtCol + ' !important; ' +
+               'border: none !important; ' + resetTransition + '} ' +
+               
+               'html body .full-start__button.focus svg, html body .player-panel .button.focus svg, html body .full-person.selector.focus svg, html body .tag-count.selector.focus svg, html body .full-review.focus svg, html body .navigation-tabs__button.focus svg, html body .radio-item.focus svg { ' +
+               'fill: ' + txtCol + ' !important; color: ' + txtCol + ' !important; transition: none !important; } ' +
+               
+               'html body .full-episode.focus::after, html body .card-episode.focus .full-episode::after, html body .card.focus .card__view::after, html body .card.hover .card__view::after, html body .torrent-item.focus::after { ' +
+               'border: 0.2em solid ' + mainHex + ' !important; box-shadow: none !important; } ' + 
+               
+               'html body .torrent-serial.focus { background-color: ' + secondaryHex + '44 !important; border: 0.2em solid ' + mainHex + ' !important; }';
     }
 
     window.look_dynamic_current_hex = null;
@@ -127,24 +152,25 @@
         var style = document.createElement('style');
         style.id = 'interface_theme_mod_style';
         
-        var colorHex = (type === 'custom') ? customHex : (loaderColors[theme] || loaderColors.default);
-        var isCurrentlyDynamic = false;
-
-        if (window.look_dynamic_current_hex && isDynamicEnabled) {
-            colorHex = window.look_dynamic_current_hex;
-            isCurrentlyDynamic = true;
-        }
-        
+        var baseHex = (type === 'custom') ? customHex : (loaderColors[theme] || loaderColors.default);
         var svgCode = encodeURIComponent(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="135" height="140" fill="' + colorHex + '"><rect width="15" height="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="30" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="140" x="60" rx="6"><animate attributeName="height" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="90" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect></svg>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="135" height="140" fill="' + baseHex + '"><rect width="15" height="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="30" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="140" x="60" rx="6"><animate attributeName="height" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="90" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect></svg>'
         );
 
-        if (isCurrentlyDynamic || type === 'custom') {
-            style.textContent = generateCustomMintCSS(colorHex, svgCode);
+        // 1. Спочатку генеруємо БАЗОВУ тему
+        var finalCSS = '';
+        if (type === 'custom') {
+            finalCSS = generateCustomMintCSS(customHex, svgCode);
         } else {
-            style.textContent = (themes[theme] || themes['default']).replace(/\${svgCode}/g, svgCode);
+            finalCSS = (themes[theme] || themes['default']).replace(/\${svgCode}/g, svgCode);
         }
 
+        // 2. Додаємо стилі-перехоплювачі в кінець (Тільки для карток)
+        if (window.look_dynamic_current_hex && isDynamicEnabled) {
+            finalCSS += '\n/* Dynamic Focus Overrides */\n' + generateDynamicFocusCSS(window.look_dynamic_current_hex);
+        }
+
+        style.textContent = finalCSS;
         document.head.appendChild(style);
     }
 
@@ -180,7 +206,6 @@
 
             var logo = null;
             var i;
-            
             for (i = 0; i < data.logos.length; i++) {
                 if (data.logos[i].iso_639_1 === 'uk') { logo = data.logos[i]; break; }
             }
@@ -209,9 +234,8 @@
                 var totalPixels = 0;
                 var wCount = 0, wR = 0, wG = 0, wB = 0;
                 var bCount = 0, bR = 0, bG = 0, bB = 0;
-                var j;
 
-                for (j = 0; j < imgData.length; j += 16) {
+                for (var j = 0; j < imgData.length; j += 16) {
                     var a = imgData[j + 3];
                     if (a < 50) continue; 
                     var r = imgData[j], g = imgData[j + 1], b = imgData[j + 2];
@@ -221,10 +245,9 @@
                     var isBlack = r < 25 && g < 25 && b < 25;
                     var isGray = Math.abs(r - g) < 15 && Math.abs(g - b) < 15 && Math.abs(r - b) < 15;
 
-                    // Збираємо білі/чорні/сірі пікселі окремо, щоб вони не впливали на кольорові
                     if (isWhite) { wCount++; wR += r; wG += g; wB += b; } 
                     else if (isBlack) { bCount++; bR += r; bG += g; bB += b; } 
-                    else if (isGray) { /* Ігноруємо брудний сірий, щоб він не став темою */ }
+                    else if (isGray) { /* Ігноруємо брудний сірий */ }
                     else {
                         var step = 32;
                         var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
@@ -237,19 +260,25 @@
 
                 var validBuckets = [];
                 for (var k in buckets) {
-                    // Якщо колір складає хоча б 5% логотипа - беремо його!
-                    if ((buckets[k].count / totalPixels) * 100 >= 5) {
-                        validBuckets.push(buckets[k]);
-                    }
+                    if ((buckets[k].count / totalPixels) * 100 >= 5) validBuckets.push(buckets[k]);
                 }
 
-                // ВАЖЛИВО: Тільки якщо кольорових елементів НЕМАЄ ВЗАГАЛІ, 
-                // ми дозволяємо білому або чорному тексту стати темою
+                // ВІДОКРЕМЛЕНА ЛОГІКА ДЛЯ БІЛОГО ТА ЧОРНОГО
                 if (validBuckets.length === 0) {
+                    var ignoreWhite = Lampa.Storage.get('look_dynamic_ignore_white', true);
                     var wPercent = (wCount / totalPixels) * 100;
                     var bPercent = (bCount / totalPixels) * 100;
-                    if (wPercent >= 10) validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
-                    if (bPercent >= 10) validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
+
+                    if (wPercent >= 10 || bPercent >= 10) {
+                        if (wPercent > bPercent) {
+                            // Якщо переважає білий колір
+                            if (ignoreWhite) return callback(null); 
+                            validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
+                        } else {
+                            // Якщо переважає чорний/темний колір (Ніколи не ігноруємо)
+                            validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
+                        }
+                    }
                 }
 
                 if (validBuckets.length === 0) return callback(null);
@@ -262,7 +291,7 @@
                 var finalB = Math.floor(best.b / best.count);
 
                 var brightness = (finalR * 299 + finalG * 587 + finalB * 114) / 1000;
-                // Захист: якщо виграв чорний або білий - підфарбовуємо їх у благородний сіро-синій
+                // Захист: якщо виграв чорний (або він був єдиним), підфарбовуємо його в графітовий
                 if (brightness < 20) { finalR = 100; finalG = 110; finalB = 120; }
                 if (brightness > 240) { finalR = 150; finalG = 160; finalB = 170; }
 
@@ -289,9 +318,7 @@
        ========================================================================== */
     Lampa.Listener.follow('activity', function (e) {
         if (e.type === 'start') {
-            // Як тільки відкривається будь-що, окрім фільму (Каталог, Налаштування) — скидаємо колір
-            var comp = e.component;
-            if (comp !== 'full' && window.look_dynamic_current_hex) {
+            if (e.component !== 'full' && window.look_dynamic_current_hex) {
                 window.look_dynamic_current_hex = null;
                 applyTheme();
             }
@@ -320,12 +347,6 @@
                 });
             }
         }
-        
-        // Резервне скидання при прямому знищенні картки
-        if (e.type === 'destroy' || e.type === 'clear') {
-            window.look_dynamic_current_hex = null;
-            applyTheme();
-        }
     });
 
     /* ==========================================================================
@@ -340,24 +361,14 @@
 
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
-            param: {
-                name: 'look_theme_type',
-                type: 'select',
-                values: { presets: 'Готові пресети', custom: 'Власний колір (Mint Formula)' },
-                'default': 'presets'
-            },
+            param: { name: 'look_theme_type', type: 'select', values: { presets: 'Готові пресети', custom: 'Власний колір (Mint Formula)' }, 'default': 'presets' },
             field: { name: 'Режим оформлення', description: 'Оберіть готову тему або створіть свою' },
             onChange: function() { applyTheme(); Lampa.Settings.update(); }
         });
 
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
-            param: {
-                name: 'interface_theme',
-                type: 'select',
-                values: { 'default': 'Стандартна', 'violet_stroke': 'Фіолетова', 'mint_dark': 'Mint Dark', 'retro': 'Ретро (Шоколад)', 'emerald': 'Emerald' },
-                'default': 'default'
-            },
+            param: { name: 'interface_theme', type: 'select', values: { 'default': 'Стандартна', 'violet_stroke': 'Фіолетова', 'mint_dark': 'Mint Dark', 'retro': 'Ретро (Шоколад)', 'emerald': 'Emerald' }, 'default': 'default' },
             field: { name: 'Пресети тем', description: 'Оберіть одну з підготовлених тем' },
             onChange: function() { applyTheme(); }
         });
@@ -372,12 +383,26 @@
         Lampa.SettingsApi.addParam({
             component: 'look_plugin',
             param: { name: 'look_dynamic_theme', type: 'trigger', values: '', 'default': false },
-            field: { name: 'Динамічна тема в картці фільму', description: 'Автоматично підлаштовує кольори інтерфейсу під домінантний колір логотипу' },
+            field: { name: 'Динамічна тема в картці фільму', description: 'Підлаштовує кнопки під колір логотипу' },
             onChange: function(val) {
+                var ignoreItem = $('div[data-name="look_dynamic_ignore_white"]');
+                if (val) ignoreItem.show(); else ignoreItem.hide();
                 if (!val && window.look_dynamic_current_hex) {
                     window.look_dynamic_current_hex = null;
                     applyTheme();
                 }
+            }
+        });
+
+        Lampa.SettingsApi.addParam({
+            component: 'look_plugin',
+            param: { name: 'look_dynamic_ignore_white', type: 'trigger', values: '', 'default': true },
+            field: { name: 'Ігнорувати білі логотипи', description: 'Якщо логотип білий, залишати обрану вище базову тему' },
+            onChange: function() { applyTheme(); },
+            onRender: function(item) {
+                setTimeout(function() {
+                    if (!Lampa.Storage.get('look_dynamic_theme', false)) item.hide();
+                }, 10);
             }
         });
 
