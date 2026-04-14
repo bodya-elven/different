@@ -42,7 +42,6 @@
         return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
     }
 
-    // Вираховує світлість кольору та повертає чорний або білий текст
     function getContrastColor(hex) {
         var r = parseInt(hex.slice(1, 3), 16);
         var g = parseInt(hex.slice(3, 5), 16);
@@ -70,7 +69,7 @@
         emerald: '#43cea2'
     };
 
-    // ГЕНЕРАТОР БАЗОВОЇ ТЕМИ (працює завжди, якщо обрано Custom Mint Formula)
+    // БАЗОВИЙ ГЕНЕРАТОР: 1 в 1 як оригінальний пресет (без анімацій фону чи !important)
     function generateCustomMintCSS(mainHex, svgCode) {
         var hsl = hexToHsl(mainHex);
         var secondary = hslToHex((hsl.h + 12) % 360, hsl.s + 8, hsl.l - 19);
@@ -83,30 +82,31 @@
         var mB = parseInt(modalHex.slice(5, 7), 16);
         var modal = 'rgba(' + mR + ', ' + mG + ', ' + mB + ', 0.96)';
 
-        var txtCol = getContrastColor(mainHex);
-        var iconFilter = (txtCol === '#000000') ? 'brightness(0) !important' : 'brightness(0) invert(1) !important';
+        // Рахуємо темну підкладку карток для каталогу
+        var cardBg = hslToHex((hsl.h + 15) % 360, 21, 15);
 
-        return 'html body .navigation-bar__body{background: ' + modal + ' !important; transition: background 0.5s ease;} ' +
-               'html body .card__quality, html body .card--tv .card__type {background: linear-gradient(to right, ' + secondary + 'dd, ' + mainHex + 'dd) !important;} ' +
-               '.screensaver__preload {background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50% !important} ' +
-               '.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50% !important} ' +
-               'body, .extensions {background: linear-gradient(135deg, ' + bg1 + ', ' + bg2 + ') !important; color: #ffffff !important; transition: background 0.5s ease;} ' +
-               '.explorer-card__head-img > img, .bookmarks-folder__layer, .card-more__box, .card__img, .extensions__item { background-color: #1e2c2f; } ' +
-               
-               'html body .search-source.focus, html body .simple-button.focus, html body .menu__item.focus, html body .menu__item.traverse, html body .menu__item.hover, html body .full-start__button.focus, html body .full-descr__tag.focus, html body .player-panel .button.focus, html body .full-person.selector.focus, html body .tag-count.selector.focus, html body .full-review.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ') !important; color: ' + txtCol + ' !important; border:none !important;} ' +
-               'html body .search-source.focus svg, html body .simple-button.focus svg, html body .menu__item.focus svg, html body .menu__item.traverse svg, html body .menu__item.hover svg, html body .full-start__button.focus svg, html body .full-descr__tag.focus svg, html body .player-panel .button.focus svg, html body .full-person.selector.focus svg, html body .tag-count.selector.focus svg, html body .full-review.focus svg { fill: ' + txtCol + ' !important; color: ' + txtCol + ' !important; } ' +
-               
-               'html body .selectbox-item.focus, html body .settings-folder.focus, html body .settings-param.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ') !important; color: ' + txtCol + ' !important; border-radius: 0.5em 0 0 0.5em !important;} ' +
-               'html body .selectbox-item.focus svg, html body .settings-folder.focus svg, html body .settings-param.focus svg { fill: ' + txtCol + ' !important; color: ' + txtCol + ' !important; } ' +
-               'html body .settings-folder.focus .settings-folder__icon img { filter: ' + iconFilter + '; } ' +
-               
-               '.full-episode.focus::after, .card.focus .card__view::after, .card.hover .card__view::after, .torrent-item.focus::after, .extensions__item.focus::after {border: 0.2em solid ' + mainHex + ' !important; box-shadow:none !important;} ' +
-               '.modal__content, .settings__content, .selectbox__content {background: ' + modal + ' !important; transition: background 0.5s ease;} ' +
-               '.torrent-serial.focus {background-color: ' + bg2 + 'cc !important; border: 0.2em solid ' + mainHex + ' !important;} ' +
-               '.time-line>div,.player-panel__position,.player-panel__position>div:after{background-color:' + mainHex + ' !important; color:#fff !important}';
+        var txtCol = getContrastColor(mainHex);
+        var iconFilter = (txtCol === '#000000') ? 'brightness(0)' : 'brightness(0) invert(1)';
+
+        return '.navigation-bar__body{background: ' + modal + ';}' +
+               '.card__quality, .card--tv .card__type {background: linear-gradient(to right, ' + secondary + 'dd, ' + mainHex + 'dd);}' +
+               '.screensaver__preload {background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50%}' +
+               '.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50%}' +
+               'body, .extensions {background: linear-gradient(135deg, ' + bg1 + ', ' + bg2 + ');color: #ffffff;}' +
+               '.company-start.icon--broken .company-start__icon,.explorer-card__head-img > img,.bookmarks-folder__layer,.card-more__box,.card__img,.extensions__block-add,.extensions__item {background-color: ' + cardBg + ';}' +
+               '.search-source.focus,.simple-button.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-start__button.focus,.full-descr__tag.focus,.player-panel .button.focus,.full-person.selector.focus,.tag-count.selector.focus,.full-review.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ');color: ' + txtCol + ';box-shadow: 0 0.0em 0.4em rgba(0,0,0, 0.0);}' +
+               '.selectbox-item.focus,.settings-folder.focus,.settings-param.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ');color: ' + txtCol + ';box-shadow: 0 0.0em 0.4em rgba(0,0,0, 0.0);border-radius: 0.5em 0 0 0.5em;}' +
+               '.full-episode.focus::after,.card-episode.focus .full-episode::after,.items-cards .selector.focus::after, .card-more.focus .card-more__box::after,.card-episode.focus .full-episode::after,.card-episode.hover .full-episode::after,.card.focus .card__view::after,.card.hover .card__view::after,.torrent-item.focus::after,.online-prestige.selector.focus::after,.online-prestige--full.selector.focus::after,.explorer-card__head-img.selector.focus::after,.extensions__item.focus::after,.extensions__block-add.focus::after,.full-review-add.focus::after {border: 0.2em solid ' + mainHex + ';box-shadow: 0 0 0.8em rgba(0,0,0, 0.0);}' +
+               '.head__action.focus,.head__action.hover {background: linear-gradient(45deg, ' + mainHex + ', ' + secondary + ');}' +
+               '.modal__content {background: ' + modal + ';border: 0em solid ' + modal + ';}' +
+               '.settings__content,.settings-input__content,.selectbox__content,.settings-input {background: ' + modal + ';}' +
+               '.torrent-serial {background: rgba(0, 0, 0, 0.22);border: 0.2em solid rgba(0, 0, 0, 0.22);}' +
+               '.torrent-serial.focus {background-color: ' + bg2 + 'cc;border: 0.2em solid ' + mainHex + ';}' +
+               '.search-source.focus svg, .simple-button.focus svg, .menu__item.focus svg, .menu__item.traverse svg, .menu__item.hover svg, .full-start__button.focus svg, .full-descr__tag.focus svg, .player-panel .button.focus svg, .full-person.selector.focus svg, .tag-count.selector.focus svg, .full-review.focus svg, .selectbox-item.focus svg, .settings-folder.focus svg, .settings-param.focus svg { fill: ' + txtCol + '; color: ' + txtCol + '; } ' +
+               '.settings-folder.focus .settings-folder__icon img { filter: ' + iconFilter + '; }';
     }
 
-    // ГЕНЕРАТОР ДИНАМІЧНОГО ФОКУСУ ТІЛЬКИ ДЛЯ ЕЛЕМЕНТІВ КАРТКИ ФІЛЬМУ
+    // ДИНАМІЧНИЙ ФОКУС (Тільки для елементів усередині картки фільму)
     function generateDynamicFocusCSS(mainHex) {
         var hsl = hexToHsl(mainHex);
         var r = parseInt(mainHex.slice(1, 3), 16);
@@ -117,13 +117,13 @@
         var isLight = yiq >= 140;
         var txtCol = isLight ? '#000000' : '#ffffff';
         
-        // Градієнт 10% для фокусу в картці
+        // Зміщення градієнта строго на 10%
         var gradL = isLight ? hsl.l - 10 : hsl.l + 10;
         gradL = Math.max(0, Math.min(100, gradL));
         var secondaryHex = hslToHex(hsl.h, hsl.s, gradL);
 
-        // Жорстко скасовуємо анімацію кольору тексту для уникнення мерехтіння
-        var resetTransition = 'transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease !important; ';
+        // Жорстко блокуємо анімацію тексту, щоб не було блимання/дьоргання
+        var resetTransition = 'transition: background-color 0.1s ease, border-color 0.1s ease, transform 0.3s ease !important; ';
 
         return 'html body .full-start__button.focus, html body .player-panel .button.focus, html body .full-person.selector.focus, html body .tag-count.selector.focus, html body .full-review.focus, html body .navigation-tabs__button.focus, html body .radio-item.focus { ' +
                'background: linear-gradient(to right, ' + secondaryHex + ', ' + mainHex + ') !important; ' +
@@ -158,7 +158,7 @@
             '<svg xmlns="http://www.w3.org/2000/svg" width="135" height="140" fill="' + baseHex + '"><rect width="15" height="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="30" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="140" x="60" rx="6"><animate attributeName="height" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="90" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect></svg>'
         );
 
-        // 1. Спочатку генеруємо БАЗОВУ тему
+        // 1. Генеруємо Базову Тему (абсолютно чистий CSS без конфліктів)
         var finalCSS = '';
         if (type === 'custom') {
             finalCSS = generateCustomMintCSS(customHex, svgCode);
@@ -166,7 +166,7 @@
             finalCSS = (themes[theme] || themes['default']).replace(/\${svgCode}/g, svgCode);
         }
 
-        // 2. Додаємо стилі-перехоплювачі в кінець (Тільки для карток)
+        // 2. Якщо ми всередині фільму — додаємо динамічний перехоплювач фокусу
         if (window.look_dynamic_current_hex && isDynamicEnabled) {
             finalCSS += '\n/* Dynamic Focus Overrides */\n' + generateDynamicFocusCSS(window.look_dynamic_current_hex);
         }
@@ -176,7 +176,7 @@
     }
 
     /* ==========================================================================
-       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (Без штучних кольорів)
+       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (Екстремальний фільтр)
        ========================================================================== */
     function getCachedLogoColor(card) {
         var type = card.name ? 'tv' : 'movie';
@@ -248,7 +248,7 @@
 
                     if (isWhite) { wCount++; wR += r; wG += g; wB += b; } 
                     else if (isBlack) { bCount++; bR += r; bG += g; bB += b; } 
-                    else if (isGray) { /* Ігноруємо брудний сірий */ }
+                    else if (isGray) { /* Ігнор */ }
                     else {
                         var step = 32;
                         var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
@@ -264,7 +264,7 @@
                     if ((buckets[k].count / totalPixels) * 100 >= 5) validBuckets.push(buckets[k]);
                 }
 
-                // ВІДОКРЕМЛЕНА ЛОГІКА ДЛЯ БІЛОГО ТА ЧОРНОГО
+                // Логіка для чорно-білих логотипів
                 if (validBuckets.length === 0) {
                     var ignoreWhite = Lampa.Storage.get('look_dynamic_ignore_white', true);
                     var wPercent = (wCount / totalPixels) * 100;
@@ -272,11 +272,10 @@
 
                     if (wPercent >= 10 || bPercent >= 10) {
                         if (wPercent > bPercent) {
-                            // Якщо переважає білий колір і увімкнений ігнор
-                            if (ignoreWhite) return callback(null); 
+                            if (ignoreWhite) return callback(null); // Білий текст ігнорується, працює базова тема
                             validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
                         } else {
-                            // Якщо переважає чорний/темний колір (Ніколи не ігноруємо)
+                            // Чорний текст ніколи не ігнорується
                             validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
                         }
                     }
@@ -287,7 +286,7 @@
                 validBuckets.sort(function(a, b) { return b.count - a.count; });
                 var best = validBuckets[0];
 
-                // Колір береться РІВНО ТАКИМ, ЯКИМ ВІН Є (без штучного висвітлення чи затемнення)
+                // Колір береться РІВНО ТАКИМ, ЯКИМ ВІН Є
                 var finalR = Math.floor(best.r / best.count);
                 var finalG = Math.floor(best.g / best.count);
                 var finalB = Math.floor(best.b / best.count);
