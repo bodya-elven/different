@@ -69,7 +69,7 @@
         emerald: '#43cea2'
     };
 
-    // БАЗОВИЙ ГЕНЕРАТОР: 1 в 1 як оригінальний пресет (без анімацій фону чи !important)
+    // ГЕНЕРАТОР БАЗОВОЇ ТЕМИ
     function generateCustomMintCSS(mainHex, svgCode) {
         var hsl = hexToHsl(mainHex);
         var secondary = hslToHex((hsl.h + 12) % 360, hsl.s + 8, hsl.l - 19);
@@ -82,9 +82,7 @@
         var mB = parseInt(modalHex.slice(5, 7), 16);
         var modal = 'rgba(' + mR + ', ' + mG + ', ' + mB + ', 0.96)';
 
-        // Рахуємо темну підкладку карток для каталогу
         var cardBg = hslToHex((hsl.h + 15) % 360, 21, 15);
-
         var txtCol = getContrastColor(mainHex);
         var iconFilter = (txtCol === '#000000') ? 'brightness(0)' : 'brightness(0) invert(1)';
 
@@ -106,7 +104,7 @@
                '.settings-folder.focus .settings-folder__icon img { filter: ' + iconFilter + '; }';
     }
 
-    // ДИНАМІЧНИЙ ФОКУС (Тільки для елементів усередині картки фільму)
+    // ДИНАМІЧНИЙ ФОКУС (Зміщення 10%, без штучних кольорів)
     function generateDynamicFocusCSS(mainHex) {
         var hsl = hexToHsl(mainHex);
         var r = parseInt(mainHex.slice(1, 3), 16);
@@ -122,7 +120,7 @@
         gradL = Math.max(0, Math.min(100, gradL));
         var secondaryHex = hslToHex(hsl.h, hsl.s, gradL);
 
-        // Жорстко блокуємо анімацію тексту, щоб не було блимання/дьоргання
+        // Жорстко блокуємо анімацію тексту
         var resetTransition = 'transition: background-color 0.1s ease, border-color 0.1s ease, transform 0.3s ease !important; ';
 
         return 'html body .full-start__button.focus, html body .player-panel .button.focus, html body .full-person.selector.focus, html body .tag-count.selector.focus, html body .full-review.focus, html body .navigation-tabs__button.focus, html body .radio-item.focus { ' +
@@ -158,7 +156,7 @@
             '<svg xmlns="http://www.w3.org/2000/svg" width="135" height="140" fill="' + baseHex + '"><rect width="15" height="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="30" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="140" x="60" rx="6"><animate attributeName="height" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="90" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect></svg>'
         );
 
-        // 1. Генеруємо Базову Тему (абсолютно чистий CSS без конфліктів)
+        // 1. Генеруємо Базову Тему
         var finalCSS = '';
         if (type === 'custom') {
             finalCSS = generateCustomMintCSS(customHex, svgCode);
@@ -166,7 +164,7 @@
             finalCSS = (themes[theme] || themes['default']).replace(/\${svgCode}/g, svgCode);
         }
 
-        // 2. Якщо ми всередині фільму — додаємо динамічний перехоплювач фокусу
+        // 2. Якщо ми у фільмі і увімкнена динамічна тема — додаємо стилі-перехоплювачі
         if (window.look_dynamic_current_hex && isDynamicEnabled) {
             finalCSS += '\n/* Dynamic Focus Overrides */\n' + generateDynamicFocusCSS(window.look_dynamic_current_hex);
         }
@@ -176,7 +174,7 @@
     }
 
     /* ==========================================================================
-       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (Екстремальний фільтр)
+       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (Новий План Б)
        ========================================================================== */
     function getCachedLogoColor(card) {
         var type = card.name ? 'tv' : 'movie';
@@ -215,8 +213,7 @@
                     if (data.logos[i].iso_639_1 === 'en') { logo = data.logos[i]; break; }
                 }
             }
-            if (!logo) logo = data.logos[0];
-            
+            // Якщо немає ні UK, ні EN - скасовуємо динаміку
             if (!logo || !logo.file_path) return callback(null);
 
             var img = new Image();
@@ -235,8 +232,9 @@
                 var totalPixels = 0;
                 var wCount = 0, wR = 0, wG = 0, wB = 0;
                 var bCount = 0, bR = 0, bG = 0, bB = 0;
+                var j;
 
-                for (var j = 0; j < imgData.length; j += 16) {
+                for (j = 0; j < imgData.length; j += 16) {
                     var a = imgData[j + 3];
                     if (a < 50) continue; 
                     var r = imgData[j], g = imgData[j + 1], b = imgData[j + 2];
@@ -248,7 +246,7 @@
 
                     if (isWhite) { wCount++; wR += r; wG += g; wB += b; } 
                     else if (isBlack) { bCount++; bR += r; bG += g; bB += b; } 
-                    else if (isGray) { /* Ігнор */ }
+                    else if (isGray) { /* Ігноруємо брудний сірий */ }
                     else {
                         var step = 32;
                         var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
@@ -260,11 +258,25 @@
                 if (totalPixels === 0) return callback(null);
 
                 var validBuckets = [];
-                for (var k in buckets) {
-                    if ((buckets[k].count / totalPixels) * 100 >= 5) validBuckets.push(buckets[k]);
+                var k;
+
+                // ФАЗА 1: Шукаємо колір >= 10%
+                for (k in buckets) {
+                    if ((buckets[k].count / totalPixels) * 100 >= 10) validBuckets.push(buckets[k]);
                 }
 
-                // Логіка для чорно-білих логотипів
+                // ФАЗА 2: План Б (Синдром веселки). Якщо немає 10%, шукаємо найбільший колір >= 3%
+                if (validBuckets.length === 0) {
+                    var maxColorBkt = null;
+                    for (k in buckets) {
+                        if (!maxColorBkt || buckets[k].count > maxColorBkt.count) maxColorBkt = buckets[k];
+                    }
+                    if (maxColorBkt && (maxColorBkt.count / totalPixels) * 100 >= 3) {
+                        validBuckets.push(maxColorBkt);
+                    }
+                }
+
+                // ФАЗА 3: Якщо навіть 3% кольору немає, перевіряємо чорний та білий (>= 10%)
                 if (validBuckets.length === 0) {
                     var ignoreWhite = Lampa.Storage.get('look_dynamic_ignore_white', true);
                     var wPercent = (wCount / totalPixels) * 100;
@@ -272,10 +284,11 @@
 
                     if (wPercent >= 10 || bPercent >= 10) {
                         if (wPercent > bPercent) {
-                            if (ignoreWhite) return callback(null); // Білий текст ігнорується, працює базова тема
+                            // Якщо переважає білий колір
+                            if (ignoreWhite) return callback(null); 
                             validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
                         } else {
-                            // Чорний текст ніколи не ігнорується
+                            // Якщо переважає чорний колір
                             validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
                         }
                     }
