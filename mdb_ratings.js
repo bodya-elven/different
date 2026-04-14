@@ -1294,7 +1294,7 @@ function applyDynamicColorToIcon($iconElement, colorData, isWide) {
     }
 
     // Тінь: чорна (0.5) для світлих кольорів (>76), біла (0.5) для темних
-    var shadowColor = brightness > 76 ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)';
+    var shadowColor = brightness > 76 ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)';
     var dropShadowStyle = 'drop-shadow(0.1px 0.1px 0px ' + shadowColor + ')';
 
     if (isWide) {
