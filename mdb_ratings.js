@@ -1275,70 +1275,6 @@ function fetchLogoColor(card, apiKey) {
 }
 
 
-/* Застосування динамічного кольору до іконки (з плавною появою) */
-function applyDynamicColorToIcon($iconElement, colorData, isWide) {
-    if (!colorData || !$iconElement.length || $iconElement.closest('.mdb-dynamic-shadow-wrapper').length || $iconElement.closest('.mdb-wide-color-wrapper').length) return;
-
-    var rgb = 'rgb(' + colorData.r + ',' + colorData.g + ',' + colorData.b + ')';
-    var iconSrc = $iconElement.attr('src') || $iconElement.css('background-image').replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '');
-    
-    var brightness = colorData.brightness;
-    if (brightness === undefined) {
-        brightness = (colorData.r * 299 + colorData.g * 587 + colorData.b * 114) / 1000;
-    }
-
-    // Захист від чорного
-    if (brightness < 20) {
-        rgb = 'rgb(255, 255, 255)';
-    }
-
-    if (isWide) {
-        // --- ЛОГІКА ДЛЯ ШИРОКИХ ЛОГО ---
-        var $wideWrapper = $('<div class="mdb-wide-color-wrapper"></div>');
-        $wideWrapper.css({
-            'display': 'inline-block',
-            'width': $iconElement.width() + 'px',
-            'height': $iconElement.height() + 'px',
-            'background-color': rgb,
-            '-webkit-mask-image': 'url(' + iconSrc + ')',
-            '-webkit-mask-size': 'contain',
-            '-webkit-mask-repeat': 'no-repeat',
-            '-webkit-mask-position': 'center',
-            'opacity': '0', // Старт з невидимості
-            'transition': 'opacity 0.4s ease, background-color 0.4s ease'
-        });
-
-        $iconElement.css('opacity', '0'); // Оригінал ховаємо
-        $iconElement.wrap($wideWrapper);
-
-        // Даємо браузеру мілісекунду на рендер і плавно проявляємо
-        setTimeout(function() {
-            $iconElement.closest('.mdb-wide-color-wrapper').css('opacity', '1');
-        }, 50);
-
-    } else {
-        // --- ЛОГІКА ДЛЯ КВАДРАТНИХ ІКОНОК ---
-        var $maskWrapper = $('<div class="mdb-dynamic-color-wrapper"></div>');
-        $maskWrapper.css({
-            'display': 'block',
-            'width': '100%',
-            'height': '100%',
-            'background-color': rgb,
-            '-webkit-mask-image': 'url(' + iconSrc + ')',
-            '-webkit-mask-size': 'contain',
-            '-webkit-mask-repeat': 'no-repeat',
-            '-webkit-mask-position': 'center'
-        });
-
-        var $shadowWrapper = $('<div class="mdb-dynamic-shadow-wrapper"></div>');
-        $shadowWrapper.css({
-            'display': 'inline-block',
-            'width': $iconElement.width() + 'px',
-            'height': $iconElement.height() + 'px',
-            'position': 'relative',
-            'filter': 'drop-shadow(1px 1px 0px rgba(0,0,0,0.4))',
-            'opacity': '0', // Старт з невидимості
-            'transition': 'opacity 0.4s ease'
 /* Застосування динамічного кольору до іконки (з плавною появою та динамічною тінню) */
 function applyDynamicColorToIcon($iconElement, colorData, isWide) {
     if (!colorData || !$iconElement.length || $iconElement.closest('.mdb-dynamic-shadow-wrapper').length || $iconElement.closest('.mdb-wide-color-wrapper').length) return;
@@ -1429,6 +1365,8 @@ function applyDynamicColorToIcon($iconElement, colorData, isWide) {
         }, 50);
     }
 }
+
+
 
 
   function triggerDynamicColors(card) {
