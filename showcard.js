@@ -16,29 +16,6 @@
 
 
 
-    /**
-     * Функція для перенесення налаштувань зі старого Applecation в новий Showcard
-     */
-    function migrateSettings() {
-        const oldPrefix = 'applecation_';
-        const newPrefix = 'showcard_';
-        const keys = [
-            'show_slideshow', 'extra_title_show', 'extra_title_size', 'show_ratings',
-            'ratings_position', 'logo_scale', 'text_scale', 'spacing_scale',
-            'description_overlay', 'show_foreign_logo', 'show_episode_count', 'title_cache'
-        ];
-
-        keys.forEach(key => {
-            const oldValue = Lampa.Storage.get(oldPrefix + key);
-            const newValue = Lampa.Storage.get(newPrefix + key);
-
-            // Якщо старе налаштування існує, а нового ще немає — копіюємо
-            if (oldValue !== undefined && newValue === undefined) {
-                Lampa.Storage.set(newPrefix + key, oldValue);
-            }
-        });
-    }
-
     // Головна функція плагіна
     function initializePlugin() {
         console.log('Showcard', 'v' + SHOWCARD_VERSION);
