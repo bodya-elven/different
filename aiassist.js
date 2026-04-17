@@ -41,7 +41,7 @@
                     if (q.indexOf('фільм') > -1) filter = 'strictly only movies';
                     else if (q.indexOf('серіал') > -1) filter = 'strictly only TV series';
 
-                    var p = 'Suggest strictly ' + limit + ' ' + filter + ' for query: "' + q + '". JSON: [{"uk":"Title","orig":"Original","year":Year}].';
+                    var p = 'Act as a movie expert. Suggest strictly ' + limit + ' ' + filter + ' for the request: "' + q + '". Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
                     _this.updateStatus('Пошук результатів');
                     _this.askGemini(p, function(text) {
                         var list = _this.parseJsonSafe(text);
@@ -67,7 +67,7 @@
                 
                 '#ai-assist-status { position: fixed; bottom: 80px; left: 0; right: 0; text-align: center; z-index: 10001; pointer-events: none; display: flex; justify-content: center; }' +
                 '.ai-toast { display: inline-flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 10px 24px; border-radius: 50px; color: #fff; font-size: 1.1em; line-height: 24px; min-height: 44px; position: relative; overflow: hidden; }' +
-                '.ai-toast:after { content:""; position:absolute; top:0; left:-100%; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); animation: ai-shimmer 3s infinite; }' +
+                '.ai-toast:after { content:""; position:absolute; top:0; left:-100%; width:30%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation: ai-shimmer 4s infinite; }' +
                 '@keyframes ai-shimmer { to {left:150%} }' +
                 
                 '.ai-spinner { width: 24px; height: 24px; border-radius: 50%; border: 3px solid transparent; border-top-color: #fff; animation: ai-rot 0.8s linear infinite, ai-rainbow 3s linear infinite; }' +
@@ -77,9 +77,9 @@
                 '.ai-viewer-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5001; display: flex; align-items: center; justify-content: center; }' +
                 '.ai-viewer-body { width: 80%; max-width: 800px; height: 70%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid ' + tCol + '; overflow: hidden; }' +
                 '.ai-header { height: 44px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
-                '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border: 2px solid transparent; line-height: 1; }' +
+                '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border: 2px solid transparent; line-height: 1; padding: 0; }' +
                 '.ai-close-btn.focus { border-color: #fff; background: ' + tCol + '; }' +
-                '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 15px; color: #efefef; font-size: 1.15em; line-height: 1.4; }' +
+                '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 20px; color: #efefef; font-size: 1.15em; line-height: 1.4; }' +
                 '.ai-fact-block { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }' +
                 '.ai-fact-title { color: ' + tCol + '; font-weight: bold; display: block; margin-bottom: 2px; }'
             ).appendTo('head');
@@ -94,11 +94,12 @@
             if (lastBtn.length) lastBtn.after(btn); else container.append(btn);
         };
 
+        // --- НАВІГАЦІЯ ТА ФОКУС (Логіка keywords.js) ---
         this.openAiMenu = function(card, btnElement, renderContainer) {
             var currCtrl = Lampa.Controller.enabled().name;
             var items = [
                 { title: 'Рекомендації', action: 'recommendations' },
-                { title: 'Маловідомі факти', action: 'facts' },
+                { title: 'Цікаві факти', action: 'facts' },
                 { title: 'Спільні проєкти', action: 'together' }
             ];
             if ((card.number_of_seasons && card.number_of_seasons > 1) || card.belongs_to_collection) {
@@ -142,19 +143,20 @@
             Lampa.Controller.toggle('ai_viewer');
         };
 
+        // --- ЛОГІКА ДІЙ ТА ПРOMПТИ ---
         this.actionFacts = function(card, btn, render, ctrl) {
             var t = card.original_title || card.original_name;
             var type = card.number_of_seasons ? 'TV series' : 'movie';
             var year = (card.release_date || card.first_air_date || '').slice(0,4);
             _this.updateStatus('Пошук фактів');
-            var p = 'Give strictly 5 facts about ' + type + ' "' + t + '" (' + year + ') in Ukrainian. JSON: [{"title":"..","text":".."}].';
+            var p = 'Provide strictly 5 interesting facts about the ' + type + ' "' + t + '" (' + year + ') in Ukrainian. IMPORTANT: This project is already released. Provide only factual information about the existing work, not production rumors or future plans. Return JSON array: [{"title":"..","text":".."}].';
             _this.askGemini(p, function(text) {
                 _this.hideStatus();
                 var data = _this.parseJsonSafe(text);
                 if (!data) return;
                 var html = '';
                 data.forEach(function(f) { html += '<div class="ai-fact-block"><span class="ai-fact-title">'+f.title+'</span>'+f.text+'</div>'; });
-                _this.showViewer('Факти: ' + (card.title || card.name), html, function() { _this.openAiMenu(card, btn, render); });
+                _this.showViewer('Цікаві факти: ' + (card.title || card.name), html, function() { _this.openAiMenu(card, btn, render); });
             });
         };
 
@@ -179,13 +181,14 @@
                 items: items,
                 onSelect: function(item) {
                     var t = card.original_title || card.original_name;
+                    var year = (card.release_date || card.first_air_date || '').slice(0,4);
                     _this.updateStatus('Підготовка переказу');
-                    var p = 'Recap strictly ' + item.title + ' from "' + t + '" in Ukrainian. JSON: [{"point":".."}].';
+                    var p = 'Provide a brief recap of strictly ' + item.title + ' from "' + t + '" (' + year + ') in Ukrainian. Include 5-7 key plot points. Return JSON array: [{"point":".."}] .';
                     _this.askGemini(p, function(text) {
                         _this.hideStatus();
                         var data = _this.parseJsonSafe(text);
                         var html = '';
-                        (data || []).forEach(function(i) { html += '<div style="margin-bottom:8px">• ' + i.point + '</div>'; });
+                        (data || []).forEach(function(i) { html += '<div style="margin-bottom:10px">• ' + i.point + '</div>'; });
                         _this.showViewer('Переказ: ' + item.title, html, function() { _this.showRecapSelect(items, card, btn, render, ctrl); });
                     });
                 },
@@ -202,7 +205,7 @@
                 var dir = crew.filter(function(p){return p.job==='Director'})[0];
                 var names = cast.slice(0, 15).map(function(a){return a.name});
                 if(dir) names.push('Director: ' + dir.name);
-                var p = 'Suggest strictly ' + limit + ' projects where these people worked together: ' + names.join(', ') + '. JSON: [{"uk":"..","orig":"...","year":Year}].';
+                var p = 'Name strictly ' + limit + ' movies or TV series where these people (including the director) crossed paths with each other: ' + names.join(', ') + '. Priority is given to the first 5 names and the director. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
                 _this.fetchList(p, 'Спільні проєкти', card, btn, render, ctrl);
             });
         };
@@ -214,7 +217,9 @@
                 items: items,
                 onSelect: function(i) {
                     var limit = Lampa.Storage.get('ai_result_count', '20');
-                    var p = 'Suggest strictly ' + limit + ' projects like "' + (card.original_title || card.original_name) + '" with mood: ' + i.mood + '. JSON: [{"uk":"..","orig":"..","year":Year}].';
+                    var t = card.original_title || card.original_name;
+                    var year = (card.release_date || card.first_air_date || '').slice(0,4);
+                    var p = 'Suggest strictly ' + limit + ' projects similar to "' + t + '" (' + year + ') that match this mood: ' + i.mood + '. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
                     _this.fetchList(p, i.title, card, btn, render, ctrl);
                 },
                 onBack: function() { _this.openAiMenu(card, btn, render); }
@@ -223,7 +228,9 @@
 
         this.actionRecommendations = function(card, btn, render, ctrl) {
             var limit = Lampa.Storage.get('ai_result_count', '20');
-            var p = 'Suggest strictly ' + limit + ' similar to "' + (card.original_title || card.original_name) + '". JSON: [{"uk":"..","orig":"..","year":Year}].';
+            var t = card.original_title || card.original_name;
+            var year = (card.release_date || card.first_air_date || '').slice(0,4);
+            var p = 'Suggest strictly ' + limit + ' movies or TV series similar to "' + t + ' (' + year + ')" in terms of vibe and themes. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
             _this.fetchList(p, 'Рекомендації', card, btn, render, ctrl);
         };
 
