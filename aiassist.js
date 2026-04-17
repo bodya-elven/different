@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    // Іконка: ліва частина біла (#fff), права - світло-сіра (#e0e0e0)
+    // Іконка: ліва частина біла (#fff), права - сіра (#e0e0e0)
     var PLUGIN_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.cls-left{fill:#fff;fill-rule:evenodd;}.cls-right{fill:#e0e0e0;fill-rule:evenodd;}</style><g><polygon class="cls-right" points="16.64 15.13 17.38 13.88 20.91 13.88 22 12 19.82 8.25 16.75 8.25 15.69 6.39 14.5 6.39 14.5 5.13 16.44 5.13 17.5 7 19.09 7 16.9 3.25 12.63 3.25 12.63 8.25 14.36 8.25 15.09 9.5 12.63 9.5 12.63 12 14.89 12 15.94 10.13 18.75 10.13 19.47 11.38 16.67 11.38 15.62 13.25 12.63 13.25 12.63 17.63 16.03 17.63 15.31 18.88 12.63 18.88 12.63 20.75 16.9 20.75 20.18 15.13 18.09 15.13 17.36 16.38 14.5 16.38 14.5 15.13 16.64 15.13"/><polygon class="cls-left" points="7.36 15.13 6.62 13.88 3.09 13.88 2 12 4.18 8.25 7.25 8.25 8.31 6.39 9.5 6.39 9.5 5.13 7.56 5.13 6.5 7 4.91 7 7.1 3.25 11.38 3.25 11.38 8.25 9.64 8.25 8.91 9.5 11.38 9.5 11.38 12 9.11 12 8.06 10.13 5.25 10.13 4.53 11.38 7.33 11.38 8.38 13.25 11.38 13.25 11.38 17.63 7.97 17.63 8.69 18.88 11.38 18.88 11.38 20.75 7.1 20.75 3.82 15.13 5.91 15.13 6.64 16.38 9.5 16.38 9.5 15.13 7.36 15.13"/></g></svg>';
 
     var TARGET_MODEL = 'gemini-flash-lite-latest';
@@ -10,9 +10,7 @@
 
     if (window.Lampa && Lampa.Api) {
         Lampa.Api.sources.ai_list_source = {
-            list: function(params, oncomplite) { 
-                oncomplite({ results: window.ai_cached_results, total_pages: 1 }); 
-            }
+            list: function(params, oncomplite) { oncomplite({ results: window.ai_cached_results, total_pages: 1 }); }
         };
     }
 
@@ -31,7 +29,6 @@
             });
         };
 
-        // --- ГЛОБАЛЬНИЙ ПОШУК (3-тя позиція + Фільтрація) ---
         this.setupGlobalSearch = function() {
             var searchSource = {
                 title: 'AI Пошук',
@@ -44,7 +41,7 @@
                     if (q.indexOf('фільм') > -1) filter = 'strictly only movies';
                     else if (q.indexOf('серіал') > -1) filter = 'strictly only TV series';
 
-                    var p = 'Act as a movie expert. Suggest exactly ' + limit + ' ' + filter + ' for the request: "' + q + '". Return JSON: [{"uk":"Title","orig":"Original","year":Year}].';
+                    var p = 'Suggest exactly ' + limit + ' ' + filter + ' for: "' + q + '". Return JSON: [{"uk":"Title","orig":"Original","year":Year}].';
                     _this.updateStatus('Пошук результатів');
                     _this.askGemini(p, function(text) {
                         var list = _this.parseJsonSafe(text);
@@ -61,7 +58,6 @@
             }, 1500);
         };
 
-        // --- ДИЗАЙН ТА 20 СТИЛІВ ---
         this.injectStyles = function() {
             if ($('#ai-assistant-styles').length) return;
             var tCol = window.look_dynamic_current_hex || 'var(--main-color, #0cf)';
@@ -69,11 +65,16 @@
                 '.button--ai-assist { display: flex !important; align-items: center; justify-content: center; gap: 7px; } ' + 
                 '.button--ai-assist svg { width: 1.6em !important; height: 1.6em !important; margin: 0 !important; } ' +
                 '#ai-assist-status { position: fixed; bottom: 80px; left: 0; right: 0; text-align: center; z-index: 10001; pointer-events: none; display: flex; justify-content: center; }' +
-                '.ai-toast { display: inline-flex; align-items: center; justify-content: center; gap: 12px; background: rgba(0,0,0,0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 10px 24px; border-radius: 50px; color: #fff; font-size: 1.1em; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }' +
-                '.ai-spinner { width: 24px; height: 24px; border: 3px solid transparent; border-top-color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; }' +
+                '.ai-toast { display: inline-flex; align-items: center; justify-content: center; gap: 12px; background: rgba(0,0,0,0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 10px 24px; border-radius: 50px; color: #fff; font-size: 1.1em; line-height: 24px; min-height: 44px; position: relative; }' +
+                '.ai-spinner { width: 24px; height: 24px; border: 3px solid transparent; border-top-color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }' +
                 
-                /* 10 АНІМАЦІЙ ЗАВАНТАЖЕННЯ */
-                '.ai-st-rainbow .ai-spinner { animation: ai-rot 0.8s linear infinite, ai-col 3s linear infinite; }' +
+                /* НОВИЙ СТИЛЬ: Пульсуючий контур */
+                '.ai-st-contour { animation: ai-contour-pulsate 4s ease-in-out infinite; border: 2px solid transparent; }' +
+                '.ai-st-contour::before { content: ""; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; padding: 2px; border-radius: inherit; background: conic-gradient(from 0deg, #fff, '+tCol+', #f0f, #fff); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: ai-rot 2s linear infinite; }' +
+                '@keyframes ai-contour-pulsate { 0%, 100% { border-radius: 50px; } 50% { border-radius: 30% 70% 70% 30% / 50% 30% 70% 50%; } }' +
+
+                /* Анімації завантаження */
+                '.ai-st-rainbow .ai-spinner { animation: ai-rot 0.8s linear infinite, ai-col 3s linear infinite; border-top-color:#fff; }' +
                 '.ai-st-aura .ai-spinner { border:none; background: '+tCol+'; opacity:0.5; animation: ai-aura 1.5s infinite; }' +
                 '.ai-st-film .ai-spinner { border-radius:4px; border:2px solid #fff; animation: ai-film 1s steps(4) infinite; }' +
                 '.ai-st-morph .ai-spinner { animation: ai-rot 1s infinite, ai-morph 2s infinite; border: 3px solid #fff; }' +
@@ -84,7 +85,7 @@
                 '.ai-st-quantum .ai-spinner { animation: ai-rot 2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite; border-top-color:'+tCol+'; }' +
                 '.ai-st-infinity .ai-spinner { border:none; background: radial-gradient(circle, #fff 30%, transparent 30%); animation: ai-inf 1.2s infinite; }' +
 
-                /* 10 АНІМАЦІЙ ПІГУЛКИ */
+                /* Анімації пігулки */
                 '.ai-st-liquid { animation: ai-liquid 3s ease-in-out infinite; }' +
                 '.ai-st-glass-glide { position:relative; overflow:hidden; } .ai-st-glass-glide:after { content:""; position:absolute; top:0; left:-100%; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: ai-glide 2s infinite; }' +
                 '.ai-st-blur-breath { animation: ai-blur-b 4s infinite; }' +
@@ -96,7 +97,6 @@
                 '.ai-st-scale-pulse { animation: ai-s-pulse 2s infinite; }' +
                 '.ai-st-foggy { mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); }' +
 
-                /* Анімації */
                 '@keyframes ai-rot { to { transform: rotate(360deg); } } @keyframes ai-col { 0%{border-top-color:#fff} 50%{border-top-color:'+tCol+'} 100%{border-top-color:#fff} }' +
                 '@keyframes ai-aura { 0%,100%{transform:scale(0.8); opacity:0.3} 50%{transform:scale(1.1); opacity:0.8} } @keyframes ai-morph { 50%{border-radius:0%} }' +
                 '@keyframes ai-scan { 0%,100%{top:0%} 50%{top:100%} } @keyframes ai-inf { 0%,100%{transform:translateX(-5px)} 50%{transform:translateX(5px)} }' +
@@ -105,14 +105,12 @@
                 
                 '.ai-viewer-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5001; display: flex; align-items: center; justify-content: center; }' +
                 '.ai-viewer-body { width: 80%; max-width: 800px; height: 70%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid ' + tCol + '; overflow: hidden; }' +
-                '.ai-header { height: 40px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
-                '.ai-close-btn { width: 30px; height: 30px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border: 2px solid transparent; line-height: 1; }' +
+                '.ai-header { height: 44px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
+                '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border: 2px solid transparent; padding: 0; line-height: 1; }' +
                 '.ai-close-btn.focus { border-color: #fff; background: ' + tCol + '; }' +
                 '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 15px; color: #efefef; font-size: 1.15em; line-height: 1.4; }' +
                 '.ai-fact-block { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }' +
-                '.ai-fact-title { color: ' + tCol + '; font-weight: bold; display: block; margin-bottom: 2px; }' +
-                '.ai-item-point { margin-bottom: 10px; padding-left: 20px; position: relative; }' +
-                '.ai-item-point:before { content: "•"; position: absolute; left: 0; color: ' + tCol + '; }'
+                '.ai-fact-title { color: ' + tCol + '; font-weight: bold; display: block; margin-bottom: 2px; }'
             ).appendTo('head');
         };
 
@@ -125,7 +123,6 @@
             if (lastBtn.length) lastBtn.after(btn); else container.append(btn);
         };
 
-        // --- МЕНЮ ТА НАВІГАЦІЯ (Фікс фокусу та історії) ---
         this.openAiMenu = function(card, btnElement, renderContainer) {
             var currCtrl = Lampa.Controller.enabled().name;
             var items = [
@@ -172,7 +169,6 @@
             Lampa.Controller.toggle('ai_viewer');
         };
 
-        // --- ЛОГІКА ДІЙ (З повним контекстом) ---
         this.actionFacts = function(card, btn, render, ctrl) {
             var t = card.original_title || card.original_name;
             var type = card.number_of_seasons ? 'TV series' : 'movie';
@@ -209,13 +205,14 @@
                 title: 'Що переказати?',
                 items: items,
                 onSelect: function(item) {
+                    var t = card.original_title || card.original_name;
                     _this.updateStatus('Підготовка переказу');
-                    var p = 'Recap of ' + item.title + ' from "' + (card.original_title || card.original_name) + '" in Ukrainian. JSON: [{"point":".."}].';
+                    var p = 'Recap of ' + item.title + ' from "' + t + '" in Ukrainian. JSON: [{"point":".."}].';
                     _this.askGemini(p, function(text) {
                         _this.hideStatus();
                         var data = _this.parseJsonSafe(text);
                         var html = '';
-                        (data || []).forEach(function(i) { html += '<div class="ai-item-point">' + i.point + '</div>'; });
+                        (data || []).forEach(function(i) { html += '<div style="margin-bottom:8px">• ' + i.point + '</div>'; });
                         _this.showViewer('Переказ: ' + item.title, html, function() { _this.showRecapSelect(items, card, btn, render, ctrl); });
                     });
                 },
@@ -232,7 +229,7 @@
                 var dir = crew.filter(function(p){return p.job==='Director'})[0];
                 var names = cast.slice(0, 15).map(function(a){return a.name});
                 if(dir) names.push('Director: ' + dir.name);
-                var p = 'Find exactly ' + limit + ' projects where these people worked together: ' + names.join(', ') + '. Prioritize director and first 5 actors. JSON: [{"uk":"..","orig":"...","year":Year}].';
+                var p = 'Find exactly ' + limit + ' projects where these people worked together: ' + names.join(', ') + '. JSON: [{"uk":"..","orig":"...","year":Year}].';
                 _this.fetchList(p, 'Спільні проєкти', card, btn, render, ctrl);
             });
         };
@@ -257,7 +254,6 @@
             _this.fetchList(p, 'Рекомендації', card, btn, render, ctrl);
         };
 
-        // --- API ТА ПАРСИНГ ---
         this.askGemini = function(p, onSuccess) {
             var key = Lampa.Storage.get(STORAGE_KEY, '').split(',')[0];
             if (!key) return Lampa.Noty.show('API Ключ не задано');
@@ -330,7 +326,7 @@
             }});
             Lampa.SettingsApi.addParam({ component: 'ai_assistant_cfg', param: { name: 'ai_result_count', type: 'select', values: { '10':'10','20':'20','30':'30','50':'50' }, default: '20' }, field: { name: 'Кількість результатів' } });
             Lampa.SettingsApi.addParam({ component: 'ai_assistant_cfg', param: { name: 'ai_loader_style', type: 'select', values: { 
-                'ai-st-rainbow': 'Райдужна орбіта', 'ai-st-aura': 'Пульсуюча аура', 'ai-st-film': 'Кінострічка', 'ai-st-morph': 'Морфінг-фігура', 'ai-st-helix': 'Подвійна спіраль',
+                'ai-st-rainbow': 'Райдужна орбіта', 'ai-st-contour': 'Пульсуючий контур', 'ai-st-aura': 'Пульсуюча аура', 'ai-st-film': 'Кінострічка', 'ai-st-morph': 'Морфінг-фігура', 'ai-st-helix': 'Подвійна спіраль',
                 'ai-st-scanner': 'Кольоровий сканер', 'ai-st-particles': 'Частки світла', 'ai-st-breath': 'Ефект дихання', 'ai-st-quantum': 'Квантовий стрибок', 'ai-st-infinity': 'Нескінченна вісімка',
                 'ai-st-liquid': 'Рідкі краї (Пігулка)', 'ai-st-glass-glide': 'Скляний відблиск', 'ai-st-blur-breath': 'Пульсуючий блюр', 'ai-st-inner-flow': 'Кольорове наповнення', 'ai-st-elastic': 'Пружна капсула',
                 'ai-st-glow-aura': 'Аура світла', 'ai-st-corner-morph': 'Морфінг кутів', 'ai-st-frost': 'Ефект інею', 'ai-st-scale-pulse': 'Масштабний пульс', 'ai-st-foggy': 'Градієнтний туман'
