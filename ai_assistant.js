@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var PLUGIN_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.cls-left{fill:currentColor;fill-rule:evenodd;}.cls-right{fill:#888;fill-rule:evenodd;}</style><g><polygon class="cls-right" points="16.64 15.13 17.38 13.88 20.91 13.88 22 12 19.82 8.25 16.75 8.25 15.69 6.39 14.5 6.39 14.5 5.13 16.44 5.13 17.5 7 19.09 7 16.9 3.25 12.63 3.25 12.63 8.25 14.36 8.25 15.09 9.5 12.63 9.5 12.63 12 14.89 12 15.94 10.13 18.75 10.13 19.47 11.38 16.67 11.38 15.62 13.25 12.63 13.25 12.63 17.63 16.03 17.63 15.31 18.88 12.63 18.88 12.63 20.75 16.9 20.75 20.18 15.13 18.09 15.13 17.36 16.38 14.5 16.38 14.5 15.13 16.64 15.13"/><polygon class="cls-left" points="7.36 15.13 6.62 13.88 3.09 13.88 2 12 4.18 8.25 7.25 8.25 8.31 6.39 9.5 6.39 9.5 5.13 7.56 5.13 6.5 7 4.91 7 7.1 3.25 11.38 3.25 11.38 8.25 9.64 8.25 8.91 9.5 11.38 9.5 11.38 12 9.11 12 8.06 10.13 5.25 10.13 4.53 11.38 7.33 11.38 8.38 13.25 11.38 13.25 11.38 17.63 7.97 17.63 8.69 18.88 11.38 18.88 11.38 20.75 7.1 20.75 3.82 15.13 5.91 15.13 6.64 16.38 9.5 16.38 9.5 15.13 7.36 15.13"/></g></svg>';
+    var PLUGIN_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.cls-left{fill:currentColor;fill-rule:evenodd;}.cls-right{fill:#a0a0a0;fill-rule:evenodd;}</style><g><polygon class="cls-right" points="16.64 15.13 17.38 13.88 20.91 13.88 22 12 19.82 8.25 16.75 8.25 15.69 6.39 14.5 6.39 14.5 5.13 16.44 5.13 17.5 7 19.09 7 16.9 3.25 12.63 3.25 12.63 8.25 14.36 8.25 15.09 9.5 12.63 9.5 12.63 12 14.89 12 15.94 10.13 18.75 10.13 19.47 11.38 16.67 11.38 15.62 13.25 12.63 13.25 12.63 17.63 16.03 17.63 15.31 18.88 12.63 18.88 12.63 20.75 16.9 20.75 20.18 15.13 18.09 15.13 17.36 16.38 14.5 16.38 14.5 15.13 16.64 15.13"/><polygon class="cls-left" points="7.36 15.13 6.62 13.88 3.09 13.88 2 12 4.18 8.25 7.25 8.25 8.31 6.39 9.5 6.39 9.5 5.13 7.56 5.13 6.5 7 4.91 7 7.1 3.25 11.38 3.25 11.38 8.25 9.64 8.25 8.91 9.5 11.38 9.5 11.38 12 9.11 12 8.06 10.13 5.25 10.13 4.53 11.38 7.33 11.38 8.38 13.25 11.38 13.25 11.38 17.63 7.97 17.63 8.69 18.88 11.38 18.88 11.38 20.75 7.1 20.75 3.82 15.13 5.91 15.13 6.64 16.38 9.5 16.38 9.5 15.13 7.36 15.13"/></g></svg>';
 
 
     var TARGET_MODEL = 'gemini-flash-lite-latest';
@@ -58,7 +58,7 @@
             if ($('#ai-assistant-styles').length) return;
             var tCol = window.look_dynamic_current_hex || 'var(--main-color, #0cf)';
             $('<style id="ai-assistant-styles">').prop('type', 'text/css').html(
-                '.button--ai-assist { display: flex !important; align-items: center; justify-content: center; gap: 2px; } ' + 
+                '.button--ai-assist { display: flex !important; align-items: center; justify-content: center; gap: 1px; } ' + 
                 '.button--ai-assist svg { width: 1.9em !important; height: 1.9em !important; margin: 0 !important; } ' +
                 '#ai-assist-status { position: fixed; bottom: 80px; left: 0; right: 0; text-align: center; z-index: 10001; pointer-events: none; display: flex; justify-content: center; }' +
                 '.ai-toast { display: inline-flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 10px 24px; border-radius: 50px; color: #fff; font-size: 1.1em; position: relative; overflow: hidden; height: 44px; }' +
@@ -88,8 +88,16 @@
 
         this.openAiMenu = function(card, btnElement, renderContainer) {
             var controllerName = Lampa.Controller.enabled().name; 
-            var items = [{ title: 'Рекомендації', action: 'recommendations' }, { title: 'Цікаві факти', action: 'facts' }, { title: 'Спільні проєкти', action: 'together' }];
-            if ((card.number_of_seasons && card.number_of_seasons > 1) || card.belongs_to_collection) items.push({ title: 'Стислий переказ', action: 'recap' });
+            var items = [
+                { title: 'Рекомендації', action: 'recommendations' },
+                { title: 'Добірки за тегами', action: 'tags' },
+                { title: 'Цікаві факти', action: 'facts' },
+                { title: 'Спільні роботи акторів', action: 'together' }
+            ];
+            
+            if ((card.number_of_seasons && card.number_of_seasons > 1) || card.belongs_to_collection) {
+                items.splice(3, 0, { title: 'Стислий переказ', action: 'recap' });
+            }
 
             Lampa.Select.show({
                 title: 'AI Асистент',
@@ -99,6 +107,7 @@
                     else if (item.action === 'together') _this.actionTogether(card, btnElement, renderContainer, controllerName);
                     else if (item.action === 'recap') _this.actionRecapMenu(card, btnElement, renderContainer, controllerName);
                     else if (item.action === 'recommendations') _this.actionRecommendations(card, btnElement, renderContainer, controllerName);
+                    else if (item.action === 'tags') _this.actionTags(card, btnElement, renderContainer, controllerName);
                 },
                 onBack: function () { 
                     Lampa.Controller.toggle(controllerName); 
@@ -108,6 +117,7 @@
                 }
             });
         };
+
 
         this.showViewer = function(title, contentHtml, btnElement, renderContainer, controllerName) {
             var viewer = $('<div class="ai-viewer-container"><div class="ai-viewer-body">' +
@@ -136,8 +146,13 @@
 
         this.actionFacts = function(card, btn, render, ctrl) {
             var t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
+            
+            var type = (card.name || card.original_name) ? 'TV series' : 'movie';
+            
             _this.updateStatus('Пошук фактів');
-            var p = 'Provide strictly 5 interesting facts about the movie "' + t + '" (' + year + ') in Ukrainian. IMPORTANT: This project is already released. Return strictly a JSON array: [{"title":"..","text":".."}].';
+            
+            var p = 'Provide strictly 10 interesting facts about the ' + type + ' "' + t + '" (' + year + ') in Ukrainian. IMPORTANT: This project is already released. Return strictly a JSON array: [{"title":"..","text":".."}].';
+            
             _this.askGemini(p, function(text) {
                 _this.hideStatus();
                 var data = _this.parseJsonSafe(text);
@@ -146,6 +161,7 @@
                 _this.showViewer('Цікаві факти: ' + (card.title || card.name), html, btn, render, ctrl);
             });
         };
+
 
         this.actionRecapMenu = function(card, btn, render, ctrl) {
             var items = [];
@@ -198,6 +214,90 @@
             var p = 'Suggest strictly ' + limit + ' movies or TV series similar to "' + t + ' (' + year + ')" in terms of vibe and themes. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
             _this.fetchList(p, 'Рекомендації', card, btn, render, ctrl);
         };
+
+        this.actionTags = function(card, btn, render, ctrl) {
+            var method = (card.original_name || card.name) ? 'tv' : 'movie';
+            var url = Lampa.TMDB.api(method + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
+
+            _this.updateStatus('Завантаження тегів');
+            $.ajax({
+                url: url,
+                dataType: 'json',
+                success: function (resp) {
+                    var tags = resp.keywords || resp.results || [];
+                    if (tags.length > 0) {
+                        _this.translateTags(tags, function(translatedTags) {
+                            _this.hideStatus();
+                            _this.showTagsMenu(translatedTags, card, btn, render, ctrl);
+                        });
+                    } else {
+                        _this.hideStatus();
+                        Lampa.Noty.show('Теги відсутні');
+                        _this.openAiMenu(card, btn, render);
+                    }
+                },
+                error: function() { _this.hideStatus(); Lampa.Noty.show('Помилка завантаження тегів'); _this.openAiMenu(card, btn, render); }
+            });
+        };
+
+        this.translateTags = function (tags, callback) {
+            var lang = Lampa.Storage.get('language', 'uk');
+
+            tags.forEach(function(tag) { tag.orig_name = tag.name; });
+            
+            if (lang !== 'uk') return callback(tags);
+
+            var tagsWithContext = tags.map(function(t) { return "Movie tag: " + t.name; });
+            var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=uk&dt=t&q=' + encodeURIComponent(tagsWithContext.join(' ||| '));
+
+            $.ajax({
+                url: url,
+                dataType: 'json',
+                success: function (result) {
+                    try {
+                        var translatedText = '';
+                        if (result && result[0]) result[0].forEach(function(item) { if (item[0]) translatedText += item[0]; });
+                        var translatedArray = translatedText.split('|||');
+                        tags.forEach(function(tag, index) {
+                            if (translatedArray[index]) {
+                                tag.name = translatedArray[index]
+                                    .replace(/позначка до фільму[:\s]*/gi, '')
+                                    .replace(/тег до фільму[:\s]*/gi, '')
+                                    .replace(/тег фільму[:\s]*/gi, '')
+                                    .replace(/movie tag[:\s]*/gi, '')
+                                    .replace(/^[:\s\-]*/, '')
+                                    .trim();
+                            }
+                        });
+                        callback(tags);
+                    } catch (e) { callback(tags); }
+                },
+                error: function () { callback(tags); }
+            });
+        };
+
+        this.showTagsMenu = function(tags, card, btn, render, ctrl) {
+            var items = tags.map(function(tag) {
+                return { 
+                    title: tag.name.charAt(0).toUpperCase() + tag.name.slice(1), 
+                    tag_data: tag 
+                };
+            });
+
+            Lampa.Select.show({
+                title: 'Оберіть тег',
+                items: items,
+                onSelect: function (item) {
+                    var limit = Lampa.Storage.get('ai_result_count', '20');
+                    var p = 'Suggest strictly ' + limit + ' movies or TV series that are strongly associated with the specific TMDB keyword: "' + item.tag_data.orig_name + '". Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+                    _this.fetchList(p, 'Тег: ' + item.title, card, btn, render, ctrl);
+                },
+                onBack: function () {
+                    _this.openAiMenu(card, btn, render);
+                }
+            });
+        };
+        
 
         this.askGemini = function(p, onSuccess) {
             var key = Lampa.Storage.get(STORAGE_KEY, '').split(',')[0];

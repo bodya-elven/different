@@ -1087,9 +1087,9 @@ body.showcard--ratings-corner .showcard__ratings {
     font-size: 0.95em;
     line-height: 1.5;
     margin-bottom: 0.5em;
-    max-width: 40vw;
+    max-width: 38vw;
     display: -webkit-box;
-    -webkit-line-clamp: 5;
+    -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
