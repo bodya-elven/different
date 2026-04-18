@@ -15,7 +15,6 @@
     }
 
 
-
     // Головна функція плагіна
     function initializePlugin() {
         console.log('Showcard', 'v' + SHOWCARD_VERSION);
@@ -679,14 +678,8 @@
                 
                 .showcard .showcard__description {
                     font-size: ${descScale}% !important;
-                    max-width: ${35 * textScale / 100}vw !important;
+                    max-width: ${40 * textScale / 100}vw !important;
                     margin-bottom: ${0.5 * spacingScale / 100}em !important;
-                }
-
-                /* Додаємо розширення до 50% при фокусі */
-                .showcard.focus .showcard__description,
-                .showcard__description-wrapper.focus .showcard__description {
-                    max-width: ${50 * textScale / 100}vw !important;
                 }
 
                 
@@ -1083,7 +1076,7 @@ body.showcard--ratings-corner .showcard__ratings {
 .showcard__description-wrapper.focus {
     background-color: transparent !important;
     z-index: 10;
-    transform: translateY(0) scale(1.15);
+    transform: translateY(0) scale(1.1);
     transition-delay: 0s;
 }
 
@@ -1094,9 +1087,9 @@ body.showcard--ratings-corner .showcard__ratings {
     font-size: 0.95em;
     line-height: 1.5;
     margin-bottom: 0.5em;
-    max-width: 35vw;
+    max-width: 40vw;
     display: -webkit-box;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 5;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
