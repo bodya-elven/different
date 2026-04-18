@@ -26,7 +26,10 @@
     if (window.Lampa && Lampa.Api) {
         Lampa.Api.sources.ai_assistant_list = {
             list: function(params, oncomplite) { 
-                // Завжди віддаємо 1 сторінку, бо пагінацію робимо своєю карткою
+                oncomplite({ results: window.ai_cached_results, total_pages: 1 }); 
+            },
+            // ФІКС: Додаємо метод category, щоб Lampa знала, як малювати новий дизайн
+            category: function(params, oncomplite) { 
                 oncomplite({ results: window.ai_cached_results, total_pages: 1 }); 
             }
         };
