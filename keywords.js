@@ -32,7 +32,7 @@
 
             // Використовуємо gap замість margin, щоб іконка центрювалася, коли текст приховано
             $('<style>').prop('type', 'text/css').html(
-                '.button--keywords { display: flex !important; align-items: center; justify-content: center; gap: 7px; opacity: 0.5; pointer-events: none; } ' + 
+                '.button--keywords { display: flex !important; align-items: center; justify-content: center; gap: 4px; opacity: 0.5; pointer-events: none; } ' + 
                 '.button--keywords.ready { opacity: 1; pointer-events: auto; } ' +
                 '.button--keywords svg { width: 1.6em; height: 1.6em; margin: 0 !important; }'
             ).appendTo('head');
