@@ -37,7 +37,7 @@
             $('<style>').prop('type', 'text/css').html(
                 '.button--studios { display: flex !important; align-items: center; justify-content: center; gap: 7px; opacity: 0.5; pointer-events: none; } ' + 
                 '.button--studios.ready { opacity: 1; pointer-events: auto; } ' +
-                '.button--studios svg { width: 1.6em; height: 1.6em; margin: 0 !important; }'
+                '.button--studios svg { width: 1.5em; height: 1.5em; margin: 0 !important; }'
             ).appendTo('head');
         };
 
