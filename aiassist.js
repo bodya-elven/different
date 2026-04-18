@@ -59,7 +59,7 @@
             if ($('#ai-assistant-styles').length) return;
             var tCol = window.look_dynamic_current_hex || 'var(--main-color, #0cf)'; // Використовуємо tCol з themes.js
             $('<style id="ai-assistant-styles">').prop('type', 'text/css').html(
-                '.button--ai-assist { display: flex !important; align-items: center; justify-content: center; gap: 7px; } ' + 
+                '.button--ai-assist { display: flex !important; align-items: center; justify-content: center; gap: 5px; } ' + 
                 '.button--ai-assist svg { width: 1.8em !important; height: 1.8em !important; margin: 0 !important; } ' +
                 
                 '#ai-assist-status { position: fixed; bottom: 80px; left: 0; right: 0; text-align: center; z-index: 10001; pointer-events: none; display: flex; justify-content: center; }' +
