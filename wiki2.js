@@ -35,7 +35,7 @@
 
             var button = $('<div class="full-start__button selector lampa-wiki-button">' +
                     ICON_WIKI +
-                    '<span>Wikipedia</span>' +
+                    '<span>  Wikipedia</span>' +
                 '</div>');
 
 
