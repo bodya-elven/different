@@ -57,8 +57,8 @@
             if ($('#ai-assistant-styles').length) return;
             var tCol = window.look_dynamic_current_hex || 'var(--main-color, #0cf)';
             $('<style id="ai-assistant-styles">').prop('type', 'text/css').html(
-                '.button--ai-assist { display: flex !important; align-items: center; justify-content: center; gap: 5px; } ' + 
-                '.button--ai-assist svg { width: 1.8em !important; height: 1.8em !important; margin: 0 !important; } ' +
+                '.button--ai-assist { display: flex !important; align-items: center; justify-content: center; gap: 3px; } ' + 
+                '.button--ai-assist svg { width: 1.9em !important; height: 1.9em !important; margin: 0 !important; } ' +
                 '#ai-assist-status { position: fixed; bottom: 80px; left: 0; right: 0; text-align: center; z-index: 10001; pointer-events: none; display: flex; justify-content: center; }' +
                 '.ai-toast { display: inline-flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 10px 24px; border-radius: 50px; color: #fff; font-size: 1.1em; position: relative; overflow: hidden; height: 44px; }' +
                 '.ai-toast:after { content:""; position:absolute; top:0; left:-100%; width:30%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); animation: ai-shimmer 4s infinite; }' +
@@ -265,27 +265,24 @@
         };
     }
 
-    // Реєстрація плагіна
-    Lampa.Plugins.add({
-        id: 'ai_assistant',
-        name: 'AI Асистент',
-        type: 'other', 
-        icon: PLUGIN_ICON,
-        author: '@bodya_elven',
-        description: 'Ваш персональний AI помічник',
-        version: '2.3',
-        onInit: function() {
-            if (!window.plugin_ai_assistant_instance) {
-                window.plugin_ai_assistant_instance = new AIAssistantPlugin();
-                window.plugin_ai_assistant_instance.init();
-            }
-        }
-    });
+// Реєстрація в маніфесті
+var pluginManifest = {
+    type: 'other',
+    version: '2.4',
+    name: 'AI Асистент',
+    description: 'Ваш персональний ШІ помічник',
+    author: '@bodya_elven',
+    icon: PLUGIN_ICON
+};
 
-    // Fallback ініціалізація, якщо маніфест не спрацював
-    if (!window.plugin_ai_assistant_instance) {
-        window.plugin_ai_assistant_instance = new AIAssistantPlugin();
-        if (window.appready) window.plugin_ai_assistant_instance.init();
-        else Lampa.Listener.follow('app', function(e) { if (e.type == 'ready') window.plugin_ai_assistant_instance.init(); });
-    }
+if (Lampa.Manifest && Lampa.Manifest.plugins) {
+    Lampa.Manifest.plugins.ai_assistant = pluginManifest; // Додаємо через ключ, щоб не затерти інші плагіни
+}
+
+// Пряма ініціалізація без реєстрації в ядрі (як у keywords.js)
+if (!window.plugin_ai_assistant_instance) {
+    window.plugin_ai_assistant_instance = new AIAssistantPlugin();
+    if (window.appready) window.plugin_ai_assistant_instance.init();
+    else Lampa.Listener.follow('app', function(e) { if (e.type == 'ready') window.plugin_ai_assistant_instance.init(); });
+}
 })();
