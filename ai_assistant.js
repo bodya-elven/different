@@ -6,44 +6,32 @@
 
     var TARGET_MODEL = 'gemini-flash-lite-latest';
     var STORAGE_KEY = 'google_native_key_v1';
-    window.ai_pagination = { base_prompt: '', exclude_list: [], next_results: [], is_loading: false, has_more: false, page: 1 };
+    window.ai_pagination = { base_prompt: '', exclude_list: [], is_loading: false };
     window.ai_cached_results = [];
+
+    // Патчимо Activity.push для перехоплення кліку по нашій картці "Ще"
+    if (!window.ai_push_patched) {
+        var originalPush = Lampa.Activity.push;
+        Lampa.Activity.push = function(obj) {
+            var card = obj.card || obj.movie;
+            if (card && card.is_load_more) {
+                if (window.plugin_ai_assistant_instance) window.plugin_ai_assistant_instance.loadMore(Lampa.Activity.active());
+                return;
+            }
+            originalPush.apply(Lampa.Activity, arguments);
+        };
+        window.ai_push_patched = true;
+    }
 
     if (window.Lampa && Lampa.Api) {
         Lampa.Api.sources.ai_assistant_list = {
-            list: function(params, oncomplite, onerror) {
-                if (params.page == 1) {
-                    oncomplite({ results: window.ai_cached_results, total_pages: window.ai_pagination.has_more ? 2 : 1 });
-                } else {
-                    var sendResults = function() {
-                        var res = window.ai_pagination.next_results || [];
-                        if (res.length) {
-                            window.ai_cached_results = window.ai_cached_results.concat(res);
-                            window.ai_pagination.next_results = [];
-                            window.ai_pagination.page++;
-                            if (window.plugin_ai_assistant_instance) window.plugin_ai_assistant_instance.triggerBackgroundFetch();
-                            oncomplite({ results: res, total_pages: window.ai_pagination.has_more ? params.page + 1 : params.page });
-                        } else {
-                            oncomplite({ results: [], total_pages: params.page });
-                        }
-                    };
-
-                    if (window.ai_pagination.is_loading) {
-                        var checkCount = 0;
-                        var check = setInterval(function() {
-                            checkCount++;
-                            if (!window.ai_pagination.is_loading || checkCount > 30) { // Чекаємо макс 15 секунд
-                                clearInterval(check);
-                                sendResults();
-                            }
-                        }, 500);
-                    } else {
-                        sendResults();
-                    }
-                }
+            list: function(params, oncomplite) { 
+                // Завжди віддаємо 1 сторінку, бо пагінацію робимо своєю карткою
+                oncomplite({ results: window.ai_cached_results, total_pages: 1 }); 
             }
         };
     }
+
 
     function AIAssistantPlugin() {
         var _this = this;
@@ -129,7 +117,9 @@
                 '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border: 2px solid transparent; line-height: 1; padding: 0; }' +
                 '.ai-close-btn.focus { border-color: #fff; background: ' + tCol + '; }' +
                 '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 20px; color: #efefef; font-size: 1.15em; line-height: 1.4; }' +
-                '.ai-fact-title { color: ' + tCol + '; font-weight: bold; display: block; margin-bottom: 2px; }'
+                '.ai-fact-title { color: ' + tCol + '; font-weight: bold; display: block; margin-bottom: 2px; }' +
+                '.item[data-id="ai_load_more"] .card__img { background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; } ' +
+                '.item[data-id="ai_load_more"] .card__img:after { content: "+"; font-size: 5em; font-weight: 300; color: #fff; opacity: 0.3; } '
             ).appendTo('head');
         };
 
@@ -384,40 +374,6 @@
             }).catch(function() { _this.hideStatus(); Lampa.Noty.show('Помилка мережі Gemini'); if(onError) onError(); });
         };
 
-        this.triggerBackgroundFetch = function() {
-            if (!window.ai_pagination.has_more || window.ai_pagination.is_loading) return;
-
-            window.ai_pagination.is_loading = true;
-            var limit = Lampa.Storage.get('ai_result_count', '20');
-
-            // Беремо останні 100 фільмів з виключень, щоб промпт не став занадто гігантським
-            var exclusions = window.ai_pagination.exclude_list.slice(-100).join(', ');
-            var full_prompt = window.ai_pagination.base_prompt + ' IMPORTANT: You MUST EXCLUDE these titles from your suggestions: ' + exclusions + '. Provide strictly NEW ' + limit + ' suggestions. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
-
-            _this.askGemini(full_prompt, function(text) {
-                var list = _this.parseJsonSafe(text);
-                if (!list || !list.length) {
-                    window.ai_pagination.has_more = false;
-                    window.ai_pagination.is_loading = false;
-                    return;
-                }
-
-                list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
-
-                _this.processAiList(list, function(results) {
-                    if (results.length) {
-                        window.ai_pagination.next_results = results;
-                    } else {
-                        window.ai_pagination.has_more = false;
-                    }
-                    window.ai_pagination.is_loading = false;
-                });
-            }, function() {
-                window.ai_pagination.has_more = false;
-                window.ai_pagination.is_loading = false;
-            });
-        };
-
         this.parseJsonSafe = function(text) {
             try {
                 var clean = text.trim().replace(/^```json/gi, '').replace(/```$/g, '').trim();
@@ -441,19 +397,60 @@
             });
         };
 
+        this.loadMore = function(activeActivity) {
+            if (window.ai_pagination.is_loading) return;
+            window.ai_pagination.is_loading = true;
+            _this.updateStatus('Підбір результатів...');
+
+            var limit = Lampa.Storage.get('ai_result_count', '20');
+            var exclusions = window.ai_pagination.exclude_list.slice(-100).join(', ');
+            var full_prompt = window.ai_pagination.base_prompt + ' IMPORTANT: You MUST EXCLUDE these titles from your suggestions: ' + exclusions + '. Provide strictly NEW ' + limit + ' suggestions. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+
+            _this.askGemini(full_prompt, function(text) {
+                var list = _this.parseJsonSafe(text);
+                if (!list || !list.length) {
+                    _this.hideStatus();
+                    Lampa.Noty.show('Більше нічого не знайдено');
+                    window.ai_pagination.is_loading = false;
+                    return;
+                }
+
+                list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
+
+                _this.processAiList(list, function(results) {
+                    _this.hideStatus();
+                    window.ai_pagination.is_loading = false;
+                    
+                    if (!results.length) {
+                        Lampa.Noty.show('Більше нічого не знайдено');
+                        return;
+                    }
+
+                    // Видаляємо стару картку "Ще" з кешу
+                    window.ai_cached_results = window.ai_cached_results.filter(function(r) { return !r.is_load_more; });
+                    
+                    // Зливаємо старі результати з новими
+                    window.ai_cached_results = window.ai_cached_results.concat(results);
+                    
+                    // Додаємо нову картку "Ще" в самий кінець
+                    window.ai_cached_results.push({ id: 'ai_load_more', title: 'Завантажити ще', name: 'Завантажити ще', is_load_more: true, poster_path: '' });
+
+                    // Перемальовуємо сторінку, щоб відобразити нові картки
+                    if (activeActivity) {
+                        Lampa.Activity.replace({ url: 'ai_assistant_list', title: activeActivity.title, component: 'category_full', source: 'ai_assistant_list', page: 1 });
+                    }
+                });
+            }, function() {
+                _this.hideStatus();
+                Lampa.Noty.show('Помилка генерації');
+                window.ai_pagination.is_loading = false;
+            });
+        };
+
         this.fetchList = function(prompt_task, title, card, btn, render, ctrl) {
-            // Скидаємо стан пагінації перед новим пошуком
-            window.ai_pagination = {
-                base_prompt: prompt_task,
-                exclude_list: [],
-                next_results: [],
-                is_loading: false,
-                has_more: true,
-                page: 1
-            };
+            window.ai_pagination = { base_prompt: prompt_task, exclude_list: [], is_loading: false };
             window.ai_cached_results = [];
 
-            // Формуємо повний промпт для ПЕРШОЇ сторінки
             var full_prompt = prompt_task + ' Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
 
             _this.updateStatus('Підбір результатів');
@@ -461,7 +458,6 @@
                 var list = _this.parseJsonSafe(text);
                 if (!list || !list.length) { _this.hideStatus(); return Lampa.Noty.show('Нічого не знайдено'); }
 
-                // Заповнюємо список виключень
                 list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
 
                 _this.processAiList(list, function(results) {
@@ -469,16 +465,18 @@
                     if (!results.length) { Lampa.Noty.show('Нічого не знайдено'); return; }
 
                     window.ai_cached_results = results;
-                    Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category_full', source: 'ai_assistant_list', page: 1 });
                     
-                    // Відразу запускаємо фонове завантаження другої сторінки!
-                    _this.triggerBackgroundFetch();
+                    // Додаємо нашу фейкову картку "Ще" в кінець
+                    window.ai_cached_results.push({ id: 'ai_load_more', title: 'Завантажити ще', name: 'Завантажити ще', is_load_more: true, poster_path: '' });
+
+                    Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category_full', source: 'ai_assistant_list', page: 1 });
                 });
             }, function() {
                 _this.hideStatus();
                 Lampa.Noty.show('Помилка генерації');
             });
         };
+
 
         this.updateStatus = function(text) {
             if (!statusBox) {
