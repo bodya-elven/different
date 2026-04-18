@@ -6,11 +6,42 @@
 
     var TARGET_MODEL = 'gemini-flash-lite-latest';
     var STORAGE_KEY = 'google_native_key_v1';
+    window.ai_pagination = { base_prompt: '', exclude_list: [], next_results: [], is_loading: false, has_more: false, page: 1 };
     window.ai_cached_results = [];
 
     if (window.Lampa && Lampa.Api) {
         Lampa.Api.sources.ai_assistant_list = {
-            list: function(params, oncomplite) { oncomplite({ results: window.ai_cached_results, total_pages: 1 }); }
+            list: function(params, oncomplite, onerror) {
+                if (params.page == 1) {
+                    oncomplite({ results: window.ai_cached_results, total_pages: window.ai_pagination.has_more ? 2 : 1 });
+                } else {
+                    var sendResults = function() {
+                        var res = window.ai_pagination.next_results || [];
+                        if (res.length) {
+                            window.ai_cached_results = window.ai_cached_results.concat(res);
+                            window.ai_pagination.next_results = [];
+                            window.ai_pagination.page++;
+                            if (window.plugin_ai_assistant_instance) window.plugin_ai_assistant_instance.triggerBackgroundFetch();
+                            oncomplite({ results: res, total_pages: window.ai_pagination.has_more ? params.page + 1 : params.page });
+                        } else {
+                            oncomplite({ results: [], total_pages: params.page });
+                        }
+                    };
+
+                    if (window.ai_pagination.is_loading) {
+                        var checkCount = 0;
+                        var check = setInterval(function() {
+                            checkCount++;
+                            if (!window.ai_pagination.is_loading || checkCount > 30) { // Чекаємо макс 15 секунд
+                                clearInterval(check);
+                                sendResults();
+                            }
+                        }, 500);
+                    } else {
+                        sendResults();
+                    }
+                }
+            }
         };
     }
 
@@ -230,14 +261,14 @@
                 var cast = res.cast || [], crew = res.crew || [], dir = crew.filter(function(p){return p.job==='Director'})[0];
                 var names = cast.slice(0, 15).map(function(a){return a.name});
                 if(dir) names.push('Director: ' + dir.name);
-                var p = 'Name strictly ' + limit + ' movies/TV shows where these people crossed paths: ' + names.join(', ') + '. Priority to director and first 5 names. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+                var p = 'Name strictly ' + limit + ' movies/TV shows where these people crossed paths: ' + names.join(', ') + '. Priority to director and first 5 names.';
                 _this.fetchList(p, 'Спільні проєкти', card, btn, render, ctrl);
             });
         };
 
         this.actionRecommendations = function(card, btn, render, ctrl) {
             var limit = Lampa.Storage.get('ai_result_count', '20'), t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
-            var p = 'Suggest strictly ' + limit + ' movies or TV series similar to "' + t + ' (' + year + ')" in terms of vibe and themes. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+            var p = 'Suggest strictly ' + limit + ' movies or TV series that closely match the vibe, genre, and plot of "' + t + ' (' + year + ')".';
             _this.fetchList(p, 'Рекомендації', card, btn, render, ctrl);
         };
 
@@ -333,7 +364,7 @@
                 items: items,
                 onSelect: function (item) {
                     var limit = Lampa.Storage.get('ai_result_count', '20');
-                    var p = 'Suggest strictly ' + limit + ' movies or TV series that are strongly associated with the specific TMDB keyword: "' + item.tag_data.orig_name + '". Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+                    var p = 'Suggest strictly ' + limit + ' movies or TV series that are strongly associated with the specific TMDB keyword: "' + item.tag_data.orig_name + '".';
                     _this.fetchList(p, 'Тег: ' + item.title, card, btn, render, ctrl);
                 },
                 onBack: function () {
@@ -342,14 +373,49 @@
             });
         };
 
-        this.askGemini = function(p, onSuccess) {
+        this.askGemini = function(p, onSuccess, onError) {
             var key = Lampa.Storage.get(STORAGE_KEY, '').split(',')[0];
-            if (!key) return Lampa.Noty.show('API Ключ не задано');
+            if (!key) { Lampa.Noty.show('API Ключ не задано'); if(onError) onError(); return; }
             fetch('https://generativelanguage.googleapis.com/v1beta/models/'+TARGET_MODEL+':generateContent?key='+key.trim(), {
                 method: "POST", body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] })
             }).then(function(r) { return r.json(); }).then(function(d) {
                 if (d.candidates && d.candidates[0].content) onSuccess(d.candidates[0].content.parts[0].text);
-            }).catch(function() { _this.hideStatus(); Lampa.Noty.show('Помилка мережі'); });
+                else if(onError) onError();
+            }).catch(function() { _this.hideStatus(); Lampa.Noty.show('Помилка мережі Gemini'); if(onError) onError(); });
+        };
+
+        this.triggerBackgroundFetch = function() {
+            if (!window.ai_pagination.has_more || window.ai_pagination.is_loading) return;
+
+            window.ai_pagination.is_loading = true;
+            var limit = Lampa.Storage.get('ai_result_count', '20');
+
+            // Беремо останні 100 фільмів з виключень, щоб промпт не став занадто гігантським
+            var exclusions = window.ai_pagination.exclude_list.slice(-100).join(', ');
+            var full_prompt = window.ai_pagination.base_prompt + ' IMPORTANT: You MUST EXCLUDE these titles from your suggestions: ' + exclusions + '. Provide strictly NEW ' + limit + ' suggestions. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+
+            _this.askGemini(full_prompt, function(text) {
+                var list = _this.parseJsonSafe(text);
+                if (!list || !list.length) {
+                    window.ai_pagination.has_more = false;
+                    window.ai_pagination.is_loading = false;
+                    return;
+                }
+
+                list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
+
+                _this.processAiList(list, function(results) {
+                    if (results.length) {
+                        window.ai_pagination.next_results = results;
+                    } else {
+                        window.ai_pagination.has_more = false;
+                    }
+                    window.ai_pagination.is_loading = false;
+                });
+            }, function() {
+                window.ai_pagination.has_more = false;
+                window.ai_pagination.is_loading = false;
+            });
         };
 
         this.parseJsonSafe = function(text) {
@@ -375,16 +441,42 @@
             });
         };
 
-        this.fetchList = function(prompt, title, card, btn, render, ctrl) {
+        this.fetchList = function(prompt_task, title, card, btn, render, ctrl) {
+            // Скидаємо стан пагінації перед новим пошуком
+            window.ai_pagination = {
+                base_prompt: prompt_task,
+                exclude_list: [],
+                next_results: [],
+                is_loading: false,
+                has_more: true,
+                page: 1
+            };
+            window.ai_cached_results = [];
+
+            // Формуємо повний промпт для ПЕРШОЇ сторінки
+            var full_prompt = prompt_task + ' Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+
             _this.updateStatus('Підбір результатів');
-            _this.askGemini(prompt, function(text) {
+            _this.askGemini(full_prompt, function(text) {
                 var list = _this.parseJsonSafe(text);
-                if (!list) { _this.hideStatus(); return; }
+                if (!list || !list.length) { _this.hideStatus(); return Lampa.Noty.show('Нічого не знайдено'); }
+
+                // Заповнюємо список виключень
+                list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
+
                 _this.processAiList(list, function(results) {
                     _this.hideStatus();
-                    if (!results.length) Lampa.Noty.show('Нічого не знайдено');
-                    else { window.ai_cached_results = results; Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category_full', source: 'ai_assistant_list', page: 1 }); }
+                    if (!results.length) { Lampa.Noty.show('Нічого не знайдено'); return; }
+
+                    window.ai_cached_results = results;
+                    Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category_full', source: 'ai_assistant_list', page: 1 });
+                    
+                    // Відразу запускаємо фонове завантаження другої сторінки!
+                    _this.triggerBackgroundFetch();
                 });
+            }, function() {
+                _this.hideStatus();
+                Lampa.Noty.show('Помилка генерації');
             });
         };
 
