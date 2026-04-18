@@ -8,7 +8,7 @@
     window.ai_cached_results = [];
 
     if (window.Lampa && Lampa.Api) {
-        Lampa.Api.sources.ai_list_source = {
+        Lampa.Api.sources.ai_assistant_list = {
             list: function(params, oncomplite) { oncomplite({ results: window.ai_cached_results, total_pages: 1 }); }
         };
     }
@@ -35,10 +35,8 @@
                     var q = decodeURIComponent(params.query || '').trim().toLowerCase();
                     var limit = Lampa.Storage.get('ai_result_count', '20');
                     if (!q) return done([]);
-                    
                     var filter = (q.indexOf('фільм') > -1) ? 'strictly only movies' : (q.indexOf('серіал') > -1 ? 'strictly only TV series' : 'movies and TV series');
-                    var p = 'Act as a movie expert. Suggest strictly ' + limit + ' ' + filter + ' for: "' + q + '". Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
-                    
+                    var p = 'Act as a movie expert. Suggest strictly ' + limit + ' ' + filter + ' for the request: "' + q + '". Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
                     _this.updateStatus('Пошук результатів');
                     _this.askGemini(p, function(text) {
                         var list = _this.parseJsonSafe(text);
@@ -57,20 +55,17 @@
 
         this.injectStyles = function() {
             if ($('#ai-assistant-styles').length) return;
-            var tCol = window.look_dynamic_current_hex || 'var(--main-color, #0cf)'; // Використовуємо tCol з themes.js
+            var tCol = window.look_dynamic_current_hex || 'var(--main-color, #0cf)'; // Використання кольору теми
             $('<style id="ai-assistant-styles">').prop('type', 'text/css').html(
                 '.button--ai-assist { display: flex !important; align-items: center; justify-content: center; gap: 5px; } ' + 
                 '.button--ai-assist svg { width: 1.8em !important; height: 1.8em !important; margin: 0 !important; } ' +
-                
                 '#ai-assist-status { position: fixed; bottom: 80px; left: 0; right: 0; text-align: center; z-index: 10001; pointer-events: none; display: flex; justify-content: center; }' +
-                '.ai-toast { display: inline-flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.2); backdrop-filter: blur(20px); padding: 10px 24px; border-radius: 50px; color: #fff; font-size: 1.1em; position: relative; overflow: hidden; }' +
-                '.ai-toast:after { content:""; position:absolute; top:0; left:-100%; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); animation: ai-shimmer 4s infinite; }' +
+                '.ai-toast { display: inline-flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 10px 24px; border-radius: 50px; color: #fff; font-size: 1.1em; position: relative; overflow: hidden; height: 44px; }' +
+                '.ai-toast:after { content:""; position:absolute; top:0; left:-100%; width:30%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); animation: ai-shimmer 4s infinite; }' +
                 '@keyframes ai-shimmer { to {left:150%} }' +
-                
-                '.ai-spinner { width: 24px; height: 24px; border-radius: 50%; border: 3px solid transparent; border-top-color: #fff; animation: ai-rot 0.8s linear infinite, ai-rainbow 3s linear infinite; }' +
+                '.ai-spinner { width: 22px; height: 22px; border-radius: 50%; border: 3px solid transparent; border-top-color: #fff; animation: ai-rot 0.8s linear infinite, ai-rainbow 3s linear infinite; }' +
                 '@keyframes ai-rot { to { transform: rotate(360deg); } }' +
                 '@keyframes ai-rainbow { 0%{border-top-color:#fff} 25%{border-top-color:'+tCol+'} 50%{border-top-color:#0cf} 75%{border-top-color:#f0f} 100%{border-top-color:#fff} }' +
-                
                 '.ai-viewer-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5001; display: flex; align-items: center; justify-content: center; }' +
                 '.ai-viewer-body { width: 80%; max-width: 800px; height: 70%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid ' + tCol + '; overflow: hidden; }' +
                 '.ai-header { height: 44px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
@@ -90,8 +85,9 @@
             if (lastBtn.length) lastBtn.after(btn); else container.append(btn);
         };
 
+        // --- НАВІГАЦІЯ (Логіка keywords.js) ---
         this.openAiMenu = function(card, btnElement, renderContainer) {
-            var controllerName = Lampa.Controller.enabled().name; // Запам'ятовуємо назву контролера
+            var controllerName = Lampa.Controller.enabled().name; 
             var items = [{ title: 'Рекомендації', action: 'recommendations' }, { title: 'Цікаві факти', action: 'facts' }, { title: 'Спільні проєкти', action: 'together' }];
             if ((card.number_of_seasons && card.number_of_seasons > 1) || card.belongs_to_collection) items.push({ title: 'Стислий переказ', action: 'recap' });
             items.push({ title: 'По настрою', action: 'mood' });
@@ -107,9 +103,9 @@
                     else if (item.action === 'recommendations') _this.actionRecommendations(card, btnElement, renderContainer, controllerName);
                 },
                 onBack: function () { 
-                    Lampa.Controller.toggle(controllerName); // Повертаємо контролер
+                    Lampa.Controller.toggle(controllerName); // Повернення нативного контролера
                     if (!Lampa.Platform.is('touch')) {
-                        setTimeout(function() { Lampa.Controller.collectionFocus(btnElement[0], renderContainer[0]); }, 10); // Повертаємо фокус
+                        setTimeout(function() { Lampa.Controller.collectionFocus(btnElement[0], renderContainer[0]); }, 10); // Повернення фокусу
                     }
                 }
             });
@@ -132,26 +128,24 @@
             Lampa.Controller.toggle('ai_viewer');
         };
 
+        // --- ЛОГІКА ДІЙ ---
         this.actionFacts = function(card, btn, render, ctrl) {
-            var t = card.original_title || card.original_name;
-            var year = (card.release_date || card.first_air_date || '').slice(0,4);
+            var t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
             _this.updateStatus('Пошук фактів');
             var p = 'Provide strictly 5 interesting facts about "' + t + '" (' + year + ') in Ukrainian. IMPORTANT: This project is already released. Return strictly a JSON array: [{"title":"..","text":".."}].';
             _this.askGemini(p, function(text) {
                 _this.hideStatus();
                 var data = _this.parseJsonSafe(text);
                 if (!data) return;
-                var html = '';
-                data.forEach(function(f) { html += '<div style="margin-bottom:12px"><span class="ai-fact-title">'+f.title+'</span>'+f.text+'</div>'; });
+                var html = (data || []).map(function(f){ return '<div style="margin-bottom:12px"><span class="ai-fact-title">'+f.title+'</span>'+f.text+'</div>'; }).join('');
                 _this.showViewer('Цікаві факти: ' + (card.title || card.name), html, function() { _this.openAiMenu(card, btn, render); });
             });
         };
 
         this.actionRecapMenu = function(card, btn, render, ctrl) {
             var items = [];
-            if (card.number_of_seasons > 1) {
-                for (var i = 1; i < card.number_of_seasons; i++) items.push({ title: 'Сезон ' + i, type: 'season', value: i });
-            } else if (card.belongs_to_collection) {
+            if (card.number_of_seasons > 1) { for (var i = 1; i < card.number_of_seasons; i++) items.push({ title: 'Сезон ' + i, type: 'season', value: i }); }
+            else if (card.belongs_to_collection) {
                 _this.updateStatus('Збір історії');
                 Lampa.Network.silent(Lampa.TMDB.api('collection/' + card.belongs_to_collection.id + '?api_key=' + Lampa.TMDB.key() + '&language=uk-UA'), function(res) {
                     _this.hideStatus();
@@ -168,8 +162,7 @@
                 title: 'Що переказати?',
                 items: items,
                 onSelect: function(item) {
-                    var t = card.original_title || card.original_name;
-                    var year = (card.release_date || card.first_air_date || '').slice(0,4);
+                    var t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
                     _this.updateStatus('Підготовка переказу');
                     var p = 'Provide a brief recap strictly ' + item.title + ' from "' + t + '" (' + year + ') in Ukrainian. 5-7 points. JSON array: [{"point":".."}] .';
                     _this.askGemini(p, function(text) {
@@ -184,12 +177,10 @@
         };
 
         this.actionTogether = function(card, btn, render, ctrl) {
-            var method = (card.name || card.original_name) ? 'tv' : 'movie';
-            var limit = Lampa.Storage.get('ai_result_count', '20');
+            var method = (card.name || card.original_name) ? 'tv' : 'movie', limit = Lampa.Storage.get('ai_result_count', '20');
             _this.updateStatus('Аналіз складу');
             Lampa.Network.silent(Lampa.TMDB.api(method + '/' + card.id + '/credits?api_key=' + Lampa.TMDB.key()), function(res) {
-                var cast = res.cast || [], crew = res.crew || [];
-                var dir = crew.filter(function(p){return p.job==='Director'})[0];
+                var cast = res.cast || [], crew = res.crew || [], dir = crew.filter(function(p){return p.job==='Director'})[0];
                 var names = cast.slice(0, 15).map(function(a){return a.name});
                 if(dir) names.push('Director: ' + dir.name);
                 var p = 'Name strictly ' + limit + ' projects where these people (including director) crossed paths: ' + names.join(', ') + '. Priority to director and first 5 names. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
@@ -197,14 +188,27 @@
             });
         };
 
+        this.actionMoodMenu = function(card, btn, render, ctrl) {
+            var items = [{ title: 'Візуальне задоволення', mood: 'Visual masterpiece' }, { title: 'Темна сторона', mood: 'Dark/Antivillain' }, { title: 'Посміятися', mood: 'Comedy' }, { title: 'Поплакати', mood: 'Drama' }];
+            Lampa.Select.show({
+                title: 'Настрій',
+                items: items,
+                onSelect: function(item) {
+                    var limit = Lampa.Storage.get('ai_result_count', '20'), t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
+                    var p = 'Suggest strictly ' + limit + ' projects similar to "' + t + ' (' + year + ')" that match this mood: ' + item.mood + '. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+                    _this.fetchList(p, item.title, card, btn, render, ctrl);
+                },
+                onBack: function() { _this.openAiMenu(card, btn, render); }
+            });
+        };
+
         this.actionRecommendations = function(card, btn, render, ctrl) {
-            var limit = Lampa.Storage.get('ai_result_count', '20');
-            var t = card.original_title || card.original_name;
-            var year = (card.release_date || card.first_air_date || '').slice(0,4);
+            var limit = Lampa.Storage.get('ai_result_count', '20'), t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
             var p = 'Suggest strictly ' + limit + ' movies or TV series similar to "' + t + ' (' + year + ')" in terms of vibe and themes. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
             _this.fetchList(p, 'Рекомендації', card, btn, render, ctrl);
         };
 
+        // --- CORE API ---
         this.askGemini = function(p, onSuccess) {
             var key = Lampa.Storage.get(STORAGE_KEY, '').split(',')[0];
             if (!key) return Lampa.Noty.show('API Ключ не задано');
@@ -246,7 +250,7 @@
                 _this.processAiList(list, function(results) {
                     _this.hideStatus();
                     if (!results.length) Lampa.Noty.show('Нічого не знайдено');
-                    else { window.ai_cached_results = results; Lampa.Activity.push({ url: 'ai_list', title: title, component: 'category_full', source: 'ai_list_source', page: 1 }); }
+                    else { window.ai_cached_results = results; Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category_full', source: 'ai_assistant_list', page: 1 }); }
                 });
             });
         };
@@ -266,7 +270,7 @@
             Lampa.SettingsApi.addParam({ component: 'ai_assistant_cfg', param: { name: 'ai_key_trigger', type: 'trigger' }, field: { name: 'API Ключ (Gemini)' }, onRender: function(item) {
                 var updateText = function() { var val = Lampa.Storage.get(STORAGE_KEY, ''); item.find('.settings-param__value').text(val ? 'Так' : 'Ні').css('color', val ? '#4b5':'#f55'); };
                 updateText();
-                item.on('hover:enter', function() { Lampa.Input.edit({ title: 'Key', value: Lampa.Storage.get(STORAGE_KEY, ''), free: true }, function(v) { if(v){ Lampa.Storage.set(STORAGE_KEY, v.trim()); updateText(); } }); });
+                item.on('hover:enter', function() { Lampa.Input.edit({ title: 'Введіть ключ', value: Lampa.Storage.get(STORAGE_KEY, ''), free: true }, function(v) { if(v){ Lampa.Storage.set(STORAGE_KEY, v.trim()); updateText(); } }); });
             }});
             Lampa.SettingsApi.addParam({ component: 'ai_assistant_cfg', param: { name: 'ai_result_count', type: 'select', values: { '10':'10','20':'20','30':'30','50':'50' }, default: '20' }, field: { name: 'Кількість результатів' } });
         };
