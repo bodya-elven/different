@@ -3,7 +3,6 @@
 
     var PLUGIN_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.cls-left{fill:currentColor;fill-rule:evenodd;}.cls-right{fill:#a0a0a0;fill-rule:evenodd;}</style><g><polygon class="cls-right" points="16.64 15.13 17.38 13.88 20.91 13.88 22 12 19.82 8.25 16.75 8.25 15.69 6.39 14.5 6.39 14.5 5.13 16.44 5.13 17.5 7 19.09 7 16.9 3.25 12.63 3.25 12.63 8.25 14.36 8.25 15.09 9.5 12.63 9.5 12.63 12 14.89 12 15.94 10.13 18.75 10.13 19.47 11.38 16.67 11.38 15.62 13.25 12.63 13.25 12.63 17.63 16.03 17.63 15.31 18.88 12.63 18.88 12.63 20.75 16.9 20.75 20.18 15.13 18.09 15.13 17.36 16.38 14.5 16.38 14.5 15.13 16.64 15.13"/><polygon class="cls-left" points="7.36 15.13 6.62 13.88 3.09 13.88 2 12 4.18 8.25 7.25 8.25 8.31 6.39 9.5 6.39 9.5 5.13 7.56 5.13 6.5 7 4.91 7 7.1 3.25 11.38 3.25 11.38 8.25 9.64 8.25 8.91 9.5 11.38 9.5 11.38 12 9.11 12 8.06 10.13 5.25 10.13 4.53 11.38 7.33 11.38 8.38 13.25 11.38 13.25 11.38 17.63 7.97 17.63 8.69 18.88 11.38 18.88 11.38 20.75 7.1 20.75 3.82 15.13 5.91 15.13 6.64 16.38 9.5 16.38 9.5 15.13 7.36 15.13"/></g></svg>';
 
-    var TARGET_MODEL = 'gemini-flash-lite-latest';
     var STORAGE_KEY = 'google_native_key_v1';
     window.ai_pagination = { base_prompt: '', exclude_list: [], is_loading: false };
     window.ai_cached_results = [];
@@ -48,34 +47,12 @@
                 if (e.action == 'render' && e.card) {
                     if (e.card.is_load_more) {
                         e.element.attr('data-id', 'ai_load_more');
-                        
-                        var view = e.element.find('.card__view, .item__view');
-                        // Повністю очищаємо вміст від стандартних заглушок
-                        view.empty(); 
-                        
-                        var imgUri = 'https://bodya-elven.github.io/different/icons/more.webp';
-                        
-                        // 1. Ставимо картинку фоном для самої картки (найнадійніший метод)
-                        view.css({
-                            'background-image': 'url("' + imgUri + '")',
-                            'background-size': 'cover',
-                            'background-position': 'center',
-                            'border-radius': '12px'
-                        });
-
-                        // 2. Вставляємо саму картинку з ПРАВИЛЬНИМ позиціонуванням (absolute)
-                        var newImg = $('<img src="' + imgUri + '" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; opacity: 1 !important; display: block !important; z-index: 10;" />');
-                        view.append(newImg);
-                        
-                        // Ховаємо текстові підписи під карткою
-                        e.element.find('.card__title, .card__age, .item__title, .item__age').hide();
-                        
+                        // Лампа сама підтягує постер, ми лише ховаємо текстові підписи
+                        e.element.find('.card__title, .card__age, .item__title, .item__age, .card__vote, .card__icons').hide();
                     } else if (e.card.id) {
-
                         e.element.attr('data-id', e.card.id);
                     }
                 }
-
             });
         };
 
@@ -377,20 +354,43 @@
         this.askGemini = function(p, onSuccess, onError) {
             var key = Lampa.Storage.get(STORAGE_KEY, '').split(',')[0];
             if (!key) { Lampa.Noty.show('API Ключ не задано'); if(onError) onError(); return; }
-            fetch('https://generativelanguage.googleapis.com/v1beta/models/'+TARGET_MODEL+':generateContent?key='+key.trim(), {
-                method: "POST", body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] })
-            }).then(function(r) { return r.json(); }).then(function(d) {
+            
+            // Динамічно отримуємо модель та температуру з налаштувань
+            var targetModel = Lampa.Storage.get('ai_model', 'gemini-3.1-flash-lite-preview');
+            var reqTemp = parseFloat(Lampa.Storage.get('ai_temperature', '1.0'));
+
+            var payload = {
+                contents: [{ parts: [{ text: p }] }],
+                generationConfig: { temperature: reqTemp }
+            };
+
+            fetch('https://generativelanguage.googleapis.com/v1beta/models/' + targetModel + ':generateContent?key=' + key.trim(), {
+                method: "POST", body: JSON.stringify(payload)
+            }).then(function(r) { 
+                if (r.status === 503) {
+                    throw new Error('503 Service Unavailable (Сервер перевантажено)');
+                }
+                return r.json(); 
+            }).then(function(d) {
                 if (d.error) { if(onError) onError(d.error.message); }
                 else if (d.candidates && d.candidates[0].content) onSuccess(d.candidates[0].content.parts[0].text);
                 else if(onError) onError('Блокування або пуста відповідь');
-            }).catch(function(e) { _this.hideStatus(); Lampa.Noty.show('Помилка мережі Gemini'); if(onError) onError(e.message); });
+            }).catch(function(e) { 
+                _this.hideStatus(); 
+                Lampa.Noty.show('Помилка: ' + e.message); 
+                if(onError) onError(e.message); 
+            });
         };
 
         this.parseJsonSafe = function(text) {
             try {
+                // Більш агресивне обрізання сміття (допомагає для Gemma)
+                var s = text.indexOf('['), e = text.lastIndexOf(']');
+                if (s !== -1 && e !== -1 && e > s) {
+                    return JSON.parse(text.substring(s, e + 1));
+                }
                 var clean = text.trim().replace(/^```json/gi, '').replace(/```$/g, '').trim();
-                var s = clean.indexOf('['), e = clean.lastIndexOf(']');
-                return (s !== -1 && e !== -1) ? JSON.parse(clean.substring(s, e + 1)) : JSON.parse(clean);
+                return JSON.parse(clean);
             } catch (e) { return null; }
         };
 
@@ -413,8 +413,6 @@
             if (window.ai_pagination.is_loading) return;
             window.ai_pagination.is_loading = true;
 
-            var actRender = activeActivity && activeActivity.activity ? activeActivity.activity.render() : null;
-
             _this.updateStatus('Підбір результатів...');
 
             var limit = Lampa.Storage.get('ai_result_count', '20');
@@ -424,8 +422,7 @@
             _this.askGemini(full_prompt, function(text) {
                 var list = _this.parseJsonSafe(text);
                 if (!list || !list.length) {
-                    _this.hideStatus(); Lampa.Noty.show('Більше нічого не знайдено');
-                    if (btnTitle && btnTitle.length) btnTitle.text('ЩЕ');
+                    _this.hideStatus(); Lampa.Noty.show('Більше нічого не знайдено або помилка парсингу');
                     window.ai_pagination.is_loading = false; return;
                 }
 
@@ -435,20 +432,20 @@
                     _this.hideStatus(); window.ai_pagination.is_loading = false;
                     if (!results.length) { 
                         Lampa.Noty.show('Більше нічого не знайдено'); 
-                        if (btnTitle && btnTitle.length) btnTitle.text('ЩЕ');
                         return; 
                     }
 
                     window.ai_cached_results = window.ai_cached_results.filter(function(r) { return !r.is_load_more; });
                     window.ai_cached_results = window.ai_cached_results.concat(results);
+                    
+                    // Додаємо картку ЩЕ з твоїм постером
                     window.ai_cached_results.push({ 
-    id: 'ai_load_more', 
-    is_load_more: true, 
-    poster: 'https://bodya-elven.github.io/different/icons/more.webp', // Даємо Лампі пряме посилання!
-    img: 'https://bodya-elven.github.io/different/icons/more.webp',    // Дублюємо для 100% надійності
-    name: '' // Щоб не виводився текст під постером
-});
-
+                        id: 'ai_load_more', 
+                        is_load_more: true, 
+                        name: '',
+                        poster: 'https://bodya-elven.github.io/different/icons/more.webp',
+                        img: 'https://bodya-elven.github.io/different/icons/more.webp'
+                    });
 
                     if (activeActivity && activeActivity.activity) {
                         var act = activeActivity.activity;
@@ -458,7 +455,13 @@
                         if (oldBtn.length) oldBtn.remove();
                         
                         var items_to_append = results.slice();
-                        items_to_append.push({ id: 'ai_load_more', is_load_more: true });
+                        items_to_append.push({ 
+                            id: 'ai_load_more', 
+                            is_load_more: true,
+                            name: '',
+                            poster: 'https://bodya-elven.github.io/different/icons/more.webp',
+                            img: 'https://bodya-elven.github.io/different/icons/more.webp' 
+                        });
 
                         if (act.append) {
                             act.append(items_to_append);
@@ -476,9 +479,6 @@
                     }
                 });
             }, function(errText) {
-                _this.hideStatus();
-                Lampa.Noty.show('Помилка: ' + (errText || 'генерації'));
-                if (btnTitle && btnTitle.length) btnTitle.text('ЗБІЙ');
                 window.ai_pagination.is_loading = false;
             });
         };
@@ -491,7 +491,7 @@
             _this.updateStatus('Підбір результатів');
             _this.askGemini(full_prompt, function(text) {
                 var list = _this.parseJsonSafe(text);
-                if (!list || !list.length) { _this.hideStatus(); return Lampa.Noty.show('Нічого не знайдено'); }
+                if (!list || !list.length) { _this.hideStatus(); return Lampa.Noty.show('Нічого не знайдено або помилка парсингу'); }
 
                 list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
 
@@ -501,19 +501,15 @@
 
                     window.ai_cached_results = results;
                     window.ai_cached_results.push({ 
-    id: 'ai_load_more', 
-    is_load_more: true, 
-    poster: 'https://bodya-elven.github.io/different/icons/more.webp', // Даємо Лампі пряме посилання!
-    img: 'https://bodya-elven.github.io/different/icons/more.webp',    // Дублюємо для 100% надійності
-    name: '' // Щоб не виводився текст під постером
-});
-
+                        id: 'ai_load_more', 
+                        is_load_more: true, 
+                        name: '',
+                        poster: 'https://bodya-elven.github.io/different/icons/more.webp',
+                        img: 'https://bodya-elven.github.io/different/icons/more.webp'
+                    });
 
                     Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category_full', source: 'ai_assistant_list', page: 1 });
                 });
-            }, function(errText) {
-                _this.hideStatus();
-                Lampa.Noty.show('Помилка: ' + (errText || 'генерації'));
             });
         };
 
@@ -534,13 +530,54 @@
                 updateText();
                 item.on('hover:enter', function() { Lampa.Input.edit({ title: 'Введіть ключ', value: Lampa.Storage.get(STORAGE_KEY, ''), free: true }, function(v) { if(v){ Lampa.Storage.set(STORAGE_KEY, v.trim()); updateText(); } }); });
             }});
+            
+            // Налаштування моделі
+            Lampa.SettingsApi.addParam({ 
+                component: 'ai_assistant_cfg', 
+                param: { 
+                    name: 'ai_model', 
+                    type: 'select', 
+                    values: { 
+                        'gemini-3.1-flash-lite-preview': '3.1 Flash Lite Preview',
+                        'gemini-flash-lite-latest': 'Flash Lite Latest',
+                        'gemini-flash-latest': 'Flash Latest',
+                        'gemini-3-flash-preview': '3.0 Flash Preview',
+                        'gemini-2.5-flash': '2.5 Flash',
+                        'gemini-2.5-flash-lite': '2.5 Flash Lite',
+                        'gemini-2.0-flash-001': '2.0 Flash 001',
+                        'gemini-2.0-flash-lite-001': '2.0 Flash Lite 001',
+                        'gemma-4-31b-it': 'Gemma 4 31B',
+                        'gemma-3-27b-it': 'Gemma 3 27B',
+                        'gemma-3-4b-it': 'Gemma 3 4B'
+                    }, 
+                    default: 'gemini-3.1-flash-lite-preview' 
+                }, 
+                field: { name: 'Модель ШІ' } 
+            });
+
+            // Налаштування температури
+            Lampa.SettingsApi.addParam({ 
+                component: 'ai_assistant_cfg', 
+                param: { 
+                    name: 'ai_temperature', 
+                    type: 'select', 
+                    values: { 
+                        '0.3': '0.3', '0.4': '0.4', '0.5': '0.5', '0.6': '0.6', '0.7': '0.7', '0.8': '0.8', '0.9': '0.9',
+                        '1.0': '1.0', '1.1': '1.1', '1.2': '1.2', '1.3': '1.3', '1.4': '1.4', '1.5': '1.5', '1.6': '1.6',
+                        '1.7': '1.7', '1.8': '1.8', '1.9': '1.9', '2.0': '2.0'
+                    }, 
+                    default: '1.0' 
+                }, 
+                field: { name: 'Температура (Креативність)' } 
+            });
+
             Lampa.SettingsApi.addParam({ component: 'ai_assistant_cfg', param: { name: 'ai_result_count', type: 'select', values: { '10':'10','20':'20','30':'30','50':'50' }, default: '20' }, field: { name: 'Кількість результатів' } });
         };
     }
 
 var pluginManifest = {
     type: 'other',
-    version: '2.8',
+    version: '2.9',
     name: 'AI Асистент',
     description: 'Ваш персональний ШІ помічник',
     author: '@bodya_elven',
