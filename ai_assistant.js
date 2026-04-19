@@ -4,10 +4,10 @@
     var PLUGIN_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.cls-left{fill:currentColor;fill-rule:evenodd;}.cls-right{fill:#a0a0a0;fill-rule:evenodd;}</style><g><polygon class="cls-right" points="16.64 15.13 17.38 13.88 20.91 13.88 22 12 19.82 8.25 16.75 8.25 15.69 6.39 14.5 6.39 14.5 5.13 16.44 5.13 17.5 7 19.09 7 16.9 3.25 12.63 3.25 12.63 8.25 14.36 8.25 15.09 9.5 12.63 9.5 12.63 12 14.89 12 15.94 10.13 18.75 10.13 19.47 11.38 16.67 11.38 15.62 13.25 12.63 13.25 12.63 17.63 16.03 17.63 15.31 18.88 12.63 18.88 12.63 20.75 16.9 20.75 20.18 15.13 18.09 15.13 17.36 16.38 14.5 16.38 14.5 15.13 16.64 15.13"/><polygon class="cls-left" points="7.36 15.13 6.62 13.88 3.09 13.88 2 12 4.18 8.25 7.25 8.25 8.31 6.39 9.5 6.39 9.5 5.13 7.56 5.13 6.5 7 4.91 7 7.1 3.25 11.38 3.25 11.38 8.25 9.64 8.25 8.91 9.5 11.38 9.5 11.38 12 9.11 12 8.06 10.13 5.25 10.13 4.53 11.38 7.33 11.38 8.38 13.25 11.38 13.25 11.38 17.63 7.97 17.63 8.69 18.88 11.38 18.88 11.38 20.75 7.1 20.75 3.82 15.13 5.91 15.13 6.64 16.38 9.5 16.38 9.5 15.13 7.36 15.13"/></g></svg>';
 
     var STORAGE_KEY = 'google_native_key_v1';
-    window.ai_pagination = { base_prompt: '', exclude_list: [], is_loading: false };
+    window.ai_pagination = { base_prompt: '', exclude_list: [], preloaded_results: null, preloaded_raw_list: null, is_loading: false, is_preloading: false };
     window.ai_cached_results = [];
+    window.ai_active_controller = null;
 
-    // Перехоплення Activity.push для кліку по кнопці "Ще"
     if (!window.ai_push_patched) {
         var originalPush = Lampa.Activity.push;
         Lampa.Activity.push = function(obj) {
@@ -47,12 +47,34 @@
                 if (e.action == 'render' && e.card) {
                     if (e.card.is_load_more) {
                         e.element.attr('data-id', 'ai_load_more');
-                        // Лампа сама підтягує постер, ми лише ховаємо текстові підписи
                         e.element.find('.card__title, .card__age, .item__title, .item__age, .card__vote, .card__icons').hide();
                     } else if (e.card.id) {
                         e.element.attr('data-id', e.card.id);
                     }
                 }
+            });
+        };
+
+        this.getTMDBDetails = function(card, callback) {
+            var method = (card.name || card.original_name) ? 'tv' : 'movie';
+            var url = Lampa.TMDB.api(method + '/' + card.id + '?api_key=' + Lampa.TMDB.key() + '&language=en-US&append_to_response=credits');
+            
+            Lampa.Network.silent(url, function(res) {
+                var overview = (res.overview || '').replace(/"/g, "'").replace(/\n/g, ' ');
+                var leadActor = 'unknown';
+                var director = '';
+                var topCast = [];
+                if (res.credits && res.credits.cast && res.credits.cast.length > 0) {
+                    leadActor = res.credits.cast[0].name;
+                    topCast = res.credits.cast.slice(0, 5).map(function(c) { return c.name; });
+                }
+                if (res.credits && res.credits.crew) {
+                    var dirObj = res.credits.crew.filter(function(c) { return c.job === 'Director'; })[0];
+                    if (dirObj) director = dirObj.name;
+                }
+                callback({ overview: overview, leadActor: leadActor, director: director, topCast: topCast });
+            }, function() {
+                callback({ overview: '', leadActor: 'unknown', director: '', topCast: [] });
             });
         };
 
@@ -87,12 +109,16 @@
                     var limit = Lampa.Storage.get('ai_result_count', '20');
                     if (!q) return done([]);
                     var filter = (q.indexOf('фільм') > -1) ? 'strictly only movies' : (q.indexOf('серіал') > -1 ? 'strictly only TV series' : 'movies and TV series');
-                    var p = 'Act as a movie expert. Suggest strictly ' + limit + ' ' + filter + ' for query: "' + q + '". Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+                    var p = 'Act as a movie expert. Suggest strictly ' + limit + ' ' + filter + ' for query: "' + q + '". Respond ONLY with a valid JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}]. No markdown, no intro text.';
+                    
+                    window.ai_active_controller = Lampa.Controller.enabled().name;
                     _this.updateStatus('Пошук результатів');
                     _this.askGemini(p, function(text) {
                         var list = _this.parseJsonSafe(text);
                         if (!list) { _this.hideStatus(); return done([]); }
                         _this.processAiList(list, function(results) { _this.hideStatus(); done([{ title: 'AI: ' + q, results: results, total: results.length }]); });
+                    }, function() { 
+                        done([]); 
                     });
                 },
                 params: { save: true, lazy: true },
@@ -117,11 +143,12 @@
                 '@keyframes ai-rot { to { transform: rotate(360deg); } }' +
                 '@keyframes ai-rainbow { 0%{border-top-color:#fff} 25%{border-top-color:var(--main-color, #0cf)} 50%{border-top-color:#0cf} 75%{border-top-color:#f0f} 100%{border-top-color:#fff} }' +
                 '.ai-viewer-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5001; display: flex; align-items: center; justify-content: center; }' +
-                '.ai-viewer-body { width: 80%; max-width: 800px; height: 70%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid var(--main-color, #0cf); overflow: hidden; }' +
-                '.ai-header { height: 44px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
+                '.ai-viewer-body { width: 85%; max-width: 900px; height: 80%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid var(--main-color, #0cf); overflow: hidden; }' +
+                '.ai-header { height: 48px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
+                '.ai-title { font-size: 1.25em; font-weight: bold; }' +
                 '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border: 2px solid transparent; line-height: 1; padding: 0; }' +
                 '.ai-close-btn.focus { border-color: #fff; background: var(--main-color, #0cf); }' +
-                '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 20px; color: #efefef; font-size: 1.15em; line-height: 1.4; }' +
+                '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 20px; color: #efefef; font-size: 1.25em; line-height: 1.4; }' +
                 '.ai-fact-title { color: var(--main-color, #0cf); font-weight: bold; display: block; margin-bottom: 2px; }'
             ).appendTo('head');
         };
@@ -196,16 +223,23 @@
             var t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
             var type = (card.name || card.original_name) ? 'TV series' : 'movie';
             
+            window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
             _this.updateStatus('Пошук фактів');
             
-            var p = 'Provide strictly 10 interesting facts about the ' + type + ' "' + t + '" (' + year + ') in Ukrainian. IMPORTANT: This project is already released. Return strictly a JSON array: [{"title":"..","text":".."}].';
-            
-            _this.askGemini(p, function(text) {
-                _this.hideStatus();
-                var data = _this.parseJsonSafe(text);
-                if (!data) return;
-                var html = (data || []).map(function(f){ return '<div style="margin-bottom:12px"><span class="ai-fact-title">'+f.title+'</span>'+f.text+'</div>'; }).join('');
-                _this.showViewer('Цікаві факти: ' + (card.title || card.name), html, btn, render, ctrl);
+            _this.getTMDBDetails(card, function(tmdb) {
+                var p = 'Provide strictly 10 interesting facts about the ' + type + ' "' + t + '" (' + year + ') with ' + tmdb.leadActor + ' in the lead role, in Ukrainian. IMPORTANT: This project is already released. Respond ONLY with a valid JSON array: [{"title":"..","text":".."}]. No markdown, no intro text.';
+                
+                _this.askGemini(p, function(text) {
+                    _this.hideStatus();
+                    var data = _this.parseJsonSafe(text);
+                    if (!data) { 
+                        Lampa.Noty.show('Помилка обробки результату'); 
+                        if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
+                        return; 
+                    }
+                    var html = (data || []).map(function(f){ return '<div style="margin-bottom:12px"><span class="ai-fact-title">'+f.title+'</span>'+f.text+'</div>'; }).join('');
+                    _this.showViewer('Цікаві факти: ' + (card.title || card.name), html, btn, render, ctrl);
+                });
             });
         };
 
@@ -213,11 +247,16 @@
             var items = [];
             if (card.number_of_seasons > 1) { for (var i = 1; i < card.number_of_seasons; i++) items.push({ title: 'Сезон ' + i, type: 'season', value: i }); }
             else if (card.belongs_to_collection) {
+                window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
                 _this.updateStatus('Збір історії');
                 Lampa.Network.silent(Lampa.TMDB.api('collection/' + card.belongs_to_collection.id + '?api_key=' + Lampa.TMDB.key() + '&language=uk-UA'), function(res) {
                     _this.hideStatus();
                     (res.parts || []).forEach(function(p) { if (p.id != card.id) items.push({ title: p.title, type: 'movie', value: p.original_title }); });
                     _this.showRecapSelect(items, card, btn, render, ctrl);
+                }, function() {
+                    _this.hideStatus();
+                    Lampa.Noty.show('Помилка завантаження колекції');
+                    if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
                 });
                 return;
             }
@@ -230,36 +269,58 @@
                 items: items,
                 onSelect: function(item) {
                     var t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
+                    window.ai_active_controller = Lampa.Controller.enabled().name;
                     _this.updateStatus('Підготовка переказу');
-                    var p = 'Provide a brief recap strictly ' + item.title + ' from "' + t + '" (' + year + ') in Ukrainian. 5-7 points. JSON array: [{"point":".."}] .';
+                    
+                    var p = 'Provide a 10-point brief recap in Ukrainian of "' + item.title + '" from the franchise "' + t + '" (' + year + '). Respond ONLY with a valid JSON array: [{"point":".."}]. No markdown, no intro text.';
+                    
                     _this.askGemini(p, function(text) {
                         _this.hideStatus();
                         var data = _this.parseJsonSafe(text);
+                        if (!data) { 
+                            Lampa.Noty.show('Помилка обробки результату'); 
+                            if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
+                            return; 
+                        }
                         var html = (data || []).map(function(i){ return '<div style="margin-bottom:10px">• '+i.point+'</div>'; }).join('');
                         _this.showViewer('Переказ: ' + item.title, html, btn, render, ctrl);
                     });
                 },
-                onBack: function() { _this.openAiMenu(card, btn, render); }
+                onBack: function() { _this.openAiMenu(card, btn, render, ctrl); }
             });
         };
 
         this.actionTogether = function(card, btn, render, ctrl) {
-            var method = (card.name || card.original_name) ? 'tv' : 'movie', limit = Lampa.Storage.get('ai_result_count', '20');
+            var limit = Lampa.Storage.get('ai_result_count', '20');
+            window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
             _this.updateStatus('Аналіз складу');
-            Lampa.Network.silent(Lampa.TMDB.api(method + '/' + card.id + '/credits?api_key=' + Lampa.TMDB.key()), function(res) {
-                var cast = res.cast || [], crew = res.crew || [], dir = crew.filter(function(p){return p.job==='Director'})[0];
-                var names = cast.slice(0, 15).map(function(a){return a.name});
-                if(dir) names.push('Director: ' + dir.name);
-                var p = 'Name strictly ' + limit + ' movies/TV shows where these people crossed paths: ' + names.join(', ') + '. Priority to director and first 5 names.';
+            
+            _this.getTMDBDetails(card, function(tmdb) {
+                var names = tmdb.topCast.slice();
+                if (tmdb.director) names.unshift('Director: ' + tmdb.director);
+                if (!names.length) {
+                    _this.hideStatus();
+                    Lampa.Noty.show('Склад невідомий');
+                    if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
+                    return;
+                }
+                
+                var p = 'Name strictly ' + limit + ' movies/TV shows where these specific actors and directors worked together: ' + names.join(', ') + '. Priority to director and first 5 names.';
                 _this.fetchList(p, 'Спільні проєкти', card, btn, render, ctrl);
             });
         };
 
         this.actionRecommendations = function(card, btn, render, ctrl) {
             var limit = Lampa.Storage.get('ai_result_count', '20'), t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
-            var p = 'Suggest strictly ' + limit + ' movies or TV series that closely match the vibe, genre, and plot of "' + t + ' (' + year + ')".';
-            _this.fetchList(p, 'Рекомендації', card, btn, render, ctrl);
+            window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
+            _this.updateStatus('Аналіз фільму');
+            
+            _this.getTMDBDetails(card, function(tmdb) {
+                var p = 'Suggest strictly ' + limit + ' movies or TV series that closely match the vibe, genre, and plot of "' + t + '" (' + year + ') with ' + tmdb.leadActor + ' in the lead role and the following plot description: "' + tmdb.overview + '".';
+                _this.fetchList(p, 'Рекомендації', card, btn, render, ctrl);
+            });
         };
+
         this.actionTags = function(card, btn, render, ctrl) {
             if (card.ai_translated_tags && card.ai_translated_tags.length > 0) {
                 _this.showTagsMenu(card.ai_translated_tags, card, btn, render, ctrl);
@@ -269,6 +330,7 @@
                 _this.openAiMenu(card, btn, render, ctrl);
             } 
             else {
+                window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
                 _this.updateStatus('Завантаження тегів');
                 var method = (card.original_name || card.name) ? 'tv' : 'movie';
                 var url = Lampa.TMDB.api(method + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
@@ -294,7 +356,7 @@
                     error: function() { 
                         _this.hideStatus(); 
                         Lampa.Noty.show('Помилка завантаження тегів'); 
-                        _this.openAiMenu(card, btn, render, ctrl); 
+                        if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
                     }
                 });
             }
@@ -351,40 +413,45 @@
             });
         };
 
-        this.askGemini = function(p, onSuccess, onError) {
+        this.askGemini = function(p, onSuccess, onError, isSilent) {
             var key = Lampa.Storage.get(STORAGE_KEY, '').split(',')[0];
-            if (!key) { Lampa.Noty.show('API Ключ не задано'); if(onError) onError(); return; }
+            if (!key) { 
+                if (!isSilent) Lampa.Noty.show('API Ключ не задано'); 
+                if(onError) onError(); 
+                return; 
+            }
             
-            // Динамічно отримуємо модель та температуру з налаштувань
-            var targetModel = Lampa.Storage.get('ai_model', 'gemini-3.1-flash-lite-preview');
-            var reqTemp = parseFloat(Lampa.Storage.get('ai_temperature', '1.0'));
-
-            var payload = {
-                contents: [{ parts: [{ text: p }] }],
-                generationConfig: { temperature: reqTemp }
-            };
+            var targetModel = Lampa.Storage.get('ai_model', 'gemini-2.5-flash-lite');
+            var payload = { contents: [{ parts: [{ text: p }] }] };
 
             fetch('https://generativelanguage.googleapis.com/v1beta/models/' + targetModel + ':generateContent?key=' + key.trim(), {
                 method: "POST", body: JSON.stringify(payload)
             }).then(function(r) { 
                 if (r.status === 503) {
-                    throw new Error('503 Service Unavailable (Сервер перевантажено)');
+                    throw new Error('503 Service Unavailable');
                 }
                 return r.json(); 
             }).then(function(d) {
-                if (d.error) { if(onError) onError(d.error.message); }
+                if (d.error) { 
+                    throw new Error(d.error.message); 
+                }
                 else if (d.candidates && d.candidates[0].content) onSuccess(d.candidates[0].content.parts[0].text);
-                else if(onError) onError('Блокування або пуста відповідь');
+                else {
+                    throw new Error('Блокування або пуста відповідь');
+                }
             }).catch(function(e) { 
-                _this.hideStatus(); 
-                Lampa.Noty.show('Помилка: ' + e.message); 
+                if (!isSilent) {
+                    _this.hideStatus(); 
+                    var msg = (e.message === '503 Service Unavailable') ? 'Сервер перевантажено (503)' : 'Помилка: ' + e.message;
+                    Lampa.Noty.show(msg); 
+                    if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
+                }
                 if(onError) onError(e.message); 
             });
         };
 
         this.parseJsonSafe = function(text) {
             try {
-                // Більш агресивне обрізання сміття (допомагає для Gemma)
                 var s = text.indexOf('['), e = text.lastIndexOf(']');
                 if (s !== -1 && e !== -1 && e > s) {
                     return JSON.parse(text.substring(s, e + 1));
@@ -396,6 +463,8 @@
 
         this.processAiList = function(list, callback) {
             var results = [], processed = 0, ids = new Set();
+            if (!list || !list.length) return callback(results);
+            
             list.forEach(function(item) {
                 var q = encodeURIComponent(item.orig || item.uk);
                 Lampa.Network.silent(Lampa.TMDB.api('search/multi?query=' + q + '&api_key=' + Lampa.TMDB.key() + '&language=uk-UA'), function(res) {
@@ -409,108 +478,157 @@
             });
         };
 
-        this.loadMore = function(activeActivity) {
-            if (window.ai_pagination.is_loading) return;
-            window.ai_pagination.is_loading = true;
-
-            _this.updateStatus('Підбір результатів...');
-
+        this.fetchNextPageData = function(callback, isSilent) {
             var limit = Lampa.Storage.get('ai_result_count', '20');
             var exclusions = window.ai_pagination.exclude_list.slice(-50).join(', ');
-            var full_prompt = window.ai_pagination.base_prompt + ' IMPORTANT: You MUST EXCLUDE these titles from your suggestions: ' + exclusions + '. Provide strictly NEW ' + limit + ' suggestions. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
+            var p = window.ai_pagination.base_prompt + ' IMPORTANT: You MUST EXCLUDE these titles from your suggestions: ' + exclusions + '. Provide strictly NEW ' + limit + ' suggestions. Respond ONLY with a valid JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}]. No markdown, no intro text.';
 
+            _this.askGemini(p, function(text) {
+                var list = _this.parseJsonSafe(text);
+                if (!list || !list.length) { callback(null, null); return; }
+                _this.processAiList(list, function(results) {
+                    callback(list, results);
+                });
+            }, function() { callback(null, null); }, isSilent);
+        };
+
+        this.preloadNextPage = function() {
+            if (window.ai_pagination.is_preloading) return;
+            window.ai_pagination.is_preloading = true;
+            _this.fetchNextPageData(function(list, results) {
+                if (results && results.length) {
+                    window.ai_pagination.preloaded_results = results;
+                    window.ai_pagination.preloaded_raw_list = list;
+                }
+                window.ai_pagination.is_preloading = false;
+            }, true);
+        };
+
+        this.loadMore = function(activeActivity) {
+            if (window.ai_pagination.is_loading) return;
+            window.ai_active_controller = Lampa.Controller.enabled().name;
+            
+            var renderResults = function(results, rawList) {
+                rawList.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
+                window.ai_pagination.preloaded_results = null;
+                window.ai_pagination.preloaded_raw_list = null;
+                window.ai_pagination.is_loading = false;
+                _this.hideStatus();
+                
+                if (!results.length) { 
+                    Lampa.Noty.show('Більше нічого не знайдено'); 
+                    if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
+                    return; 
+                }
+
+                window.ai_cached_results = window.ai_cached_results.filter(function(r) { return !r.is_load_more; });
+                window.ai_cached_results = window.ai_cached_results.concat(results);
+                window.ai_cached_results.push({ 
+                    id: 'ai_load_more', is_load_more: true, name: '',
+                    poster: 'https://bodya-elven.github.io/different/icons/more.webp',
+                    img: 'https://bodya-elven.github.io/different/icons/more.webp'
+                });
+
+                if (activeActivity && activeActivity.activity) {
+                    var act = activeActivity.activity;
+                    var rnder = act.render();
+                    
+                    var oldBtn = rnder.find('.item[data-id="ai_load_more"]');
+                    if (oldBtn.length) oldBtn.remove();
+                    
+                    var items_to_append = results.slice();
+                    items_to_append.push({ 
+                        id: 'ai_load_more', is_load_more: true, name: '',
+                        poster: 'https://bodya-elven.github.io/different/icons/more.webp',
+                        img: 'https://bodya-elven.github.io/different/icons/more.webp' 
+                    });
+
+                    if (act.append) {
+                        act.append(items_to_append);
+                        setTimeout(function() {
+                            var firstNewId = results[0].id;
+                            var cardToFocus = rnder.find('.item[data-id="' + firstNewId + '"]');
+                            if (cardToFocus.length) Lampa.Controller.collectionFocus(cardToFocus[0], rnder[0]);
+                        }, 100);
+                    } else {
+                        Lampa.Activity.replace({ url: 'ai_assistant_list', title: activeActivity.title, component: 'category_full', source: 'ai_assistant_list', page: 1 });
+                    }
+                }
+                setTimeout(function() { _this.preloadNextPage(); }, 1000);
+            };
+
+            if (window.ai_pagination.preloaded_results) {
+                window.ai_pagination.is_loading = true;
+                renderResults(window.ai_pagination.preloaded_results, window.ai_pagination.preloaded_raw_list);
+            } else if (window.ai_pagination.is_preloading) {
+                window.ai_pagination.is_loading = true;
+                _this.updateStatus('Підбір результатів...');
+                var waitInterval = setInterval(function() {
+                    if (window.ai_pagination.preloaded_results) {
+                        clearInterval(waitInterval);
+                        renderResults(window.ai_pagination.preloaded_results, window.ai_pagination.preloaded_raw_list);
+                    } else if (!window.ai_pagination.is_preloading) {
+                        clearInterval(waitInterval);
+                        window.ai_pagination.is_loading = false;
+                        _this.hideStatus();
+                        Lampa.Noty.show('Помилка підбору, спробуйте ще');
+                        if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
+                    }
+                }, 500);
+            } else {
+                window.ai_pagination.is_loading = true;
+                _this.updateStatus('Підбір результатів...');
+                _this.fetchNextPageData(function(list, results) {
+                    if(results && results.length) renderResults(results, list);
+                    else { 
+                        window.ai_pagination.is_loading = false; 
+                        _this.hideStatus(); 
+                        Lampa.Noty.show('Нічого не знайдено'); 
+                        if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
+                    }
+                }, false);
+            }
+        };
+
+        this.fetchList = function(base_prompt_task, title, card, btn, render, ctrl) {
+            window.ai_pagination = { base_prompt: base_prompt_task, exclude_list: [], preloaded_results: null, preloaded_raw_list: null, is_loading: false, is_preloading: false };
+            window.ai_cached_results = [];
+            window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
+            
+            var full_prompt = base_prompt_task + ' Respond ONLY with a valid JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}]. No markdown, no intro text.';
+
+            _this.updateStatus('Підбір результатів');
             _this.askGemini(full_prompt, function(text) {
                 var list = _this.parseJsonSafe(text);
-                if (!list || !list.length) {
-                    _this.hideStatus(); Lampa.Noty.show('Більше нічого не знайдено або помилка парсингу');
-                    window.ai_pagination.is_loading = false; return;
+                if (!list || !list.length) { 
+                    _this.hideStatus(); 
+                    Lampa.Noty.show('Нічого не знайдено або помилка парсингу'); 
+                    if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
+                    return; 
                 }
 
                 list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
 
                 _this.processAiList(list, function(results) {
-                    _this.hideStatus(); window.ai_pagination.is_loading = false;
+                    _this.hideStatus();
                     if (!results.length) { 
-                        Lampa.Noty.show('Більше нічого не знайдено'); 
+                        Lampa.Noty.show('Нічого не знайдено'); 
+                        if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
                         return; 
                     }
 
-                    window.ai_cached_results = window.ai_cached_results.filter(function(r) { return !r.is_load_more; });
-                    window.ai_cached_results = window.ai_cached_results.concat(results);
-                    
-                    // Додаємо картку ЩЕ з твоїм постером
-                    window.ai_cached_results.push({ 
-                        id: 'ai_load_more', 
-                        is_load_more: true, 
-                        name: '',
-                        poster: 'https://bodya-elven.github.io/different/icons/more.webp',
-                        img: 'https://bodya-elven.github.io/different/icons/more.webp'
-                    });
-
-                    if (activeActivity && activeActivity.activity) {
-                        var act = activeActivity.activity;
-                        var rnder = act.render();
-                        
-                        var oldBtn = rnder.find('.item[data-id="ai_load_more"]');
-                        if (oldBtn.length) oldBtn.remove();
-                        
-                        var items_to_append = results.slice();
-                        items_to_append.push({ 
-                            id: 'ai_load_more', 
-                            is_load_more: true,
-                            name: '',
-                            poster: 'https://bodya-elven.github.io/different/icons/more.webp',
-                            img: 'https://bodya-elven.github.io/different/icons/more.webp' 
-                        });
-
-                        if (act.append) {
-                            act.append(items_to_append);
-                            
-                            setTimeout(function() {
-                                var firstNewId = results[0].id;
-                                var cardToFocus = rnder.find('.item[data-id="' + firstNewId + '"]');
-                                if (cardToFocus.length) {
-                                    Lampa.Controller.collectionFocus(cardToFocus[0], rnder[0]);
-                                }
-                            }, 100);
-                        } else {
-                            Lampa.Activity.replace({ url: 'ai_assistant_list', title: activeActivity.title, component: 'category_full', source: 'ai_assistant_list', page: 1 });
-                        }
-                    }
-                });
-            }, function(errText) {
-                window.ai_pagination.is_loading = false;
-            });
-        };
-
-        this.fetchList = function(prompt_task, title, card, btn, render, ctrl) {
-            window.ai_pagination = { base_prompt: prompt_task, exclude_list: [], is_loading: false };
-            window.ai_cached_results = [];
-            var full_prompt = prompt_task + ' Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
-
-            _this.updateStatus('Підбір результатів');
-            _this.askGemini(full_prompt, function(text) {
-                var list = _this.parseJsonSafe(text);
-                if (!list || !list.length) { _this.hideStatus(); return Lampa.Noty.show('Нічого не знайдено або помилка парсингу'); }
-
-                list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
-
-                _this.processAiList(list, function(results) {
-                    _this.hideStatus();
-                    if (!results.length) { Lampa.Noty.show('Нічого не знайдено'); return; }
-
                     window.ai_cached_results = results;
                     window.ai_cached_results.push({ 
-                        id: 'ai_load_more', 
-                        is_load_more: true, 
-                        name: '',
+                        id: 'ai_load_more', is_load_more: true, name: '',
                         poster: 'https://bodya-elven.github.io/different/icons/more.webp',
                         img: 'https://bodya-elven.github.io/different/icons/more.webp'
                     });
 
                     Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category_full', source: 'ai_assistant_list', page: 1 });
+                    
+                    setTimeout(function() { _this.preloadNextPage(); }, 1000);
                 });
-            });
+            }, null, false);
         };
 
         this.updateStatus = function(text) {
@@ -521,7 +639,10 @@
             statusBox.find('.status-text').text(text);
             statusBox.fadeIn(200);
         };
-        this.hideStatus = function() { if(statusBox) statusBox.fadeOut(500); };
+        
+        this.hideStatus = function() { 
+            if(statusBox) statusBox.fadeOut(500); 
+        };
 
         this.setupSettings = function() {
             Lampa.SettingsApi.addComponent({ component: 'ai_assistant_cfg', name: 'AI Асистент', icon: PLUGIN_ICON });
@@ -531,7 +652,6 @@
                 item.on('hover:enter', function() { Lampa.Input.edit({ title: 'Введіть ключ', value: Lampa.Storage.get(STORAGE_KEY, ''), free: true }, function(v) { if(v){ Lampa.Storage.set(STORAGE_KEY, v.trim()); updateText(); } }); });
             }});
             
-            // Налаштування моделі
             Lampa.SettingsApi.addParam({ 
                 component: 'ai_assistant_cfg', 
                 param: { 
@@ -539,36 +659,15 @@
                     type: 'select', 
                     values: { 
                         'gemini-3.1-flash-lite-preview': '3.1 Flash Lite Preview',
-                        'gemini-flash-lite-latest': 'Flash Lite Latest',
-                        'gemini-flash-latest': 'Flash Latest',
                         'gemini-3-flash-preview': '3.0 Flash Preview',
-                        'gemini-2.5-flash': '2.5 Flash',
                         'gemini-2.5-flash-lite': '2.5 Flash Lite',
-                        'gemini-2.0-flash-001': '2.0 Flash 001',
-                        'gemini-2.0-flash-lite-001': '2.0 Flash Lite 001',
-                        'gemma-4-31b-it': 'Gemma 4 31B',
-                        'gemma-3-27b-it': 'Gemma 3 27B',
-                        'gemma-3-4b-it': 'Gemma 3 4B'
+                        'gemini-2.5-flash': '2.5 Flash',
+                        'gemini-flash-lite-latest': 'Flash Lite Latest',
+                        'gemini-flash-latest': 'Flash Latest'
                     }, 
-                    default: 'gemini-3.1-flash-lite-preview' 
+                    default: 'gemini-2.5-flash-lite' 
                 }, 
                 field: { name: 'Модель ШІ' } 
-            });
-
-            // Налаштування температури
-            Lampa.SettingsApi.addParam({ 
-                component: 'ai_assistant_cfg', 
-                param: { 
-                    name: 'ai_temperature', 
-                    type: 'select', 
-                    values: { 
-                        '0.3': '0.3', '0.4': '0.4', '0.5': '0.5', '0.6': '0.6', '0.7': '0.7', '0.8': '0.8', '0.9': '0.9',
-                        '1.0': '1.0', '1.1': '1.1', '1.2': '1.2', '1.3': '1.3', '1.4': '1.4', '1.5': '1.5', '1.6': '1.6',
-                        '1.7': '1.7', '1.8': '1.8', '1.9': '1.9', '2.0': '2.0'
-                    }, 
-                    default: '1.0' 
-                }, 
-                field: { name: 'Температура (Креативність)' } 
             });
 
             Lampa.SettingsApi.addParam({ component: 'ai_assistant_cfg', param: { name: 'ai_result_count', type: 'select', values: { '10':'10','20':'20','30':'30','50':'50' }, default: '20' }, field: { name: 'Кількість результатів' } });
@@ -577,9 +676,9 @@
 
 var pluginManifest = {
     type: 'other',
-    version: '2.9',
+    version: '3.0',
     name: 'AI Асистент',
-    description: 'Ваш персональний ШІ помічник',
+    description: 'Ваш розумний та швидкий ШІ помічник',
     author: '@bodya_elven',
     icon: PLUGIN_ICON
 };
