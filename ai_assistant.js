@@ -25,11 +25,11 @@
 
     if (window.Lampa && Lampa.Api) {
         Lampa.Api.sources.ai_assistant_list = {
-            list: function(params, oncomplite) { 
-                oncomplite({ results: window.ai_cached_results, total_pages: 1 }); 
-            }
+            list: function(params, oncomplite) { oncomplite({ results: window.ai_cached_results, total_pages: 1 }); },
+            category: function(params, oncomplite) { oncomplite(window.ai_cached_results); }
         };
     }
+
 
 
 
@@ -37,7 +37,7 @@
         var _this = this;
         var statusBox = null;
 
-                this.init = function () {
+        this.init = function () {
             this.setupSettings();
             this.injectStyles();
             this.setupGlobalSearch();
@@ -49,47 +49,23 @@
                 }
             });
 
-            // Нативно перехоплюємо відмальовку картки
             Lampa.Listener.follow('card', function(e) {
                 if (e.action == 'render' && e.card) {
-                    // ФІКС 1: Додаємо data-id всім карткам, щоб плагін міг їх знайти і повернути скрол
-                    if (e.card.id) e.element.attr('data-id', e.card.id);
-
                     if (e.card.is_load_more) {
+                        e.element.attr('data-id', 'ai_load_more');
                         var view = e.element.find('.card__view, .item__view');
                         view.empty(); 
-                        
-                        // Змінюємо розміри: робимо вузьку кнопку замість високого постера
-                        e.element.css({
-                            'width': '220px',
-                            'height': '55px',
-                            'margin': '15px'
-                        });
-
-                        // Дизайн зеленої кнопки (фон, заокруглення, тінь)
-                        view.css({ 
-                            background: '#28a745', 
-                            borderRadius: '12px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            height: '100%',
-                            width: '100%',
-                            boxShadow: '0 4px 15px rgba(40, 167, 69, 0.3)',
-                            transition: 'transform 0.2s, box-shadow 0.2s' // Додали плавність анімації
-                        });
-                        
-                        // Додаємо іконку робота та текст
-                        view.append('<div style="font-size: 1.1em; font-weight: bold; color: #fff; display: flex; align-items: center; gap: 8px;">' +
-                                    '<svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a3 3 0 0 1 3 3v2h2a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2v2a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-2H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h2V10a3 3 0 0 1 3-3h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"></path></svg>' +
-                                    'Ще від AI</div>');
-                                    
-                        // Повністю приховуємо системні підписи Lampa
+                        e.element.css({ 'width': '220px', 'height': '55px', 'margin': '15px' });
+                        view.css({ background: '#28a745', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', boxShadow: '0 4px 15px rgba(40, 167, 69, 0.3)', transition: 'transform 0.2s' });
+                        view.append('<div style="font-size: 1.1em; font-weight: bold; color: #fff; display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a3 3 0 0 1 3 3v2h2a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2v2a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-2H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h2V10a3 3 0 0 1 3-3h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"></path></svg>Ще від AI</div>');
                         e.element.find('.card__title, .item__title, .card__age, .item__age').css('display', 'none');
+                    } else if (e.card.id) {
+                        e.element.attr('data-id', e.card.id);
                     }
                 }
             });
-        }; 
+        };
+
 
         this.preloadTags = function(card) {
             if (card.ai_translated_tags !== undefined) return; // Щоб не вантажити двічі
@@ -412,9 +388,10 @@
             fetch('https://generativelanguage.googleapis.com/v1beta/models/'+TARGET_MODEL+':generateContent?key='+key.trim(), {
                 method: "POST", body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] })
             }).then(function(r) { return r.json(); }).then(function(d) {
-                if (d.candidates && d.candidates[0].content) onSuccess(d.candidates[0].content.parts[0].text);
-                else if(onError) onError();
-            }).catch(function() { _this.hideStatus(); Lampa.Noty.show('Помилка мережі Gemini'); if(onError) onError(); });
+                if (d.error) { if(onError) onError(d.error.message); }
+                else if (d.candidates && d.candidates[0].content) onSuccess(d.candidates[0].content.parts[0].text);
+                else if(onError) onError('Блокування або пуста відповідь');
+            }).catch(function(e) { _this.hideStatus(); Lampa.Noty.show('Помилка мережі Gemini'); if(onError) onError(e.message); });
         };
 
         this.parseJsonSafe = function(text) {
@@ -445,75 +422,58 @@
             window.ai_pagination.is_loading = true;
             _this.updateStatus('Підбір результатів...');
 
-            // Знаходимо ID картки, яка стоїть ПЕРЕД кнопкою "Ще"
             var lastRealCardId = null;
             var cacheLen = window.ai_cached_results.length;
-            if (cacheLen > 1) {
-                lastRealCardId = window.ai_cached_results[cacheLen - 2].id;
-            }
+            if (cacheLen > 1) lastRealCardId = window.ai_cached_results[cacheLen - 2].id;
 
             var limit = Lampa.Storage.get('ai_result_count', '20');
-            var exclusions = window.ai_pagination.exclude_list.slice(-100).join(', ');
+            var exclusions = window.ai_pagination.exclude_list.slice(-50).join(', ');
             var full_prompt = window.ai_pagination.base_prompt + ' IMPORTANT: You MUST EXCLUDE these titles from your suggestions: ' + exclusions + '. Provide strictly NEW ' + limit + ' suggestions. Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
 
             _this.askGemini(full_prompt, function(text) {
                 var list = _this.parseJsonSafe(text);
                 if (!list || !list.length) {
-                    _this.hideStatus();
-                    Lampa.Noty.show('Більше нічого не знайдено');
-                    window.ai_pagination.is_loading = false;
-                    return;
+                    _this.hideStatus(); Lampa.Noty.show('Більше нічого не знайдено');
+                    window.ai_pagination.is_loading = false; return;
                 }
 
                 list.forEach(function(i) { window.ai_pagination.exclude_list.push(i.orig || i.uk); });
 
                 _this.processAiList(list, function(results) {
-                    _this.hideStatus();
-                    window.ai_pagination.is_loading = false;
-                    
-                    if (!results.length) {
-                        Lampa.Noty.show('Більше нічого не знайдено');
-                        return;
-                    }
+                    _this.hideStatus(); window.ai_pagination.is_loading = false;
+                    if (!results.length) { Lampa.Noty.show('Більше нічого не знайдено'); return; }
 
-                    // 1. Оновлюємо кеш (видаляємо старе "Ще", додаємо нові фільми, додаємо нове "Ще")
                     window.ai_cached_results = window.ai_cached_results.filter(function(r) { return !r.is_load_more; });
                     window.ai_cached_results = window.ai_cached_results.concat(results);
                     window.ai_cached_results.push({ id: 'ai_load_more', title: 'Завантажити ще', name: 'Завантажити ще', is_load_more: true, poster_path: '' });
 
-                    // 2. Перезавантажуємо сторінку з новими даними
                     if (activeActivity) {
-                        Lampa.Activity.replace({ url: 'ai_assistant_list', title: activeActivity.title, component: 'category_full', source: 'ai_assistant_list', page: 1, movie: activeActivity.movie || activeActivity.card });
+                        var activeMovie = activeActivity.movie || activeActivity.card;
+                        Lampa.Activity.replace({ url: 'ai_assistant_list', title: activeActivity.title, component: 'category', source: 'ai_assistant_list', page: 1, movie: activeMovie });
 
-                        // 3. МАГІЯ ФОКУСУ: Примусово повертаємо скрол на запам'ятовану картку
                         setTimeout(function() {
                             var newActivity = Lampa.Activity.active();
                             if (newActivity && newActivity.activity && lastRealCardId) {
                                 var newRender = newActivity.activity.render();
                                 var cardToFocus = newRender.find('.item[data-id="' + lastRealCardId + '"]');
-                                
                                 if (cardToFocus.length) {
-                                    // Передаємо фокус пульта
                                     Lampa.Controller.collectionFocus(cardToFocus[0], newRender[0]);
-                                    // Центруємо екран на цій картці миттєво
                                     cardToFocus[0].scrollIntoView({block: "center", behavior: "instant"});
                                 }
                             }
-                        }, 250); // 250 мілісекунд, щоб Lampa встигла побудувати нову сітку
+                        }, 250);
                     }
                 });
-            }, function() {
+            }, function(errText) {
                 _this.hideStatus();
-                Lampa.Noty.show('Помилка генерації');
+                Lampa.Noty.show('Помилка: ' + (errText || 'генерації'));
                 window.ai_pagination.is_loading = false;
             });
         };
 
-
         this.fetchList = function(prompt_task, title, card, btn, render, ctrl) {
             window.ai_pagination = { base_prompt: prompt_task, exclude_list: [], is_loading: false };
             window.ai_cached_results = [];
-
             var full_prompt = prompt_task + ' Return strictly a JSON array: [{"uk":"Назва","orig":"Original Title","year":Year}].';
 
             _this.updateStatus('Підбір результатів');
@@ -528,15 +488,13 @@
                     if (!results.length) { Lampa.Noty.show('Нічого не знайдено'); return; }
 
                     window.ai_cached_results = results;
-                    
-                    // Додаємо нашу фейкову картку "Ще" в кінець
                     window.ai_cached_results.push({ id: 'ai_load_more', title: 'Завантажити ще', name: 'Завантажити ще', is_load_more: true, poster_path: '' });
 
-                    Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category_full', source: 'ai_assistant_list', page: 1, movie: card });
+                    Lampa.Activity.push({ url: 'ai_assistant_list', title: title, component: 'category', source: 'ai_assistant_list', page: 1, movie: card });
                 });
-            }, function() {
+            }, function(errText) {
                 _this.hideStatus();
-                Lampa.Noty.show('Помилка генерації');
+                Lampa.Noty.show('Помилка: ' + (errText || 'генерації'));
             });
         };
 
