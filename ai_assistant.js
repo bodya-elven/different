@@ -50,19 +50,28 @@
                         e.element.attr('data-id', 'ai_load_more');
                         
                         var view = e.element.find('.card__view, .item__view');
-                        // Повністю очищаємо вміст від стандартних заглушок Лампи
+                        // Повністю очищаємо вміст від стандартних заглушок
                         view.empty(); 
                         
-                        // Вставляємо твоє зображення як повноцінний постер
                         var imgUri = 'https://bodya-elven.github.io/different/icons/more.webp';
-                        var newImg = $('<img class="card__img loaded" src="' + imgUri + '" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; opacity: 1 !important; z-index: 2; position: relative;" />');
                         
+                        // 1. Ставимо картинку фоном для самої картки (найнадійніший метод)
+                        view.css({
+                            'background-image': 'url("' + imgUri + '")',
+                            'background-size': 'cover',
+                            'background-position': 'center',
+                            'border-radius': '12px'
+                        });
+
+                        // 2. Вставляємо саму картинку з ПРАВИЛЬНИМ позиціонуванням (absolute)
+                        var newImg = $('<img src="' + imgUri + '" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; opacity: 1 !important; display: block !important; z-index: 10;" />');
                         view.append(newImg);
                         
                         // Ховаємо текстові підписи під карткою
                         e.element.find('.card__title, .card__age, .item__title, .item__age').hide();
                         
                     } else if (e.card.id) {
+
                         e.element.attr('data-id', e.card.id);
                     }
                 }
