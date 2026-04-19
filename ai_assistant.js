@@ -49,32 +49,24 @@
                     if (e.card.is_load_more) {
                         e.element.attr('data-id', 'ai_load_more');
                         
-                        // Живий HTML-постер з розірваною іконкою та текстом
-                        var svg = '<svg width="100%" height="100%" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;border-radius:12px;z-index:2;">' +
-                                  '<rect width="100%" height="100%" fill="#1a1a1a"/>' +
-                                  '<text class="ai-load-text" x="200" y="320" font-family="sans-serif" font-size="55" font-weight="bold" fill="var(--main-color, #4CAF50)" text-anchor="middle">ЩЕ</text>' +
-                                  '<g fill="var(--main-color, #4CAF50)" transform="translate(45, 245) scale(4.5)">' +
-                                  '<polygon points="7.36 15.13 6.62 13.88 3.09 13.88 2 12 4.18 8.25 7.25 8.25 8.31 6.39 9.5 6.39 9.5 5.13 7.56 5.13 6.5 7 4.91 7 7.1 3.25 11.38 3.25 11.38 8.25 9.64 8.25 8.91 9.5 11.38 9.5 11.38 12 9.11 12 8.06 10.13 5.25 10.13 4.53 11.38 7.33 11.38 8.38 13.25 11.38 13.25 11.38 17.63 7.97 17.63 8.69 18.88 11.38 18.88 11.38 20.75 7.1 20.75 3.82 15.13 5.91 15.13 6.64 16.38 9.5 16.38 9.5 15.13 7.36 15.13"/>' +
-                                  '</g>' +
-                                  '<g fill="var(--main-color, #4CAF50)" transform="translate(240, 245) scale(4.5)">' +
-                                  '<polygon points="16.64 15.13 17.38 13.88 20.91 13.88 22 12 19.82 8.25 16.75 8.25 15.69 6.39 14.5 6.39 14.5 5.13 16.44 5.13 17.5 7 19.09 7 16.9 3.25 12.63 3.25 12.63 8.25 14.36 8.25 15.09 9.5 12.63 9.5 12.63 12 14.89 12 15.94 10.13 18.75 10.13 19.47 11.38 16.67 11.38 15.62 13.25 12.63 13.25 12.63 17.63 16.03 17.63 15.31 18.88 12.63 18.88 12.63 20.75 16.9 20.75 20.18 15.13 18.09 15.13 17.36 16.38 14.5 16.38 14.5 15.13 16.64 15.13"/>' +
-                                  '</g>' +
-                                  '</svg>';
-                        
                         var view = e.element.find('.card__view, .item__view');
-                        // Знищуємо оригінальний вміст (відключаємо втручання Лампи з її картинками)
+                        // Повністю очищаємо вміст від стандартних заглушок Лампи
                         view.empty(); 
                         
-                        // Вставляємо наш SVG постер
-                        view.append(svg);
+                        // Вставляємо твоє зображення як повноцінний постер
+                        var imgUri = 'https://bodya-elven.github.io/different/icons/more.webp';
+                        var newImg = $('<img class="card__img loaded" src="' + imgUri + '" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; opacity: 1 !important; z-index: 2; position: relative;" />');
                         
-                        // Приховуємо написи під карткою
+                        view.append(newImg);
+                        
+                        // Ховаємо текстові підписи під карткою
                         e.element.find('.card__title, .card__age, .item__title, .item__age').hide();
                         
                     } else if (e.card.id) {
                         e.element.attr('data-id', e.card.id);
                     }
                 }
+
             });
         };
 
@@ -413,9 +405,6 @@
             window.ai_pagination.is_loading = true;
 
             var actRender = activeActivity && activeActivity.activity ? activeActivity.activity.render() : null;
-            // Оновлено для взаємодії з новим SVG-постером
-            var btnTitle = actRender ? actRender.find('.item[data-id="ai_load_more"] .ai-load-text') : null;
-            if (btnTitle && btnTitle.length) btnTitle.text('ПОШУК');
 
             _this.updateStatus('Підбір результатів...');
 
