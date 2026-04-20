@@ -51,7 +51,7 @@
       'justify-content': 'center',
       'box-sizing': 'border-box',
       'min-height': '1.7em',
-      'padding': '0.15em 0.45em',
+      'padding': '0.05em 0.45em 0.25em 0.45em',
       'border-radius': '0.5em',
       'font-weight': '700',
       'font-size': '0.9em',
@@ -138,13 +138,14 @@
       border: '0.15em solid rgba(255, 95, 109, 0.95)'
     },
 
-    // Рамка фокусу (Динамічний колір)
+    // Рамка фокусу (Чистий динамічний колір без перехоплення)
     '.torrent-item.focus::after': {
-      'border': '0.18em solid var(--main-color, #5cd4b0)',
+      // Товщина 0.09em, колір суворо з теми Лампи
+      'border': '0.09em solid var(--main-color) !important',
       'border-radius': '0.9em'
     },
     '.torrent-item.selector.focus, .torrent-serial.selector.focus, .torrent-file.selector.focus': {
-      'box-shadow': 'none'
+      'box-shadow': 'none !important'
     },
     '.scroll__body': {
       margin: '5px'

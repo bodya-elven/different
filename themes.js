@@ -156,24 +156,21 @@
         
         var currentLookColor = null;
         if (isDynamicEnabled && active) {
-            // 1. Пріоритет: Колір уже записаний в об'єкт цієї сторінки
             if (active.look_color) {
                 currentLookColor = active.look_color;
-            } 
-            else {
-                // 2. Пріоритет: Перевіряємо, чи ця сторінка належить до якогось фільму
-                // Багато плагінів (торренти, онлайн) тримають об'єкт фільму в card або movie
+            } else {
+                // Шукаємо ID фільму в поточної активності (працює для Торрентів та Онлайну)
                 var card = active.card || active.movie;
                 if (card && card.id) {
                     var cached = getCachedLogoColor(card);
                     if (cached) {
                         currentLookColor = rgbToHex(cached.r, cached.g, cached.b);
-                        // Записуємо колір прямо в активність, щоб наступного разу не читати диск
                         active.look_color = currentLookColor;
                     }
                 }
             }
         }
+
         
         var svgCode = encodeURIComponent(
             '<svg xmlns="http://www.w3.org/2000/svg" width="135" height="140" fill="' + (currentLookColor || baseHex) + '"><rect width="15" height="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="30" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="140" x="60" rx="6"><animate attributeName="height" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="90" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect></svg>'
@@ -274,7 +271,18 @@
                         var step = 32;
                         var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
                         if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
-                        buckets[key].count++; buckets[key].r += r; buckets[key].g += g; buckets[key].b += b;
+                        
+                        // Розрахунок насиченості пікселя (Saturation)
+                        var maxVal = Math.max(r, g, b), minVal = Math.min(r, g, b);
+                        var sat = maxVal === 0 ? 0 : (maxVal - minVal) / maxVal;
+                        
+                        // Чим соковитіший колір, тим більше "голосів" він отримує (до 6 разів більше за білий)
+                        var weight = 1 + (sat * 5); 
+                        
+                        buckets[key].count += weight; 
+                        buckets[key].r += r * weight; 
+                        buckets[key].g += g * weight; 
+                        buckets[key].b += b * weight;
                     }
                 }
 
@@ -361,15 +369,15 @@
             var card = e.data.movie || e.object || {};
             var cachedColor = getCachedLogoColor(card);
             
+            var targetActivity = e.object; 
             if (cachedColor) {
-                e.object.look_color = rgbToHex(cachedColor.r, cachedColor.g, cachedColor.b);
+                targetActivity.look_color = rgbToHex(cachedColor.r, cachedColor.g, cachedColor.b);
                 applyTheme();
             } else {
                 fetchLogoColor(card, function(colorData) {
-                    if (colorData && e.object) {
-                        e.object.look_color = rgbToHex(colorData.r, colorData.g, colorData.b);
-                        // Перевіряємо, чи ми ще на цій сторінці, перед оновленням
-                        if (Lampa.Activity.active() === e.object) applyTheme();
+                    if (colorData && targetActivity) {
+                        targetActivity.look_color = rgbToHex(colorData.r, colorData.g, colorData.b);
+                        if (Lampa.Activity.active() === targetActivity) applyTheme();
                     }
                 });
             }
