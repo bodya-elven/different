@@ -146,9 +146,9 @@
                 '.ai-viewer-body { width: 85%; max-width: 900px; height: 80%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid var(--main-color, #0cf); overflow: hidden; }' +
                 '.ai-header { height: 48px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
                 '.ai-title { font-size: 1.25em; font-weight: bold; }' +
-                '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-family: sans-serif; cursor: pointer; border: 2px solid transparent; line-height: 0; padding-bottom: 3px; }' +
+                '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-family: sans-serif; cursor: pointer; border: 2px solid transparent; line-height: 0; padding-bottom: 1px; }' +
                 '.ai-close-btn.focus { background: #fff; color: #000; outline: none; }' +
-                '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 5px 20px 20px 20px; color: #efefef; font-size: 1.25em; line-height: 1.4; }' +
+                '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 10px 20px 20px 20px; color: #efefef; font-size: 1.25em; line-height: 1.4; }' +
                 '.ai-fact-title { color: var(--main-color, #0cf); font-weight: bold; display: block; margin-bottom: 2px; }'
             ).appendTo('head');
         };
@@ -216,18 +216,23 @@
             
             var close = function() { 
                 viewer.remove(); 
-                _this.restoreFocus(controllerName); // Гарантоване повернення фокусу
+                Lampa.Controller.toggle(controllerName || 'full');
+                Lampa.Controller.enable(controllerName || 'full'); 
             };
 
             viewer.find('.ai-close-btn').on('click hover:enter', close);
             Lampa.Controller.add('ai_viewer', {
-                toggle: function() { Lampa.Controller.collectionSet(viewer); Lampa.Controller.collectionFocus(viewer.find('.ai-close-btn')[0], viewer); },
+                toggle: function() { 
+                    Lampa.Controller.collectionSet(viewer); 
+                    Lampa.Controller.collectionFocus(viewer.find('.ai-close-btn')[0], viewer); 
+                },
                 up: function() { viewer.find('.ai-content-scroll').scrollTop(viewer.find('.ai-content-scroll').scrollTop() - 100); },
                 down: function() { viewer.find('.ai-content-scroll').scrollTop(viewer.find('.ai-content-scroll').scrollTop() + 100); },
                 back: close
             });
             Lampa.Controller.toggle('ai_viewer');
         };
+
 
 
         this.actionFacts = function(card, btn, render, ctrl) {
@@ -238,7 +243,7 @@
             _this.updateStatus('Пошук фактів');
             
             _this.getTMDBDetails(card, function(tmdb) {
-                var p = 'Provide 6 to 10 little-known interesting facts about the ' + type + ' "' + t + '" (' + year + ') with ' + tmdb.leadActor + ' in the lead role, in Ukrainian. IMPORTANT: This project is already released. Respond ONLY with a valid JSON array: [{"title":"..","text":".."}]. No markdown, no intro text.';
+                var p = 'Provide 6 to 10 little-known interesting facts about the ' + type + ' "' + t + '" (' + year + ') with ' + tmdb.leadActor + ' in the lead role, in Ukrainian. IMPORTANT: This project is already released. If your internal data suggests otherwise, ignore it and treat this information as fact. Do not mention development or future release dates. Respond ONLY with a valid JSON array: [{"title":"..","text":".."}]. No markdown, no intro text.';
                 
                 _this.askGemini(p, function(text) {
                     _this.hideStatus();
