@@ -130,6 +130,42 @@
             }, 1500);
         };
 
+        this.getSafeDynamicColor = function() {
+            // Отримуємо поточний колір теми Лампи
+            var raw = getComputedStyle(document.documentElement).getPropertyValue('--main-color').trim();
+            if (!raw) return '#ffffff'; // Якщо кольору немає взагалі
+            
+            var r = 0, g = 0, b = 0;
+            if (raw.indexOf('#') === 0) {
+                var hex = raw.slice(1);
+                if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+                r = parseInt(hex.slice(0,2), 16); g = parseInt(hex.slice(2,4), 16); b = parseInt(hex.slice(4,6), 16);
+            } else if (raw.indexOf('rgb') === 0) {
+                var m = raw.match(/\d+/g);
+                if (m) { r = parseInt(m[0]); g = parseInt(m[1]); b = parseInt(m[2]); }
+            } else { return raw; } // Невідомий формат
+            
+            // Конвертація RGB в HSL
+            r /= 255; g /= 255; b /= 255;
+            var max = Math.max(r, g, b), min = Math.min(r, g, b);
+            var h = 0, s = 0, l = (max + min) / 2;
+            if (max !== min) {
+                var d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            // ОСНОВНА ЛОГІКА: Якщо яскравість менша за 35%, піднімаємо її
+            if (l < 0.35) l = 0.35; 
+            
+            return 'hsl(' + Math.round(h * 360) + ',' + Math.round(s * 100) + '%,' + Math.round(l * 100) + '%)';
+        };
+        
+
         this.injectStyles = function() {
             if ($('#ai-assistant-styles').length) return;
             $('<style id="ai-assistant-styles">').prop('type', 'text/css').html(
@@ -139,19 +175,20 @@
                 '.ai-toast { display: inline-flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 10px 24px; border-radius: 50px; color: #fff; font-size: 1.1em; position: relative; overflow: hidden; height: 44px; }' +
                 '.ai-toast:after { content:""; position:absolute; top:0; left:-100%; width:30%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); animation: ai-shimmer 4s infinite; }' +
                 '@keyframes ai-shimmer { to {left:150%} }' +
-                '.ai-spinner { width: 22px; height: 22px; border-radius: 50%; border: 3px solid transparent; border-top-color: #fff; animation: ai-rot 0.8s linear infinite, ai-rainbow 3s linear infinite; }' +
+                '.ai-spinner { width: 22px; height: 22px; border-radius: 50%; border: 3px solid transparent; border-top-color: #fff; animation: ai-rot 0.8s linear infinite, ai-rainbow 4s linear infinite; }' +
                 '@keyframes ai-rot { to { transform: rotate(360deg); } }' +
-                '@keyframes ai-rainbow { 0%{border-top-color:#fff} 25%{border-top-color:var(--main-color, #0cf)} 50%{border-top-color:#0cf} 75%{border-top-color:#f0f} 100%{border-top-color:#fff} }' +
+                '@keyframes ai-rainbow { 0%{border-top-color:#fff} 16.6%{border-top-color:var(--main-color, #fff)} 33.3%{border-top-color:#0cf} 50%{border-top-color:#f0f} 66.6%{border-top-color:var(--main-color, #f0f)} 83.3%{border-top-color:#8b0000} 100%{border-top-color:#fff} }' +
                 '.ai-viewer-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5001; display: flex; align-items: center; justify-content: center; }' +
-                '.ai-viewer-body { width: 85%; max-width: 900px; height: 80%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid var(--main-color, #0cf); overflow: hidden; }' +
+                '.ai-viewer-body { width: 85%; max-width: 900px; height: 80%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid var(--main-color, #fff); overflow: hidden; }' +
                 '.ai-header { height: 48px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
                 '.ai-title { font-size: 1.25em; font-weight: bold; }' +
                 '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-family: sans-serif; cursor: pointer; border: 2px solid transparent; line-height: 0; padding-bottom: 0px; }' +
                 '.ai-close-btn.focus { background: #fff; color: #000; outline: none; }' +
                 '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 10px 20px 20px 20px; color: #efefef; font-size: 1.25em; line-height: 1.4; }' +
-                '.ai-fact-title { color: var(--main-color, #0cf); font-weight: bold; display: block; margin-bottom: 2px; }'
+                '.ai-fact-title { color: var(--safe-text-color, var(--main-color, #fff)); font-weight: bold; display: block; margin-bottom: 2px; }'
             ).appendTo('head');
         };
+        
 
         this.drawButton = function (render, card) {
             var container = render.find('.full-start-new__buttons, .full-start__buttons').first();
@@ -213,7 +250,10 @@
 
 
         this.showViewer = function(title, contentHtml, btnElement, renderContainer, controllerName) {
-            var viewer = $('<div class="ai-viewer-container"><div class="ai-viewer-body">' +
+            var safeColor = _this.getSafeDynamicColor();
+            
+            var viewer = $('<div class="ai-viewer-container" style="--safe-text-color: ' + safeColor + ';">' +
+                            '<div class="ai-viewer-body">' +
                                 '<div class="ai-header"><div class="ai-title">' + title + '</div><div class="ai-close-btn selector">×</div></div>' +
                                 '<div class="ai-content-scroll">' + contentHtml + '</div>' +
                             '</div></div>');
@@ -224,13 +264,9 @@
                 _this.restoreFocus(btnElement, renderContainer, controllerName);
             };
 
-
             viewer.find('.ai-close-btn').on('click hover:enter', close);
             Lampa.Controller.add('ai_viewer', {
-                toggle: function() { 
-                    Lampa.Controller.collectionSet(viewer); 
-                    Lampa.Controller.collectionFocus(viewer.find('.ai-close-btn')[0], viewer); 
-                },
+                toggle: function() { Lampa.Controller.collectionSet(viewer); Lampa.Controller.collectionFocus(viewer.find('.ai-close-btn')[0], viewer); },
                 up: function() { viewer.find('.ai-content-scroll').scrollTop(viewer.find('.ai-content-scroll').scrollTop() - 100); },
                 down: function() { viewer.find('.ai-content-scroll').scrollTop(viewer.find('.ai-content-scroll').scrollTop() + 100); },
                 back: close
@@ -239,9 +275,7 @@
         };
 
 
-
         this.actionFacts = function(card, btn, render, ctrl) {
-            // Обов'язкові змінні, які ти випадково загубив минулого разу:
             var ukrT = card.title || card.name;
             var origT = card.original_title || card.original_name;
             var year = (card.release_date || card.first_air_date || '').slice(0,4);
