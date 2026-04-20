@@ -163,10 +163,11 @@
         };
 
         this.restoreFocus = function(controllerName) {
+            if (Lampa.Platform.is('touch')) return; 
+
             Lampa.Controller.toggle(controllerName || 'full');
             setTimeout(function() {
                 var act = Lampa.Activity.active();
-                // Шукаємо нашу кнопку тільки якщо ми досі в картці фільму
                 if (act && act.activity && act.component === 'full') {
                     var rnder = act.activity.render();
                     var btn = rnder.find('.button--ai-assist');
@@ -175,24 +176,28 @@
             }, 50);
         };
 
+
         this.openAiMenu = function(card, btnElement, renderContainer, prevCtrl) {
             var controllerName = prevCtrl || Lampa.Controller.enabled().name; 
             var items = [
                 { title: 'Рекомендації', action: 'recommendations' },
-                { title: 'Добірки за тегами', action: 'tags' },
                 { title: 'Цікаві факти', action: 'facts' },
                 { title: 'Спільні роботи акторів', action: 'together' }
             ];
+
+            // Додаємо пункт ТІЛЬКИ якщо теги існують і масив не порожній
+            if (card.ai_translated_tags && card.ai_translated_tags.length > 0) {
+                items.splice(1, 0, { title: 'Добірки за тегами', action: 'tags' });
+            }
             
             if ((card.number_of_seasons && card.number_of_seasons > 1) || card.belongs_to_collection) {
-                items.splice(3, 0, { title: 'Стислий переказ', action: 'recap' });
+                items.push({ title: 'Стислий переказ', action: 'recap' });
             }
 
             Lampa.Select.show({
                 title: 'AI Асистент',
                 items: items,
                 onSelect: function (item) {
-                    // Даємо Лампі 50мс, щоб вона спокійно закрила своє меню перед нашими діями
                     setTimeout(function() {
                         if (item.action === 'facts') _this.actionFacts(card, btnElement, renderContainer, controllerName);
                         else if (item.action === 'together') _this.actionTogether(card, btnElement, renderContainer, controllerName);
@@ -206,6 +211,7 @@
                 }
             });
         };
+
 
         this.showViewer = function(title, contentHtml, btnElement, renderContainer, controllerName) {
             var viewer = $('<div class="ai-viewer-container"><div class="ai-viewer-body">' +
@@ -347,43 +353,11 @@
         this.actionTags = function(card, btn, render, ctrl) {
             if (card.ai_translated_tags && card.ai_translated_tags.length > 0) {
                 _this.showTagsMenu(card.ai_translated_tags, card, btn, render, ctrl);
-            } 
-            else if (card.ai_translated_tags && card.ai_translated_tags.length === 0) {
-                Lampa.Noty.show('Теги відсутні');
-                _this.openAiMenu(card, btn, render, ctrl);
-            } 
-            else {
-                window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
-                _this.updateStatus('Завантаження тегів');
-                var method = (card.original_name || card.name) ? 'tv' : 'movie';
-                var url = Lampa.TMDB.api(method + '/' + card.id + '/keywords?api_key=' + Lampa.TMDB.key());
-
-                $.ajax({
-                    url: url,
-                    dataType: 'json',
-                    success: function (resp) {
-                        var tags = resp.keywords || resp.results || [];
-                        if (tags.length > 0) {
-                            _this.translateTags(tags, function(translatedTags) {
-                                card.ai_translated_tags = translatedTags;
-                                _this.hideStatus();
-                                _this.showTagsMenu(translatedTags, card, btn, render, ctrl);
-                            });
-                        } else {
-                            card.ai_translated_tags = [];
-                            _this.hideStatus();
-                            Lampa.Noty.show('Теги відсутні');
-                            _this.openAiMenu(card, btn, render, ctrl);
-                        }
-                    },
-                    error: function() { 
-                        _this.hideStatus(); 
-                        Lampa.Noty.show('Помилка завантаження тегів'); 
-                        if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
-                    }
-                });
+            } else {
+                _this.restoreFocus(ctrl);
             }
         };
+        
 
         this.translateTags = function (tags, callback) {
             var lang = Lampa.Storage.get('language', 'uk');
@@ -444,34 +418,58 @@
                 return; 
             }
             
-            var targetModel = Lampa.Storage.get('ai_model', 'gemini-2.5-flash-lite');
+            // Читаємо обрану модель (вона залишиться незмінною в налаштуваннях)
+            var baseModel = Lampa.Storage.get('ai_model', 'gemini-flash-lite-latest');
             var payload = { contents: [{ parts: [{ text: p }] }] };
 
-            fetch('https://generativelanguage.googleapis.com/v1beta/models/' + targetModel + ':generateContent?key=' + key.trim(), {
-                method: "POST", body: JSON.stringify(payload)
-            }).then(function(r) { 
-                if (r.status === 503) {
-                    throw new Error('503 Service Unavailable');
-                }
-                return r.json(); 
-            }).then(function(d) {
-                if (d.error) { 
-                    throw new Error(d.error.message); 
-                }
-                else if (d.candidates && d.candidates[0].content) onSuccess(d.candidates[0].content.parts[0].text);
-                else {
-                    throw new Error('Блокування або пуста відповідь');
-                }
-            }).catch(function(e) { 
-                if (!isSilent) {
-                    _this.hideStatus(); 
-                    var msg = (e.message === '503 Service Unavailable') ? 'Сервер перевантажено (503)' : 'Помилка: ' + e.message;
-                    Lampa.Noty.show(msg); 
-                    if (window.ai_active_controller) Lampa.Controller.toggle(window.ai_active_controller);
-                }
-                if(onError) onError(e.message); 
-            });
+            // Внутрішня функція для відправки запиту з можливістю підміни (fallback)
+            var sendRequest = function(targetModel, isRetry) {
+                fetch('https://generativelanguage.googleapis.com/v1beta/models/' + targetModel + ':generateContent?key=' + key.trim(), {
+                    method: "POST", body: JSON.stringify(payload)
+                }).then(function(r) { 
+                    if (!r.ok) throw new Error('Помилка сервера (' + r.status + ')');
+                    return r.json(); 
+                }).then(function(d) {
+                    if (d.error) throw new Error(d.error.message);
+                    else if (d.candidates && d.candidates[0].content) onSuccess(d.candidates[0].content.parts[0].text);
+                    else throw new Error('Блокування або пуста відповідь');
+                }).catch(function(e) { 
+                    // --- ЛОГІКА ЗАПОБІЖНИКА ---
+                    // Якщо це перша помилка (не повторна спроба), перевіряємо чи є підміна
+                    if (!isRetry) {
+                        var fallbackModel = null;
+                        
+                        // Хрест-навхрест: якщо впали Latest або 3.1 -> пробуємо 2.5
+                        if (targetModel === 'gemini-flash-lite-latest' || targetModel === 'gemini-3.1-flash-lite-preview') {
+                            fallbackModel = 'gemini-2.5-flash-lite';
+                        } 
+                        // Якщо впала 2.5 -> пробуємо Latest
+                        else if (targetModel === 'gemini-2.5-flash-lite') {
+                            fallbackModel = 'gemini-flash-lite-latest';
+                        }
+
+                        // Якщо підміна знайдена, робимо тихий рестарт
+                        if (fallbackModel) {
+                            console.log('AI Асистент: Збій моделі ' + targetModel + '. Фонова спроба через ' + fallbackModel);
+                            sendRequest(fallbackModel, true);
+                            return; // Перериваємо поточну обробку помилки
+                        }
+                    }
+
+                    // Якщо підміни немає, або друга спроба теж впала — виводимо помилку юзеру
+                    if (!isSilent) {
+                        _this.hideStatus(); 
+                        Lampa.Noty.show('Помилка: ' + e.message); 
+                        _this.restoreFocus(window.ai_active_controller);
+                    }
+                    if(onError) onError(e.message); 
+                });
+            };
+
+            // Запускаємо процес з базовою моделлю
+            sendRequest(baseModel, false);
         };
+
 
         this.parseJsonSafe = function(text) {
             try {
@@ -692,16 +690,20 @@
                     name: 'ai_model', 
                     type: 'select', 
                     values: { 
-                        'gemini-3.1-flash-lite-preview': '3.1 Flash Lite Preview',
-                        'gemini-3-flash-preview': '3.0 Flash Preview',
-                        'gemini-2.5-flash-lite': '2.5 Flash Lite',
-                        'gemini-2.5-flash': '2.5 Flash',
-                        'gemini-flash-lite-latest': 'Flash Lite Latest',
-                        'gemini-flash-latest': 'Flash Latest'
+                        'gemini-flash-lite-latest': 'gemini-flash-lite-latest',
+                        'gemini-flash-latest': 'gemini-flash-latest',
+                        'gemini-3.1-flash-lite-preview': 'gemini-3.1-flash-lite-preview',
+                        'gemini-3-flash-preview': 'gemini-3-flash-preview',
+                        'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
+                        'gemini-2.5-flash': 'gemini-2.5-flash',
+                        'gemini-2.5-pro': 'gemini-2.5-pro',
+                        'gemma-4-31b-it': 'gemma-4-31b-it',
+                        'gemma-3-27b-it': 'gemma-3-27b-it',
+                        'gemma-3-4b-it': 'gemma-3-4b-it'
                     }, 
-                    default: 'gemini-2.5-flash-lite' 
+                    default: 'gemini-flash-lite-latest' 
                 }, 
-                field: { name: 'Модель ШІ' } 
+                field: { name: 'Моделі' } 
             });
 
             Lampa.SettingsApi.addParam({ component: 'ai_assistant_cfg', param: { name: 'ai_result_count', type: 'select', values: { '10':'10','20':'20','30':'30','50':'50' }, default: '20' }, field: { name: 'Кількість результатів' } });
