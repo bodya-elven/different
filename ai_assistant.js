@@ -458,48 +458,51 @@
                 return; 
             }
             
-            // Читаємо обрану модель (вона залишиться незмінною в налаштуваннях)
             var baseModel = Lampa.Storage.get('ai_model', 'gemini-flash-lite-latest');
-            var payload = { 
-    contents: [{ parts: [{ text: p }] }],
-    tools: [{ googleSearch: {} }] 
-};
+            var payload = { contents: [{ parts: [{ text: p }] }] };
 
-            // Внутрішня функція для відправки запиту з можливістю підміни (fallback)
+            // ПЕРЕВІРКА: Додаємо пошук тільки для моделей Gemini
+            if (baseModel.indexOf('gemini') === 0) {
+                payload.tools = [{ googleSearch: {} }];
+            }
+
             var sendRequest = function(targetModel, isRetry) {
+                // Якщо при повторі модель змінилася на gemma, прибираємо інструменти
+                if (isRetry && targetModel.indexOf('gemini') === -1) delete payload.tools;
+
                 fetch('https://generativelanguage.googleapis.com/v1beta/models/' + targetModel + ':generateContent?key=' + key.trim(), {
                     method: "POST", body: JSON.stringify(payload)
                 }).then(function(r) { 
-                    if (!r.ok) throw new Error('Помилка сервера (' + r.status + ')');
-                    return r.json(); 
-                }).then(function(d) {
+                    return r.json().then(function(json) { return { status: r.status, ok: r.ok, data: json }; });
+                }).then(function(res) {
+                    var d = res.data;
                     if (d.error) throw new Error(d.error.message);
-                    else if (d.candidates && d.candidates[0].content) onSuccess(d.candidates[0].content.parts[0].text);
-                    else throw new Error('Блокування або пуста відповідь');
+                    
+                    if (d.candidates && d.candidates[0].content) {
+                        // Збираємо текст з УСІХ частин (виправляє проблему з роздумами Gemma 4)
+                        var fullText = d.candidates[0].content.parts.map(function(part) { 
+                            return part.text || ""; 
+                        }).join("\n");
+                        
+                        onSuccess(fullText);
+                    } else {
+                        throw new Error('Блокування або пуста відповідь');
+                    }
                 }).catch(function(e) { 
-                    // --- ЛОГІКА ЗАПОБІЖНИКА ---
-                    // Якщо це перша помилка (не повторна спроба), перевіряємо чи є підміна
                     if (!isRetry) {
                         var fallbackModel = null;
-                        
-                        // Хрест-навхрест: якщо впали Latest або 3.1 -> пробуємо 2.5
                         if (targetModel === 'gemini-flash-lite-latest' || targetModel === 'gemini-3.1-flash-lite-preview') {
                             fallbackModel = 'gemini-2.5-flash-lite';
-                        } 
-                        // Якщо впала 2.5 -> пробуємо Latest
-                        else if (targetModel === 'gemini-2.5-flash-lite') {
+                        } else if (targetModel === 'gemini-2.5-flash-lite') {
                             fallbackModel = 'gemini-flash-lite-latest';
                         }
 
-                        // Якщо підміна знайдена, робимо тихий рестарт
                         if (fallbackModel) {
-                            console.log('AI Асистент: Збій моделі ' + targetModel + '. Фонова спроба через ' + fallbackModel);
                             sendRequest(fallbackModel, true);
-                            return; // Перериваємо поточну обробку помилки
+                            return;
                         }
                     }
 
-                    // Якщо підміни немає, або друга спроба теж впала — виводимо помилку юзеру
                     if (!isSilent) {
                         _this.hideStatus(); 
                         Lampa.Noty.show('Помилка: ' + e.message); 
@@ -509,21 +512,28 @@
                 });
             };
 
-            // Запускаємо процес з базовою моделлю
             sendRequest(baseModel, false);
         };
 
 
+
         this.parseJsonSafe = function(text) {
             try {
+                // Шукаємо межі масиву JSON [ ... ]
                 var s = text.indexOf('['), e = text.lastIndexOf(']');
                 if (s !== -1 && e !== -1 && e > s) {
-                    return JSON.parse(text.substring(s, e + 1));
+                    var potentialJson = text.substring(s, e + 1);
+                    return JSON.parse(potentialJson);
                 }
-                var clean = text.trim().replace(/^```json/gi, '').replace(/```$/g, '').trim();
+                // Якщо масиву немає, пробуємо очистити від маркдауну
+                var clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                 return JSON.parse(clean);
-            } catch (e) { return null; }
+            } catch (err) { 
+                console.log('AI Assistant: JSON Parse Error', err);
+                return null; 
+            }
         };
+
 
         this.processAiList = function(list, callback) {
             var results = [], processed = 0;
