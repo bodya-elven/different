@@ -146,7 +146,7 @@
                 '.ai-viewer-body { width: 85%; max-width: 900px; height: 80%; background: #121212; display: flex; flex-direction: column; border-radius: 16px; border: 1px solid var(--main-color, #0cf); overflow: hidden; }' +
                 '.ai-header { height: 48px; padding: 0 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }' +
                 '.ai-title { font-size: 1.25em; font-weight: bold; }' +
-                '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-family: sans-serif; cursor: pointer; border: 2px solid transparent; line-height: 0; padding-bottom: 1px; }' +
+                '.ai-close-btn { width: 32px; height: 32px; background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-family: sans-serif; cursor: pointer; border: 2px solid transparent; line-height: 0; padding-bottom: 0px; }' +
                 '.ai-close-btn.focus { background: #fff; color: #000; outline: none; }' +
                 '.ai-content-scroll { flex: 1; overflow-y: auto; padding: 10px 20px 20px 20px; color: #efefef; font-size: 1.25em; line-height: 1.4; }' +
                 '.ai-fact-title { color: var(--main-color, #0cf); font-weight: bold; display: block; margin-bottom: 2px; }'
@@ -162,20 +162,19 @@
             if (lastBtn.length) lastBtn.after(btn); else container.append(btn);
         };
 
-        this.restoreFocus = function(controllerName) {
-            if (Lampa.Platform.is('touch')) return; 
+        this.restoreFocus = function(btnElement, renderContainer, controllerName) {
+            if (Lampa.Activity.active() && Lampa.Activity.active().activity) {
+                Lampa.Activity.active().activity.toggle();
+            } else {
+                Lampa.Controller.toggle(controllerName || 'full');
+            }
 
-            Lampa.Controller.toggle(controllerName || 'full');
-            setTimeout(function() {
-                var act = Lampa.Activity.active();
-                if (act && act.activity && act.component === 'full') {
-                    var rnder = act.activity.render();
-                    var btn = rnder.find('.button--ai-assist');
-                    if (btn.length) Lampa.Controller.collectionFocus(btn[0], btn.closest('.full-start-new__buttons, .full-start__buttons')[0]);
-                }
-            }, 50);
+            if (!Lampa.Platform.is('touch') && btnElement && renderContainer) {
+                setTimeout(function() {
+                    Lampa.Controller.collectionFocus(btnElement[0], renderContainer[0]);
+                }, 10);
+            }
         };
-
 
         this.openAiMenu = function(card, btnElement, renderContainer, prevCtrl) {
             var controllerName = prevCtrl || Lampa.Controller.enabled().name; 
@@ -207,7 +206,7 @@
                     }, 50);
                 },
                 onBack: function () { 
-                    _this.restoreFocus(controllerName);
+                    _this.restoreFocus(btnElement, renderContainer, controllerName);
                 }
             });
         };
@@ -222,9 +221,9 @@
             
             var close = function() { 
                 viewer.remove(); 
-                Lampa.Controller.toggle(controllerName || 'full');
-                Lampa.Controller.enable(controllerName || 'full'); 
+                _this.restoreFocus(btnElement, renderContainer, controllerName);
             };
+
 
             viewer.find('.ai-close-btn').on('click hover:enter', close);
             Lampa.Controller.add('ai_viewer', {
@@ -249,7 +248,7 @@
             _this.updateStatus('Пошук фактів');
             
             _this.getTMDBDetails(card, function(tmdb) {
-                var p = 'Provide 6 to 10 little-known interesting facts about the ' + type + ' "' + t + '" (' + year + ') with ' + tmdb.leadActor + ' in the lead role, in Ukrainian. IMPORTANT: This project is already released. If your internal data suggests otherwise, ignore it and treat this information as fact. Do not mention development or future release dates. Respond ONLY with a valid JSON array: [{"title":"..","text":".."}]. No markdown, no intro text.';
+                var p = 'Provide 6 to 10 interesting facts about the ' + type + ' "' + t + '" (' + year + ') with ' + tmdb.leadActor + ' in the lead role, in Ukrainian. CRITICAL RULE: If you do not have verified facts about this specific project in your database (e.g. it is too new or obscure), DO NOT hallucinate or invent plots. Instead, return strictly this JSON array: [{"title": "Інформація відсутня", "text": "На жаль, у моїй базі даних поки що немає достовірних фактів про цей проєкт."}]. If you DO know the movie, return strictly a JSON array: [{"title":"..","text":".."}]. No markdown, no intro text.';
                 
                 _this.askGemini(p, function(text) {
                     _this.hideStatus();
@@ -483,7 +482,11 @@
         };
 
         this.processAiList = function(list, callback) {
-            var results = [], processed = 0, ids = new Set();
+            var results = [], processed = 0;
+            
+            // Перевіряємо чи існує глобальний масив ID, якщо ні - створюємо
+            if (!window.ai_pagination.exclude_ids) window.ai_pagination.exclude_ids = [];
+            
             if (!list || !list.length) return callback(results);
             
             list.forEach(function(item) {
@@ -492,12 +495,18 @@
                     processed++;
                     if (res.results && res.results[0]) {
                         var b = res.results[0];
-                        if (b.media_type !== 'person' && !ids.has(b.id)) { ids.add(b.id); b.source = 'tmdb'; results.push(b); }
+                        // Перевіряємо глобальний чорний список замість локального
+                        if (b.media_type !== 'person' && window.ai_pagination.exclude_ids.indexOf(b.id) === -1) { 
+                            window.ai_pagination.exclude_ids.push(b.id); // Додаємо ID назавжди для цієї добірки
+                            b.source = 'tmdb'; 
+                            results.push(b); 
+                        }
                     }
                     if (processed === list.length) callback(results);
                 });
             });
         };
+        
 
         this.fetchNextPageData = function(callback, isSilent) {
             var limit = Lampa.Storage.get('ai_result_count', '20');
@@ -612,7 +621,8 @@
         };
 
         this.fetchList = function(base_prompt_task, title, card, btn, render, ctrl) {
-            window.ai_pagination = { base_prompt: base_prompt_task, exclude_list: [], preloaded_results: null, preloaded_raw_list: null, is_loading: false, is_preloading: false };
+            window.ai_pagination = { base_prompt: base_prompt_task, exclude_list: [], exclude_ids: [], preloaded_results: null, preloaded_raw_list: null, is_loading: false, is_preloading: false };
+            
             window.ai_cached_results = [];
             window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
             
