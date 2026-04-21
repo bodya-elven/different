@@ -351,7 +351,7 @@
     /* ==========================================================================
        4. ГЛОБАЛЬНИЙ СЛУХАЧ АКТИВНОСТІ
        ========================================================================== */
-        Lampa.Listener.follow('activity', function (e) {
+    Lampa.Listener.follow('activity', function (e) {
         if (e.type === 'start') {
             var active = Lampa.Activity.active();
             var history = Lampa.Activity.history();
@@ -364,12 +364,12 @@
                 if (active) active.themes_color = null;
             } 
             // 2. Логіка спадковості (тільки для "Довіреного кола")
-            else if (active && !active.themes_color && history.length > 1) {
+            else if (active && !active.themes_color && history && history.length > 1) {
                 var prev = history[history.length - 2];
                 var isTrustedHeir = trustedCircle.indexOf(e.component) > -1;
 
-                // Успадковуємо, якщо ми нащадок і прийшли з картки фільму
-                if (isTrustedHeir && prev.component === 'full' && prev.themes_color) {
+                // Успадковуємо колір, якщо ми нащадок і прийшли з картки фільму
+                if (isTrustedHeir && prev && prev.component === 'full' && prev.themes_color) {
                     active.themes_color = prev.themes_color;
                 }
             }
@@ -382,10 +382,12 @@
         if (!Lampa.Storage.get('themes_dynamic_theme', false)) return;
 
         if (e.type === 'complite' || e.type === 'complete') {
-            var card = e.data.movie || e.object || {};
-            var cachedColor = getCachedLogoColor(card);
+            var card = e.data ? (e.data.movie || e.data) : (e.object || {});
             var targetActivity = e.object; 
             
+            if (!targetActivity) return;
+
+            var cachedColor = getCachedLogoColor(card);
             if (cachedColor) {
                 targetActivity.themes_color = rgbToHex(cachedColor.r, cachedColor.g, cachedColor.b);
                 applyTheme();
@@ -393,13 +395,14 @@
                 fetchLogoColor(card, function(colorData) {
                     if (colorData && targetActivity) {
                         targetActivity.themes_color = rgbToHex(colorData.r, colorData.g, colorData.b);
+                        // Оновлюємо тільки якщо картка ще активна
                         if (Lampa.Activity.active() === targetActivity) applyTheme();
                     }
                 });
             }
         }
     });
-
+    
 
     /* ==========================================================================
        5. НАЛАШТУВАННЯ В МЕНЮ
