@@ -475,18 +475,18 @@
         };
 
         this.askGemini = function(p, onSuccess, onError, isSilent) {
-            var rawKeys = Lampa.Storage.get(STORAGE_KEY, '');
-            if (!rawKeys) {
+            var rawValue = Lampa.Storage.get(STORAGE_KEY, '');
+            if (!rawValue) {
                 if (!isSilent) Lampa.Noty.show('Gemini API key is empty');
-                if(onError) onError();
                 return;
             }
 
-            var keys = rawKeys.split(',').map(function(k) { return k.trim(); });
+            // Розбиваємо ключі
+            var keys = rawValue.split(',');
             var baseModel = Lampa.Storage.get('ai_model', 'gemini-flash-lite-latest');
 
-            var attemptRequest = function(keyIndex, targetModel, isRetry) {
-                if (keyIndex >= keys.length) {
+            var attemptRequest = function(index, targetModel, isRetry) {
+                if (index >= keys.length) {
                     if (!isSilent) {
                         _this.hideStatus();
                         Lampa.Noty.show('Всі ліміти вичерпано (All keys hit 429)');
@@ -495,12 +495,11 @@
                     return;
                 }
 
-                var currentKey = keys[keyIndex];
-                // Пропускаємо вже позначені ключі
-                if (currentKey.indexOf('(429)') !== -1) return attemptRequest(keyIndex + 1, baseModel, false);
+                // ЧИСТИМО КЛЮЧ: видаляємо будь-які (429) або пробіли перед відправкою
+                var currentKey = keys[index].replace(/\s*\([^)]*\)/g, '').trim();
+                if (!currentKey) return attemptRequest(index + 1, baseModel, false);
 
                 var payload = { contents: [{ parts: [{ text: p }] }] };
-                // Додаємо пошук тільки для Gemini і якщо це не ретрай на Gemma
                 if (targetModel.indexOf('gemini') === 0) {
                     payload.tools = [{ googleSearch: {} }];
                 }
@@ -511,12 +510,11 @@
                 }).then(function(r) {
                     return r.json().then(function(json) { return { status: r.status, ok: r.ok, data: json }; });
                 }).then(function(res) {
-                    // ОБРОБКА 429: Перемикаємо ключ
                     if (res.status === 429) {
-                        keys[keyIndex] = currentKey + ' (429)';
+                        // Позначаємо в пам'яті, що ключ "втомився", але не зупиняємося
+                        keys[index] = currentKey + ' (429)';
                         Lampa.Storage.set(STORAGE_KEY, keys.join(', '));
-                        console.log('AI Assistant: Key ' + keyIndex + ' limit exceeded, switching to next key...');
-                        return attemptRequest(keyIndex + 1, baseModel, false);
+                        return attemptRequest(index + 1, baseModel, false);
                     }
 
                     if (!res.ok) throw new Error(res.data.error ? res.data.error.message : 'Unknown error');
@@ -524,29 +522,24 @@
                     if (res.data.candidates && res.data.candidates[0].content) {
                         var fullText = res.data.candidates[0].content.parts.map(function(part) { return part.text || ""; }).join("\n");
                         onSuccess(fullText);
-                    } else { throw new Error('Empty response or safety block'); }
+                    } else { throw new Error('Empty response'); }
 
                 }).catch(function(e) {
-                    // ЛОГІКА РЕЗЕРВНИХ МОДЕЛЕЙ (якщо помилка не 429)
+                    // Резервні моделі
                     if (!isRetry) {
                         var fallbackModel = null;
-                        if (targetModel === 'gemini-flash-lite-latest' || targetModel === 'gemini-3.1-flash-lite-preview') {
-                            fallbackModel = 'gemini-2.5-flash-lite';
-                        } else if (targetModel === 'gemini-2.5-flash-lite') {
-                            fallbackModel = 'gemini-flash-lite-latest';
-                        }
+                        if (targetModel === 'gemini-flash-lite-latest' || targetModel === 'gemini-3.1-flash-lite-preview') fallbackModel = 'gemini-2.5-flash-lite';
+                        else if (targetModel === 'gemini-2.5-flash-lite') fallbackModel = 'gemini-flash-lite-latest';
 
                         if (fallbackModel) {
-                            console.log('AI Assistant: Model error, trying fallback: ' + fallbackModel);
-                            attemptRequest(keyIndex, fallbackModel, true);
+                            attemptRequest(index, fallbackModel, true);
                             return;
                         }
                     }
 
-                    // Якщо нічого не допомогло
                     if (!isSilent) {
                         _this.hideStatus();
-                        Lampa.Noty.show('Помилка: ' + e.message);
+                        Lampa.Noty.show('Error: ' + e.message);
                         _this.restoreFocus(window.ai_active_controller);
                     }
                     if (onError) onError(e.message);
