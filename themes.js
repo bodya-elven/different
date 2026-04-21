@@ -411,20 +411,19 @@
         if (!$('#themes-picker-styles').length) {
             $('<style id="themes-picker-styles">').prop('type', 'text/css').html(
                 '.themes-picker { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5002; display: flex; align-items: center; justify-content: center; }' +
-                '.themes-picker__body { width: 400px; background: #1a1a1a; padding: 20px; border-radius: 12px; border: 2px solid #333; display: flex; flex-direction: column; gap: 20px; }' +
+                '.themes-picker__body { width: 400px; background: #1a1a1a; padding: 20px; border-radius: 12px; border: 2px solid #333; display: flex; flex-direction: column; gap: 20px; pointer-events: auto; }' +
                 '.themes-picker__preview { height: 100px; border-radius: 8px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 1.5em; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }' +
-                '.themes-picker__row { display: flex; flex-direction: column; gap: 8px; }' +
-                '.themes-picker__range { width: 100%; height: 12px; background: #333; border-radius: 6px; position: relative; }' +
+                '.themes-picker__row { display: flex; flex-direction: column; gap: 8px; cursor: pointer; padding: 5px; }' +
+                '.themes-picker__range { width: 100%; height: 16px; background: #333; border-radius: 8px; position: relative; pointer-events: none; }' +
                 '.themes-picker__range-active { position: absolute; top: 50%; width: 24px; height: 24px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #000; }' +
-                '.themes-picker__row.focus .themes-picker__range { background: #444; }' +
+                '.themes-picker__row.focus, .themes-picker__btn.focus { background: rgba(255,255,255,0.1); border-radius: 8px; }' +
                 '.themes-picker__row.focus .themes-picker__range-active { border-color: #ff0; box-shadow: 0 0 10px #ff0; }' +
                 '.themes-picker__footer { display: flex; justify-content: space-between; margin-top: 10px; }' +
-                '.themes-picker__btn { padding: 8px 20px; background: #333; border-radius: 6px; cursor: pointer; }' +
+                '.themes-picker__btn { padding: 10px 25px; background: #333; border-radius: 6px; cursor: pointer; }' +
                 '.themes-picker__btn.focus { background: #fff; color: #000; }'
             ).appendTo('head');
         }
 
-        // Оголошуємо як звичайну функцію в області видимості initPlugin
         var showColorPicker = function() {
             var currentHex = Lampa.Storage.get('themes_custom_hex', '#3da18d');
             var hsl = hexToHsl(currentHex);
@@ -446,22 +445,40 @@
             function update() {
                 var hex = hslToHex(h, s, l);
                 modal.find('.themes-picker__preview').css({'background': hex, 'color': getContrastColor(hex)}).text(hex.toUpperCase());
-                modal.find('[data-type="h"] .themes-picker__range-active').css('left', (h / 360 * 100) + '%');
+                modal.find('[data-type="h"] .themes-picker__range-active').css('left', (h / 3.6) + '%');
                 modal.find('[data-type="s"] .themes-picker__range-active').css('left', s + '%');
                 modal.find('[data-type="l"] .themes-picker__range-active').css('left', l + '%');
             }
 
             var close = function() { modal.remove(); Lampa.Controller.toggle('themes_plugin'); };
 
-            modal.find('[data-action="save"]').on('hover:enter', function() {
-                Lampa.Storage.set('themes_custom_hex', hslToHex(h, s, l));
-                applyTheme();
-                close();
+            // Клік/Тач підтримка
+            modal.find('.selector').on('click', function(e) {
+                var target = $(this);
+                if (target.hasClass('themes-picker__row')) {
+                    var rect = this.getBoundingClientRect();
+                    var percent = Math.min(100, Math.max(0, (e.clientX - rect.left) / rect.width * 100));
+                    var type = target.data('type');
+                    if (type === 'h') h = Math.floor(percent * 3.6);
+                    if (type === 's') s = Math.floor(percent);
+                    if (type === 'l') l = Math.floor(percent);
+                    update();
+                }
+                Lampa.Controller.collectionFocus(this, modal);
+                if (target.data('action') === 'save') {
+                    Lampa.Storage.set('themes_custom_hex', hslToHex(h, s, l));
+                    applyTheme();
+                    close();
+                } else if (target.data('action') === 'cancel') {
+                    close();
+                }
             });
-            modal.find('[data-action="cancel"]').on('hover:enter', close);
 
             Lampa.Controller.add('themes_color_picker', {
-                toggle: function() { Lampa.Controller.collectionSet(modal); Lampa.Controller.collectionFocus(modal.find('.themes-picker__row')[0], modal); },
+                toggle: function() { 
+                    Lampa.Controller.collectionSet(modal.find('.selector')); 
+                    Lampa.Controller.collectionFocus(modal.find('.themes-picker__row')[0], modal); 
+                },
                 left: function() {
                     var focused = modal.find('.themes-picker__row.focus');
                     if (focused.length) {
@@ -482,8 +499,8 @@
                         update();
                     }
                 },
-                up: function() { Lampa.Controller.move('up'); },
-                down: function() { Lampa.Controller.move('down'); },
+                up: function() { Lampa.Controller.collectionPrev(); },
+                down: function() { Lampa.Controller.collectionNext(); },
                 back: close
             });
 
@@ -491,6 +508,7 @@
             Lampa.Controller.toggle('themes_color_picker');
             update();
         };
+
 
         
         Lampa.SettingsApi.addComponent({
