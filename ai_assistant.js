@@ -475,44 +475,59 @@
         };
 
         this.askGemini = function(p, onSuccess, onError, isSilent) {
-            var key = Lampa.Storage.get(STORAGE_KEY, '').split(',')[0];
-            if (!key) { 
-                if (!isSilent) Lampa.Noty.show('API Ключ не задано'); 
-                if(onError) onError(); 
-                return; 
+            var rawKeys = Lampa.Storage.get(STORAGE_KEY, '');
+            if (!rawKeys) {
+                if (!isSilent) Lampa.Noty.show('Gemini API key is empty');
+                if(onError) onError();
+                return;
             }
-            
+
+            var keys = rawKeys.split(',').map(function(k) { return k.trim(); });
             var baseModel = Lampa.Storage.get('ai_model', 'gemini-flash-lite-latest');
-            var payload = { contents: [{ parts: [{ text: p }] }] };
 
-            // ПЕРЕВІРКА: Додаємо пошук тільки для моделей Gemini
-            if (baseModel.indexOf('gemini') === 0) {
-                payload.tools = [{ googleSearch: {} }];
-            }
+            var attemptRequest = function(keyIndex, targetModel, isRetry) {
+                if (keyIndex >= keys.length) {
+                    if (!isSilent) {
+                        _this.hideStatus();
+                        Lampa.Noty.show('Всі ліміти вичерпано (All keys hit 429)');
+                        _this.restoreFocus(window.ai_active_controller);
+                    }
+                    return;
+                }
 
-            var sendRequest = function(targetModel, isRetry) {
-                // Якщо при повторі модель змінилася на gemma, прибираємо інструменти
-                if (isRetry && targetModel.indexOf('gemini') === -1) delete payload.tools;
+                var currentKey = keys[keyIndex];
+                // Пропускаємо вже позначені ключі
+                if (currentKey.indexOf('(429)') !== -1) return attemptRequest(keyIndex + 1, baseModel, false);
 
-                fetch('https://generativelanguage.googleapis.com/v1beta/models/' + targetModel + ':generateContent?key=' + key.trim(), {
-                    method: "POST", body: JSON.stringify(payload)
-                }).then(function(r) { 
+                var payload = { contents: [{ parts: [{ text: p }] }] };
+                // Додаємо пошук тільки для Gemini і якщо це не ретрай на Gemma
+                if (targetModel.indexOf('gemini') === 0) {
+                    payload.tools = [{ googleSearch: {} }];
+                }
+
+                fetch('https://generativelanguage.googleapis.com/v1beta/models/' + targetModel + ':generateContent?key=' + currentKey, {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                }).then(function(r) {
                     return r.json().then(function(json) { return { status: r.status, ok: r.ok, data: json }; });
                 }).then(function(res) {
-                    var d = res.data;
-                    if (d.error) throw new Error(d.error.message);
-                    
-                    if (d.candidates && d.candidates[0].content) {
-                        // Збираємо текст з УСІХ частин (виправляє проблему з роздумами Gemma 4)
-                        var fullText = d.candidates[0].content.parts.map(function(part) { 
-                            return part.text || ""; 
-                        }).join("\n");
-                        
-                        onSuccess(fullText);
-                    } else {
-                        throw new Error('Блокування або пуста відповідь');
+                    // ОБРОБКА 429: Перемикаємо ключ
+                    if (res.status === 429) {
+                        keys[keyIndex] = currentKey + ' (429)';
+                        Lampa.Storage.set(STORAGE_KEY, keys.join(', '));
+                        console.log('AI Assistant: Key ' + keyIndex + ' limit exceeded, switching to next key...');
+                        return attemptRequest(keyIndex + 1, baseModel, false);
                     }
-                }).catch(function(e) { 
+
+                    if (!res.ok) throw new Error(res.data.error ? res.data.error.message : 'Unknown error');
+                    
+                    if (res.data.candidates && res.data.candidates[0].content) {
+                        var fullText = res.data.candidates[0].content.parts.map(function(part) { return part.text || ""; }).join("\n");
+                        onSuccess(fullText);
+                    } else { throw new Error('Empty response or safety block'); }
+
+                }).catch(function(e) {
+                    // ЛОГІКА РЕЗЕРВНИХ МОДЕЛЕЙ (якщо помилка не 429)
                     if (!isRetry) {
                         var fallbackModel = null;
                         if (targetModel === 'gemini-flash-lite-latest' || targetModel === 'gemini-3.1-flash-lite-preview') {
@@ -522,23 +537,24 @@
                         }
 
                         if (fallbackModel) {
-                            sendRequest(fallbackModel, true);
+                            console.log('AI Assistant: Model error, trying fallback: ' + fallbackModel);
+                            attemptRequest(keyIndex, fallbackModel, true);
                             return;
                         }
                     }
 
+                    // Якщо нічого не допомогло
                     if (!isSilent) {
-                        _this.hideStatus(); 
-                        Lampa.Noty.show('Помилка: ' + e.message); 
+                        _this.hideStatus();
+                        Lampa.Noty.show('Помилка: ' + e.message);
                         _this.restoreFocus(window.ai_active_controller);
                     }
-                    if(onError) onError(e.message); 
+                    if (onError) onError(e.message);
                 });
             };
 
-            sendRequest(baseModel, false);
+            attemptRequest(0, baseModel, false);
         };
-
 
 
         this.parseJsonSafe = function(text) {
