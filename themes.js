@@ -1,9 +1,6 @@
 (function() {
     'use strict';
 
-    /* ==========================================================================
-       1. ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ КОЛЬОРІВ ТА МАТЕМАТИКИ
-       ========================================================================== */
     function hexToHsl(hex) {
         var r = parseInt(hex.slice(1, 3), 16) / 255;
         var g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -48,9 +45,6 @@
         return (yiq >= 140) ? '#000000' : '#ffffff';
     }
 
-    /* ==========================================================================
-       2. ПРЕСЕТИ ТА БАЗОВІ ТЕМИ
-       ========================================================================== */
     var themes = {
         'default': ':root{--main-color:#ffffff}.activity__loader{position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}',
         'violet_stroke': ':root{--main-color:#8B29B9;--background-color:#1d1f20;--text-color:#fff;--transparent-white:rgba(255,255,255,.2)}body{background-color:#1d1f20;color:#fff}.menu__ico{color:#000;-webkit-filter:invert(1);filter:invert(1)}.activity__loader{position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,${svgCode}") no-repeat 50% 50%}.modal-loading{height:6em;-webkit-background-size:contain;-moz-background-size:contain;-o-background-size:contain;background-size:contain}.console__tab.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-person.focus,.full-start__button.focus,.full-descr__tag.focus,.simple-button.focus,.head__action.focus,.head__action.hover,.player-panel .button.focus,.search-source.active{background:#8B29B9;color:#fff}.navigation-tabs__button.focus,.time-line>div,.player-panel__position,.player-panel__position>div:after{background-color:#8B29B9;color:#fff}.iptv-menu__list-item.focus,.iptv-program__timeline>div{background-color:#8B29B9!important;color:#fff!important}.radio-item.focus,.lang__selector-item.focus,.simple-keyboard .hg-button.focus,.modal__button.focus,.search-history-key.focus,.simple-keyboard-mic.focus,.torrent-serial__progress,.full-review-add.focus,.full-review.focus,.tag-count.focus,.settings-folder.focus,.settings-param.focus,.selectbox-item.focus,.selectbox-item.hover{background:#8B29B9;color:#fff}.online.focus{box-shadow:0 0 0 .2em #8B29B9}.online_modss.focus::after,.online-prestige.focus::after,.radio-item.focus .radio-item__imgbox:after,.iptv-channel.focus::before,.iptv-channel.last--focus::before{border-color:#8B29B9!important}.card-more.focus .card-more__box::after{border:.3em solid #8B29B9}.simple-button--filter>div{background-color:rgba(255,255,255,.1)}.iptv-playlist-item.focus::after,.iptv-playlist-item.hover::after{border-color:#8B29B9!important}.ad-bot.focus .ad-bot__content::after,.ad-bot.hover .ad-bot__content::after,.card-episode.focus .full-episode::after,.register.focus::after,.season-episode.focus::after,.full-episode.focus::after,.full-review-add.focus::after,.card.focus .card__view::after,.card.hover .card__view::after,.extensions__item.focus:after,.torrent-item.focus::after,.extensions__block-add.focus:after{border-color:#8B29B9}.items-line__more{background:rgba(255,255,255,.1)}.items-line__more.focus{background:#8B29B9!important;color:#fff!important}.torrent-serial__size{background-color:#fff;color:#000}.broadcast__scan>div,.broadcast__device.focus{background-color:#8B29B9;color:#fff}.card:hover .card__img,.card.focus .card__img{border-color:#8B29B9}.noty{background:#8B29B9;color:#fff}.radio-player.focus{background-color:#8B29B9;color:#fff}.explorer-card__head-img.focus::after{border:.3em solid #8B29B9}',
@@ -98,7 +92,6 @@
                '.settings-folder.focus .settings-folder__icon img { filter: ' + iconFilter + '; }';
     }
 
-    // 2. ЧИСТО АКЦЕНТНА ДИНАМІКА (БЕЗ !important та без фарбування body)
     function generateDynamicFocusCSS(mainHex) {
         var hsl = hexToHsl(mainHex);
         var r = parseInt(mainHex.slice(1, 3), 16);
@@ -166,9 +159,6 @@
         document.head.appendChild(style);
     }
 
-    /* ==========================================================================
-       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ
-       ========================================================================== */
     function getCachedLogoColor(card) {
         var type = card.name ? 'tv' : 'movie';
         var id = card.id;
@@ -317,9 +307,6 @@
         });
     }
 
-    /* ==========================================================================
-       4. ДОВІРЕНЕ КОЛО ТА БЕЗПЕЧНІ СЛУХАЧІ
-       ========================================================================== */
     window.themesLastActivity = null; 
 
     Lampa.Listener.follow('activity', function (e) {
@@ -363,56 +350,52 @@
         } catch (err) {}
     });
 
-     /* ==========================================================================
-       4.5 ВІЗУАЛЬНИЙ ВИБІР КОЛЬОРУ (COLOR PICKER - ПУЛЬТ + СЕНСОР)
-       ========================================================================== */
     function showColorPicker() {
         var currentHex = Lampa.Storage.get('themes_custom_hex', '#3da18d');
         var hsl = hexToHsl(currentHex);
         
-        // Зберігаємо поточний контролер, щоб повернутися до нього
+        // Зберігаємо поточний контролер
         var previousController = Lampa.Controller.enabled().name;
 
         var modalHTML = `
             <div id="themes_color_picker_modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
                 <style>
-                    .tcp-range-container { margin-bottom:15px; padding: 10px 15px; border-radius: 8px; border: 2px solid transparent; transition: all 0.2s; }
-                    .tcp-range-container.focus { background: rgba(255,255,255,0.1); border-color: #fff; }
-                    .tcp-range { -webkit-appearance: none; width: 100%; background: transparent; margin: 10px 0; pointer-events: auto; }
+                    #themes_color_picker_modal * { box-sizing: border-box; }
+                    .tcp-range-container { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; border: 1px solid transparent; transition: all 0.2s ease; }
+                    .tcp-range-container.focus { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+                    .tcp-label { color: #a0a0a0; font-size: 13px; margin-bottom: 12px; font-weight: 500; transition: color 0.2s; }
+                    .tcp-range-container.focus .tcp-label { color: #fff; }
+                    .tcp-range { -webkit-appearance: none; width: 100%; background: transparent; margin: 0; pointer-events: auto; }
                     .tcp-range:focus { outline: none; }
-                    .tcp-range::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: rgba(255,255,255,0.2); border-radius: 3px; }
-                    .tcp-range::-webkit-slider-thumb { height: 20px; width: 20px; border-radius: 50%; background: #fff; cursor: pointer; -webkit-appearance: none; margin-top: -7px; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
-                    .tcp-btn { flex: 1; text-align: center; background: #333; padding: 12px; border-radius: 8px; cursor: pointer; color: #fff; font-size: 16px; border: 2px solid transparent; transition: all 0.2s; }
-                    .tcp-btn.focus { background: #fff; color: #000; font-weight: bold; }
+                    .tcp-range::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #333; border-radius: 3px; transition: background 0.2s; }
+                    .tcp-range-container.focus .tcp-range::-webkit-slider-runnable-track { background: #444; }
+                    .tcp-range::-webkit-slider-thumb { height: 20px; width: 20px; border-radius: 50%; background: #fff; cursor: pointer; -webkit-appearance: none; margin-top: -7px; box-shadow: 0 2px 6px rgba(0,0,0,0.6); transition: transform 0.1s; }
+                    .tcp-range-container.focus .tcp-range::-webkit-slider-thumb { transform: scale(1.15); }
+                    .tcp-btn { flex: 1; text-align: center; background: #2a2a2a; padding: 12px; border-radius: 8px; cursor: pointer; color: #ccc; font-size: 14px; border: 1px solid transparent; transition: all 0.2s ease; font-weight: 500; }
+                    .tcp-btn.focus, .tcp-btn:hover { background: #fff; color: #000; font-weight: 600; box-shadow: 0 4px 15px rgba(255,255,255,0.2); }
                 </style>
-                <div style="background:#1a1a1a;border-radius:12px;padding:25px;width:90%;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,0.5);border:1px solid #333;font-family:sans-serif;">
+                <div style="background:#141414;border-radius:12px;padding:25px;width:90%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.7);border:1px solid #2a2a2a;">
                     
-                    <div id="tcp_preview" style="background:${currentHex};height:100px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.4);border:2px solid #fff;margin-bottom:20px;">
+                    <div id="tcp_preview" style="background:${currentHex};height:110px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.5);border:2px solid rgba(255,255,255,0.9);margin-bottom:25px;letter-spacing:1px;">
                         ${currentHex.toUpperCase()}
                     </div>
 
                     <div class="tcp-range-container selector" data-type="h" data-step="5" data-max="360">
-                        <div style="color:#ccc;font-size:14px;margin-bottom:5px;display:flex;justify-content:space-between;">
-                            <span>Тон (Hue)</span><span class="tcp-val-text">${Math.round(hsl.h)}</span>
-                        </div>
+                        <div class="tcp-label">Тон (Hue)</div>
                         <input type="range" class="tcp-range" id="tcp_h" min="0" max="360" value="${hsl.h}">
                     </div>
                     
                     <div class="tcp-range-container selector" data-type="s" data-step="2" data-max="100">
-                        <div style="color:#ccc;font-size:14px;margin-bottom:5px;display:flex;justify-content:space-between;">
-                            <span>Насиченість (Saturation)</span><span class="tcp-val-text">${Math.round(hsl.s)}</span>
-                        </div>
+                        <div class="tcp-label">Насиченість (Saturation)</div>
                         <input type="range" class="tcp-range" id="tcp_s" min="0" max="100" value="${hsl.s}">
                     </div>
                     
                     <div class="tcp-range-container selector" data-type="l" data-step="2" data-max="100">
-                        <div style="color:#ccc;font-size:14px;margin-bottom:5px;display:flex;justify-content:space-between;">
-                            <span>Яскравість (Lightness)</span><span class="tcp-val-text">${Math.round(hsl.l)}</span>
-                        </div>
+                        <div class="tcp-label">Яскравість (Lightness)</div>
                         <input type="range" class="tcp-range" id="tcp_l" min="0" max="100" value="${hsl.l}">
                     </div>
 
-                    <div style="display:flex;justify-content:space-between;gap:15px;margin-top:25px;">
+                    <div style="display:flex;justify-content:space-between;gap:12px;margin-top:20px;">
                         <div id="tcp_save" class="tcp-btn selector">Зберегти</div>
                         <div id="tcp_cancel" class="tcp-btn selector">Скасувати</div>
                     </div>
@@ -433,11 +416,6 @@
             var s = parseFloat(sSlider.val());
             var l = parseFloat(lSlider.val());
             
-            // Оновлюємо цифри над повзунками
-            hSlider.siblings('div').find('.tcp-val-text').text(Math.round(h));
-            sSlider.siblings('div').find('.tcp-val-text').text(Math.round(s));
-            lSlider.siblings('div').find('.tcp-val-text').text(Math.round(l));
-
             var newHex = hslToHex(h, s, l);
             preview.css('background', newHex).text(newHex.toUpperCase());
             return newHex;
@@ -448,10 +426,9 @@
 
         var closeModal = function() {
             modal.remove();
-            Lampa.Controller.toggle(previousController); // Повертаємо фокус у налаштування
+            Lampa.Controller.toggle(previousController); 
         };
 
-        // Дії кнопок (працюють і на клік, і на пульт через події контролера)
         $('#tcp_save').on('hover:enter click', function() {
             var finalHex = updateColor();
             Lampa.Storage.set('themes_custom_hex', finalHex);
@@ -464,7 +441,6 @@
 
         $('#tcp_cancel').on('hover:enter click', closeModal);
 
-        // === НАВІГАЦІЯ ПУЛЬТОМ (LAMPA CONTROLLER) ===
         Lampa.Controller.add('themes_color_picker', {
             toggle: function() {
                 Lampa.Controller.collectionSet(modal);
@@ -479,27 +455,23 @@
             left: function() {
                 var focused = modal.find('.selector.focus');
                 if (focused.hasClass('tcp-range-container')) {
-                    // Рух повзунка вліво
                     var input = focused.find('input');
                     var step = parseFloat(focused.data('step'));
                     var val = parseFloat(input.val()) - step;
                     input.val(val < 0 ? 0 : val).trigger('input');
                 } else if (focused.attr('id') === 'tcp_cancel') {
-                    // Перехід з кнопки "Скасувати" на "Зберегти"
                     Lampa.Controller.collectionFocus(modal.find('#tcp_save')[0], modal);
                 }
             },
             right: function() {
                 var focused = modal.find('.selector.focus');
                 if (focused.hasClass('tcp-range-container')) {
-                    // Рух повзунка вправо
                     var input = focused.find('input');
                     var step = parseFloat(focused.data('step'));
                     var max = parseFloat(focused.data('max'));
                     var val = parseFloat(input.val()) + step;
                     input.val(val > max ? max : val).trigger('input');
                 } else if (focused.attr('id') === 'tcp_save') {
-                    // Перехід з кнопки "Зберегти" на "Скасувати"
                     Lampa.Controller.collectionFocus(modal.find('#tcp_cancel')[0], modal);
                 }
             },
@@ -508,14 +480,9 @@
             }
         });
 
-        // Активуємо наш новий контролер
         Lampa.Controller.toggle('themes_color_picker');
     }
 
-
-    /* ==========================================================================
-       5. НАЛАШТУВАННЯ В МЕНЮ (Без Color Picker)
-       ========================================================================== */
     function initPlugin() {
         Lampa.SettingsApi.addComponent({
             component: 'themes_plugin',
@@ -586,7 +553,7 @@
 
     var pluginManifest = {
         type: 'interface',
-        version: '2.0',
+        version: '2.1',
         name: 'Теми інтерфейсу',
         description: 'Динамічні теми та візуальна кастомізація',
         author: '@bodya_elven',
