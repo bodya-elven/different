@@ -363,6 +363,156 @@
         } catch (err) {}
     });
 
+     /* ==========================================================================
+       4.5 ВІЗУАЛЬНИЙ ВИБІР КОЛЬОРУ (COLOR PICKER - ПУЛЬТ + СЕНСОР)
+       ========================================================================== */
+    function showColorPicker() {
+        var currentHex = Lampa.Storage.get('themes_custom_hex', '#3da18d');
+        var hsl = hexToHsl(currentHex);
+        
+        // Зберігаємо поточний контролер, щоб повернутися до нього
+        var previousController = Lampa.Controller.enabled().name;
+
+        var modalHTML = `
+            <div id="themes_color_picker_modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
+                <style>
+                    .tcp-range-container { margin-bottom:15px; padding: 10px 15px; border-radius: 8px; border: 2px solid transparent; transition: all 0.2s; }
+                    .tcp-range-container.focus { background: rgba(255,255,255,0.1); border-color: #fff; }
+                    .tcp-range { -webkit-appearance: none; width: 100%; background: transparent; margin: 10px 0; pointer-events: auto; }
+                    .tcp-range:focus { outline: none; }
+                    .tcp-range::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: rgba(255,255,255,0.2); border-radius: 3px; }
+                    .tcp-range::-webkit-slider-thumb { height: 20px; width: 20px; border-radius: 50%; background: #fff; cursor: pointer; -webkit-appearance: none; margin-top: -7px; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+                    .tcp-btn { flex: 1; text-align: center; background: #333; padding: 12px; border-radius: 8px; cursor: pointer; color: #fff; font-size: 16px; border: 2px solid transparent; transition: all 0.2s; }
+                    .tcp-btn.focus { background: #fff; color: #000; font-weight: bold; }
+                </style>
+                <div style="background:#1a1a1a;border-radius:12px;padding:25px;width:90%;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,0.5);border:1px solid #333;font-family:sans-serif;">
+                    
+                    <div id="tcp_preview" style="background:${currentHex};height:100px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.4);border:2px solid #fff;margin-bottom:20px;">
+                        ${currentHex.toUpperCase()}
+                    </div>
+
+                    <div class="tcp-range-container selector" data-type="h" data-step="5" data-max="360">
+                        <div style="color:#ccc;font-size:14px;margin-bottom:5px;display:flex;justify-content:space-between;">
+                            <span>Тон (Hue)</span><span class="tcp-val-text">${Math.round(hsl.h)}</span>
+                        </div>
+                        <input type="range" class="tcp-range" id="tcp_h" min="0" max="360" value="${hsl.h}">
+                    </div>
+                    
+                    <div class="tcp-range-container selector" data-type="s" data-step="2" data-max="100">
+                        <div style="color:#ccc;font-size:14px;margin-bottom:5px;display:flex;justify-content:space-between;">
+                            <span>Насиченість (Saturation)</span><span class="tcp-val-text">${Math.round(hsl.s)}</span>
+                        </div>
+                        <input type="range" class="tcp-range" id="tcp_s" min="0" max="100" value="${hsl.s}">
+                    </div>
+                    
+                    <div class="tcp-range-container selector" data-type="l" data-step="2" data-max="100">
+                        <div style="color:#ccc;font-size:14px;margin-bottom:5px;display:flex;justify-content:space-between;">
+                            <span>Яскравість (Lightness)</span><span class="tcp-val-text">${Math.round(hsl.l)}</span>
+                        </div>
+                        <input type="range" class="tcp-range" id="tcp_l" min="0" max="100" value="${hsl.l}">
+                    </div>
+
+                    <div style="display:flex;justify-content:space-between;gap:15px;margin-top:25px;">
+                        <div id="tcp_save" class="tcp-btn selector">Зберегти</div>
+                        <div id="tcp_cancel" class="tcp-btn selector">Скасувати</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        $('body').append(modalHTML);
+
+        var modal = $('#themes_color_picker_modal');
+        var preview = $('#tcp_preview');
+        var hSlider = $('#tcp_h');
+        var sSlider = $('#tcp_s');
+        var lSlider = $('#tcp_l');
+
+        function updateColor() {
+            var h = parseFloat(hSlider.val());
+            var s = parseFloat(sSlider.val());
+            var l = parseFloat(lSlider.val());
+            
+            // Оновлюємо цифри над повзунками
+            hSlider.siblings('div').find('.tcp-val-text').text(Math.round(h));
+            sSlider.siblings('div').find('.tcp-val-text').text(Math.round(s));
+            lSlider.siblings('div').find('.tcp-val-text').text(Math.round(l));
+
+            var newHex = hslToHex(h, s, l);
+            preview.css('background', newHex).text(newHex.toUpperCase());
+            return newHex;
+        }
+
+        // Для сенсорного екрану / мишки
+        modal.find('.tcp-range').on('input', updateColor);
+
+        var closeModal = function() {
+            modal.remove();
+            Lampa.Controller.toggle(previousController); // Повертаємо фокус у налаштування
+        };
+
+        // Дії кнопок (працюють і на клік, і на пульт через події контролера)
+        $('#tcp_save').on('hover:enter click', function() {
+            var finalHex = updateColor();
+            Lampa.Storage.set('themes_custom_hex', finalHex);
+            applyTheme();
+            
+            var hexInput = $('div[data-name="themes_custom_hex"] .settings-param__value');
+            if(hexInput.length) hexInput.text(finalHex);
+            closeModal();
+        });
+
+        $('#tcp_cancel').on('hover:enter click', closeModal);
+
+        // === НАВІГАЦІЯ ПУЛЬТОМ (LAMPA CONTROLLER) ===
+        Lampa.Controller.add('themes_color_picker', {
+            toggle: function() {
+                Lampa.Controller.collectionSet(modal);
+                Lampa.Controller.collectionFocus(modal.find('.selector')[0], modal);
+            },
+            up: function() {
+                Lampa.Navigator.direction('up');
+            },
+            down: function() {
+                Lampa.Navigator.direction('down');
+            },
+            left: function() {
+                var focused = modal.find('.selector.focus');
+                if (focused.hasClass('tcp-range-container')) {
+                    // Рух повзунка вліво
+                    var input = focused.find('input');
+                    var step = parseFloat(focused.data('step'));
+                    var val = parseFloat(input.val()) - step;
+                    input.val(val < 0 ? 0 : val).trigger('input');
+                } else if (focused.attr('id') === 'tcp_cancel') {
+                    // Перехід з кнопки "Скасувати" на "Зберегти"
+                    Lampa.Controller.collectionFocus(modal.find('#tcp_save')[0], modal);
+                }
+            },
+            right: function() {
+                var focused = modal.find('.selector.focus');
+                if (focused.hasClass('tcp-range-container')) {
+                    // Рух повзунка вправо
+                    var input = focused.find('input');
+                    var step = parseFloat(focused.data('step'));
+                    var max = parseFloat(focused.data('max'));
+                    var val = parseFloat(input.val()) + step;
+                    input.val(val > max ? max : val).trigger('input');
+                } else if (focused.attr('id') === 'tcp_save') {
+                    // Перехід з кнопки "Зберегти" на "Скасувати"
+                    Lampa.Controller.collectionFocus(modal.find('#tcp_cancel')[0], modal);
+                }
+            },
+            back: function() {
+                closeModal();
+            }
+        });
+
+        // Активуємо наш новий контролер
+        Lampa.Controller.toggle('themes_color_picker');
+    }
+
+
     /* ==========================================================================
        5. НАЛАШТУВАННЯ В МЕНЮ (Без Color Picker)
        ========================================================================== */
@@ -392,6 +542,15 @@
             param: { name: 'themes_custom_hex', type: 'input', values: '', 'default': '#3da18d' },
             field: { name: 'Власний HEX колір', description: 'Введіть колір у форматі #RRGGBB' },
             onChange: function() { applyTheme(); }
+        });
+
+                Lampa.SettingsApi.addParam({
+            component: 'themes_plugin',
+            param: { name: 'themes_visual_picker', type: 'button' }, // Використовуємо button!
+            field: { name: 'Вибір кольору', description: 'Палітра для зручного налаштування кольору' },
+            onChange: function() {
+                showColorPicker();
+            }
         });
 
         Lampa.SettingsApi.addParam({
