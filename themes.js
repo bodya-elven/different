@@ -447,42 +447,91 @@
 
         $('#tcp_cancel').on('hover:enter click', closeModal);
 
-        // Змінні для вимірювання швидкості натискання
-        var lastMoveTime = 0;
-        var moveSpeedMultiplier = 1;
+        // === ПЛАВНА АНІМАЦІЯ (60 FPS) ===
+        var moveAnimationId = null;
+        var currentDirection = null;
+        var currentSpeed = 0;
+        var lastInputTime = 0;
+        var isMoving = false;
+        var consecutiveInputs = 0; 
 
-        // Загальна функція для руху (щоб не дублювати код)
-        function handleSliderMove(direction) {
+        function startSmoothMove() {
+            if (isMoving) return;
+            isMoving = true;
+            
+            function step() {
+                var now = Date.now();
+                // Якщо пульт мовчить більше 150мс - вважаємо кнопку відпущеною
+                if (now - lastInputTime > 150) {
+                    isMoving = false;
+                    currentSpeed = 0;
+                    currentDirection = null;
+                    consecutiveInputs = 0; // Скидаємо лічильник
+                    cancelAnimationFrame(moveAnimationId);
+                    return;
+                }
+
+                var focused = modal.find('.selector.focus');
+                // Рухаємо автоматично ТІЛЬКИ якщо було більше 1 команди поспіль (реальне затискання)
+                if (focused.hasClass('tcp-range-container') && consecutiveInputs > 1) {
+                    var input = focused.find('input');
+                    var baseStep = parseFloat(focused.data('step'));
+                    var max = parseFloat(focused.data('max'));
+                    
+                    // Розгін швидкості
+                    currentSpeed = Math.min(currentSpeed + 0.15, 3.5); 
+                    var actualStep = baseStep * currentSpeed;
+                    var val = parseFloat(input.val());
+                    
+                    if (currentDirection === 'left') {
+                        val -= actualStep;
+                    } else if (currentDirection === 'right') {
+                        val += actualStep;
+                    }
+                    
+                    val = Math.max(0, Math.min(max, val));
+                    input.val(val).trigger('input');
+                }
+                
+                if (isMoving) {
+                    moveAnimationId = requestAnimationFrame(step);
+                }
+            }
+            moveAnimationId = requestAnimationFrame(step);
+        }
+
+        function handleSliderInput(direction) {
             var focused = modal.find('.selector.focus');
             if (focused.hasClass('tcp-range-container')) {
                 var now = Date.now();
                 
-                // Якщо пульт затиснуто (команди йдуть швидко)
-                if (now - lastMoveTime < 150) {
-                    moveSpeedMultiplier = Math.min(moveSpeedMultiplier * 1.25, 10); // Розганяємо крок максимум до x10
-                } else {
-                    moveSpeedMultiplier = 1; // Скидаємо, якщо кнопка була відпущена
-                }
-                lastMoveTime = now;
-
-                var input = focused.find('input');
-                var baseStep = parseFloat(focused.data('step'));
-                var max = parseFloat(focused.data('max'));
-                
-                var actualStep = baseStep * moveSpeedMultiplier; // Застосовуємо прискорення
-                var val = parseFloat(input.val());
-                
-                if (direction === 'left') {
-                    val -= actualStep;
-                } else {
-                    val += actualStep;
+                // Якщо різко змінили напрямок або була пауза - скидаємо інерцію і лічильник
+                if (currentDirection !== direction || now - lastInputTime > 200) {
+                    currentSpeed = 0;
+                    consecutiveInputs = 0; 
                 }
                 
-                // Запобіжник, щоб не вийти за межі
-                val = Math.max(0, Math.min(max, val));
-                input.val(val).trigger('input');
+                currentDirection = direction;
+                lastInputTime = now;
+                consecutiveInputs++; // Реєструємо клік
+                
+                // Якщо це перший клік - робимо точний одиничний крок
+                if (!isMoving) {
+                    var input = focused.find('input');
+                    var val = parseFloat(input.val());
+                    var max = parseFloat(focused.data('max'));
+                    var baseStep = parseFloat(focused.data('step'));
+                    
+                    if (direction === 'left') val -= baseStep;
+                    else val += baseStep;
+                    
+                    val = Math.max(0, Math.min(max, val));
+                    input.val(val).trigger('input');
+                    
+                    startSmoothMove(); 
+                }
             } else {
-                // Навігація по кнопках знизу
+                // Навігація по нижніх кнопках
                 if (direction === 'left' && focused.attr('id') === 'tcp_cancel') {
                     Lampa.Controller.collectionFocus(modal.find('#tcp_save')[0], modal);
                 } else if (direction === 'right' && focused.attr('id') === 'tcp_save') {
@@ -499,26 +548,18 @@
             up: function() {
                 var items = modal.find('.selector');
                 var idx = items.index(modal.find('.selector.focus'));
-                // Якщо ми на кнопці Скасувати (індекс 4), переходимо на Яскравість (індекс 2)
                 if (idx === 4) Lampa.Controller.collectionFocus(items.eq(2)[0], modal);
-                // Інакше просто рухаємось на 1 крок вгору
                 else if (idx > 0) Lampa.Controller.collectionFocus(items.eq(idx - 1)[0], modal);
             },
             down: function() {
                 var items = modal.find('.selector');
                 var idx = items.index(modal.find('.selector.focus'));
-                // Якщо ми на повзунках (індекси 0, 1, 2), можемо йти вниз
                 if (idx < 3) Lampa.Controller.collectionFocus(items.eq(idx + 1)[0], modal);
             },
-            left: function() {
-                handleSliderMove('left');
-            },
-            right: function() {
-                handleSliderMove('right');
-            },
+            left: function() { handleSliderInput('left'); },
+            right: function() { handleSliderInput('right'); },
             back: function() { closeModal(); }
         });
-        
 
         Lampa.Controller.toggle('themes_color_picker');
 
@@ -595,7 +636,7 @@
 
     var pluginManifest = {
         type: 'interface',
-        version: '2.2',
+        version: '2.3',
         name: 'Теми інтерфейсу',
         description: 'Динамічні теми та візуальна кастомізація',
         author: '@bodya_elven',
