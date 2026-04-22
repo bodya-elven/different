@@ -2,18 +2,16 @@
     'use strict';
 
     /* ==========================================================================
-       1. ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ КОЛЬОРІВ ТА МАТЕМАТИКИ (ES5 Safe)
+       1. ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ КОЛЬОРІВ ТА МАТЕМАТИКИ
        ========================================================================== */
     function hexToHsl(hex) {
         var r = parseInt(hex.slice(1, 3), 16) / 255;
         var g = parseInt(hex.slice(3, 5), 16) / 255;
         var b = parseInt(hex.slice(5, 7), 16) / 255;
         var max = Math.max(r, g, b), min = Math.min(r, g, b);
-        var h, s, l = (max + min) / 2;
+        var h = 0, s = 0, l = (max + min) / 2;
         
-        if (max === min) {
-            h = s = 0;
-        } else {
+        if (max !== min) {
             var d = max - min;
             s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
             switch (max) {
@@ -69,14 +67,16 @@
         emerald: '#43cea2'
     };
 
-    // ГЕНЕРАТОР БАЗОВОЇ ТЕМИ
+    // 1. СТРОГІ СІРІ ФОНИ ДЛЯ ВЛАСНОГО КОЛЬОРУ
     function generateCustomMintCSS(mainHex, svgCode) {
         var hsl = hexToHsl(mainHex);
         var secondary = hslToHex((hsl.h + 12) % 360, hsl.s + 8, hsl.l - 19);
+        
         var bg1 = '#0d0d0d'; 
         var bg2 = '#121212';
         var modal = 'rgba(18, 18, 18, 0.96)';
         var cardBg = '#1a1a1a';
+        
         var txtCol = getContrastColor(mainHex);
         var iconFilter = (txtCol === '#000000') ? 'brightness(0)' : 'brightness(0) invert(1)';
 
@@ -84,6 +84,7 @@
                '.card__quality, .card--tv .card__type {background: linear-gradient(to right, ' + secondary + 'dd, ' + mainHex + 'dd);}' +
                '.screensaver__preload {background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50%}' +
                '.activity__loader {position:absolute;top:0;left:0;width:100%;height:100%;display:none;background:url("data:image/svg+xml,' + svgCode + '") no-repeat 50% 50%}' +
+               'body, .extensions {background: linear-gradient(135deg, ' + bg1 + ', ' + bg2 + ');color: #ffffff;}' +
                '.company-start.icon--broken .company-start__icon,.explorer-card__head-img > img,.bookmarks-folder__layer,.card-more__box,.card__img,.extensions__block-add,.extensions__item {background-color: ' + cardBg + ';}' +
                '.search-source.focus,.simple-button.focus,.menu__item.focus,.menu__item.traverse,.menu__item.hover,.full-start__button.focus,.full-descr__tag.focus,.player-panel .button.focus,.full-person.selector.focus,.tag-count.selector.focus,.full-review.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ');color: ' + txtCol + ';box-shadow: 0 0.0em 0.4em rgba(0,0,0, 0.0);}' +
                '.selectbox-item.focus,.settings-folder.focus,.settings-param.focus {background: linear-gradient(to right, ' + secondary + ', ' + mainHex + ');color: ' + txtCol + ';box-shadow: 0 0.0em 0.4em rgba(0,0,0, 0.0);border-radius: 0.5em 0 0 0.5em;}' +
@@ -95,9 +96,9 @@
                '.torrent-serial.focus {background-color: ' + bg2 + 'cc;border: 0.2em solid ' + mainHex + ';}' +
                '.search-source.focus svg, .simple-button.focus svg, .menu__item.focus svg, .menu__item.traverse svg, .menu__item.hover svg, .full-start__button.focus svg, .full-descr__tag.focus svg, .player-panel .button.focus svg, .full-person.selector.focus svg, .tag-count.selector.focus svg, .full-review.focus svg, .selectbox-item.focus svg, .settings-folder.focus svg, .settings-param.focus svg { fill: ' + txtCol + '; color: ' + txtCol + '; } ' +
                '.settings-folder.focus .settings-folder__icon img { filter: ' + iconFilter + '; }';
-
     }
 
+    // 2. ЧИСТО АКЦЕНТНА ДИНАМІКА (БЕЗ !important та без фарбування body)
     function generateDynamicFocusCSS(mainHex) {
         var hsl = hexToHsl(mainHex);
         var r = parseInt(mainHex.slice(1, 3), 16);
@@ -107,6 +108,7 @@
         
         var isLight = yiq >= 140;
         var txtCol = isLight ? '#000000' : '#ffffff';
+        
         var gradL = isLight ? hsl.l - 10 : hsl.l + 10;
         gradL = Math.max(0, Math.min(100, gradL));
         var secondaryHex = hslToHex(hsl.h, hsl.s, gradL);
@@ -125,10 +127,6 @@
                '.torrent-serial.focus { background-color: ' + secondaryHex + '44; border: 0.2em solid ' + mainHex + '; }';
     }
 
-
-
-    window.themes_dynamic_current_hex = null;
-
     function applyTheme() {
         var type = Lampa.Storage.get('themes_theme_type', 'presets');
         var theme = Lampa.Storage.get('themes_interface_preset', 'default');
@@ -141,27 +139,14 @@
         var style = document.createElement('style');
         style.id = 'interface_theme_mod_style';
         
-        var active = Lampa.Activity.active();
         var baseHex = (type === 'custom') ? customHex : (loaderColors[theme] || loaderColors.default);
-        
+        var active = Lampa.Activity.active();
         var currentThemesColor = null;
-        if (isDynamicEnabled && active) {
-            if (active.themes_color) {
-                currentThemesColor = active.themes_color;
-            } else {
-                // Шукаємо ID фільму в поточної активності (працює для Торрентів та Онлайну)
-                var card = active.card || active.movie;
-                if (card && card.id) {
-                    var cached = getCachedLogoColor(card);
-                    if (cached) {
-                        currentThemesColor = rgbToHex(cached.r, cached.g, cached.b);
-                        active.themes_color = currentThemesColor;
-                    }
-                }
-            }
+
+        if (isDynamicEnabled && active && active.themes_color) {
+            currentThemesColor = active.themes_color;
         }
 
-        
         var svgCode = encodeURIComponent(
             '<svg xmlns="http://www.w3.org/2000/svg" width="135" height="140" fill="' + (currentThemesColor || baseHex) + '"><rect width="15" height="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="30" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="140" x="60" rx="6"><animate attributeName="height" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="90" y="10" rx="6"><animate attributeName="height" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.25s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect><rect width="15" height="120" x="120" y="10" rx="6"><animate attributeName="height" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="120;110;100;90;80;70;60;50;40;140;120"/><animate attributeName="y" begin="0.5s" calcMode="linear" dur="1s" repeatCount="indefinite" values="10;15;20;25;30;35;40;45;50;0;10"/></rect></svg>'
         );
@@ -173,18 +158,16 @@
             finalCSS = (themes[theme] || themes['default']).replace(/\${svgCode}/g, svgCode);
         }
 
-        // Застосовуємо динамічний фокус, якщо колір знайдено для цієї активності
         if (currentThemesColor) {
             finalCSS += '\n/* Dynamic Focus Overrides */\n' + generateDynamicFocusCSS(currentThemesColor);
         }
-
 
         style.textContent = finalCSS;
         document.head.appendChild(style);
     }
 
     /* ==========================================================================
-       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ З ПОСТЕРА/ЛОГО (Новий План Б)
+       3. ЛОГІКА ВИТЯГУВАННЯ КОЛЬОРУ
        ========================================================================== */
     function getCachedLogoColor(card) {
         var type = card.name ? 'tv' : 'movie';
@@ -209,6 +192,7 @@
         var id = card.id;
         var url = 'https://api.themoviedb.org/3/' + type + '/' + id + '/images?api_key=' + tmdbKey;
         
+        // 3. ВИПРАВЛЕНО Lampa.Request замість Reguest
         var network = new Lampa.Request();
         network.silent(url, function(data) {
             if (!data || !data.logos || data.logos.length === 0) return callback(null);
@@ -223,7 +207,6 @@
                     if (data.logos[i].iso_639_1 === 'en') { logo = data.logos[i]; break; }
                 }
             }
-            // Якщо немає ні UK, ні EN - скасовуємо динаміку
             if (!logo || !logo.file_path) return callback(null);
 
             var img = new Image();
@@ -256,17 +239,14 @@
 
                     if (isWhite) { wCount++; wR += r; wG += g; wB += b; } 
                     else if (isBlack) { bCount++; bR += r; bG += g; bB += b; } 
-                    else if (isGray) { /* Ігноруємо брудний сірий */ }
+                    else if (isGray) { }
                     else {
                         var step = 32;
                         var key = Math.floor(r / step) + ',' + Math.floor(g / step) + ',' + Math.floor(b / step);
                         if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
                         
-                        // Розрахунок насиченості пікселя (Saturation)
                         var maxVal = Math.max(r, g, b), minVal = Math.min(r, g, b);
                         var sat = maxVal === 0 ? 0 : (maxVal - minVal) / maxVal;
-                        
-                        // Чим соковитіший колір, тим більше "голосів" він отримує (до 6 разів більше за білий)
                         var weight = 1 + (sat * 5); 
                         
                         buckets[key].count += weight; 
@@ -281,12 +261,10 @@
                 var validBuckets = [];
                 var k;
 
-                // ФАЗА 1: Шукаємо колір >= 10%
                 for (k in buckets) {
                     if ((buckets[k].count / totalPixels) * 100 >= 10) validBuckets.push(buckets[k]);
                 }
 
-                // ФАЗА 2: План Б (Синдром веселки). Якщо немає 10%, шукаємо найбільший колір >= 3%
                 if (validBuckets.length === 0) {
                     var maxColorBkt = null;
                     for (k in buckets) {
@@ -297,7 +275,6 @@
                     }
                 }
 
-                // ФАЗА 3: Якщо навіть 3% кольору немає, перевіряємо чорний та білий (>= 10%)
                 if (validBuckets.length === 0) {
                     var ignoreWhite = Lampa.Storage.get('themes_dynamic_ignore_white', true);
                     var wPercent = (wCount / totalPixels) * 100;
@@ -305,11 +282,9 @@
 
                     if (wPercent >= 10 || bPercent >= 10) {
                         if (wPercent > bPercent) {
-                            // Якщо переважає білий колір
                             if (ignoreWhite) return callback(null); 
                             validBuckets.push({ count: wCount, r: wR, g: wG, b: wB });
                         } else {
-                            // Якщо переважає чорний колір
                             validBuckets.push({ count: bCount, r: bR, g: bG, b: bB });
                         }
                     }
@@ -320,7 +295,6 @@
                 validBuckets.sort(function(a, b) { return b.count - a.count; });
                 var best = validBuckets[0];
 
-                // Колір береться РІВНО ТАКИМ, ЯКИМ ВІН Є
                 var finalR = Math.floor(best.r / best.count);
                 var finalG = Math.floor(best.g / best.count);
                 var finalB = Math.floor(best.b / best.count);
@@ -342,8 +316,9 @@
             callback(null); 
         });
     }
+
     /* ==========================================================================
-       4. ГЛОБАЛЬНИЙ СЛУХАЧ АКТИВНОСТІ ТА КАРТОК
+       4. ДОВІРЕНЕ КОЛО ТА БЕЗПЕЧНІ СЛУХАЧІ
        ========================================================================== */
     window.themesLastActivity = null; 
 
@@ -361,7 +336,7 @@
                 window.themesLastActivity = active; 
                 applyTheme();
             }
-        } catch (err) { console.log('Themes Error:', err); }
+        } catch (err) {}
     });
     
     Lampa.Listener.follow('full', function (e) {
@@ -385,160 +360,13 @@
                     });
                 }
             }
-        } catch (err) { console.log('Themes Error:', err); }
+        } catch (err) {}
     });
-
-
-    
-    Lampa.Listener.follow('full', function (e) {
-        if (!Lampa.Storage.get('themes_dynamic_theme', false)) return;
-
-        if (e.type === 'complite' || e.type === 'complete') {
-            var card = (e.data && e.data.movie) ? e.data.movie : (e.object || {});
-            var targetActivity = e.object; 
-            if (!targetActivity) return;
-
-            var cachedColor = getCachedLogoColor(card);
-            if (cachedColor) {
-                targetActivity.themes_color = rgbToHex(cachedColor.r, cachedColor.g, cachedColor.b);
-                applyTheme();
-            } else {
-                fetchLogoColor(card, function(colorData) {
-                    if (colorData && targetActivity) {
-                        targetActivity.themes_color = rgbToHex(colorData.r, colorData.g, colorData.b);
-                        if (Lampa.Activity.active() === targetActivity) applyTheme();
-                    }
-                });
-            }
-        }
-    });
-
-    
 
     /* ==========================================================================
-       5. НАЛАШТУВАННЯ В МЕНЮ
+       5. НАЛАШТУВАННЯ В МЕНЮ (Без Color Picker)
        ========================================================================== */
     function initPlugin() {
-        // Стилі для візуального вибору кольору
-        if (!$('#themes-picker-styles').length) {
-            $('<style id="themes-picker-styles">').prop('type', 'text/css').html(
-                '.themes-picker { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5002; display: flex; align-items: center; justify-content: center; }' +
-                '.themes-picker__body { width: 400px; background: #1a1a1a; padding: 20px; border-radius: 12px; border: 2px solid #333; display: flex; flex-direction: column; gap: 20px; pointer-events: auto; }' +
-                '.themes-picker__preview { height: 100px; border-radius: 8px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 1.5em; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }' +
-                '.themes-picker__row { display: flex; flex-direction: column; gap: 8px; padding: 10px 5px; touch-action: none; }' +
-                '.themes-picker__range { width: 100%; height: 12px; background: #333; border-radius: 6px; position: relative; pointer-events: none; }' +
-                '.themes-picker__range-active { position: absolute; top: 50%; width: 24px; height: 24px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #000; transition: box-shadow 0.1s; }' +
-                '.themes-picker__row.focus .themes-picker__range-active { border-color: #ff0; box-shadow: 0 0 15px #ff0, 0 0 5px #ff0; }' +
-                '.themes-picker__footer { display: flex; justify-content: space-between; margin-top: 10px; }' +
-                '.themes-picker__btn { padding: 10px 25px; background: #333; border-radius: 6px; text-align: center; }' +
-                '.themes-picker__btn.focus { background: #fff; color: #000; }'
-            ).appendTo('head');
-        }
-
-        var showColorPicker = function() {
-            $('.themes-picker').remove();
-            $(window).off('mousemove touchmove', window.themesMove);
-            $(window).off('mouseup touchend', window.themesEnd);
-            Lampa.Controller.remove('themes_color_picker');
-
-            var currentHex = Lampa.Storage.get('themes_custom_hex', '#3da18d');
-            var hsl = hexToHsl(currentHex);
-            var h = hsl.h, s = hsl.s, l = hsl.l;
-            
-            var modal = $('<div class="themes-picker"><div class="themes-picker__body">' +
-                '<div class="themes-picker__preview">#000000</div>' +
-                '<div class="themes-picker__row selector" data-type="h"><div class="themes-picker__label">Тон</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
-                '<div class="themes-picker__row selector" data-type="s"><div class="themes-picker__label">Насиченість</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
-                '<div class="themes-picker__row selector" data-type="l"><div class="themes-picker__label">Яскравість</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
-                '<div class="themes-picker__footer"><div class="themes-picker__btn selector" data-action="save">Зберегти</div><div class="themes-picker__btn selector" data-action="cancel">Скасувати</div></div>' +
-            '</div></div>');
-
-            function update() {
-                var hex = hslToHex(h, s, l);
-                modal.find('.themes-picker__preview').css({'background': hex, 'color': getContrastColor(hex)}).text(hex.toUpperCase());
-                modal.find('[data-type="h"] .themes-picker__range-active').css('left', (h / 3.6) + '%');
-                modal.find('[data-type="s"] .themes-picker__range-active').css('left', s + '%');
-                modal.find('[data-type="l"] .themes-picker__range-active').css('left', l + '%');
-            }
-
-            var isDragging = false, activeSlider = null;
-            function handleDrag(e, target) {
-                var rect = target.find('.themes-picker__range')[0].getBoundingClientRect();
-                var clientX = e.clientX || (e.originalEvent && e.originalEvent.touches ? e.originalEvent.touches[0].clientX : 0);
-                var percent = Math.min(100, Math.max(0, (clientX - rect.left) / rect.width * 100));
-                var type = target.data('type');
-                if (type === 'h') h = Math.floor(percent * 3.6);
-                if (type === 's') s = Math.floor(percent);
-                if (type === 'l') l = Math.floor(percent);
-                update();
-            }
-
-            window.themesMove = function(e) { if (isDragging && activeSlider) handleDrag(e, activeSlider); };
-            window.themesEnd = function() { isDragging = false; activeSlider = null; };
-            $(window).on('mousemove touchmove', window.themesMove);
-            $(window).on('mouseup touchend', window.themesEnd);
-
-            var close = function() { 
-                $(window).off('mousemove touchmove', window.themesMove);
-                $(window).off('mouseup touchend', window.themesEnd);
-                modal.remove(); 
-                Lampa.Controller.remove('themes_color_picker');
-                Lampa.Controller.toggle('settings_component'); 
-            };
-
-            modal.find('[data-action="save"]').on('click hover:enter', function() {
-                Lampa.Storage.set('themes_custom_hex', hslToHex(h, s, l));
-                applyTheme(); Lampa.Settings.update(); close();
-            });
-            modal.find('[data-action="cancel"]').on('click hover:enter', close);
-            modal.find('.themes-picker__row').on('mousedown touchstart', function(e) {
-                isDragging = true; activeSlider = $(this); handleDrag(e, activeSlider);
-                Lampa.Controller.collectionFocus(this, modal[0]);
-            });
-
-            Lampa.Controller.add('themes_color_picker', {
-                toggle: function() { 
-                    Lampa.Controller.collectionSet(modal[0]); 
-                    Lampa.Controller.collectionFocus(modal.find('.themes-picker__row')[0], modal[0]); 
-                },
-                left: function() {
-                    var focused = modal.find('.selector.focus');
-                    if (focused.hasClass('themes-picker__row')) {
-                        var type = focused.data('type');
-                        if (type === 'h') h = (h - 5 + 360) % 360;
-                        if (type === 's') s = Math.max(0, s - 2);
-                        if (type === 'l') l = Math.max(0, l - 2);
-                        update();
-                    } else if (focused.data('action') === 'cancel') Lampa.Controller.collectionFocus(modal.find('[data-action="save"]')[0], modal[0]);
-                },
-                right: function() {
-                    var focused = modal.find('.selector.focus');
-                    if (focused.hasClass('themes-picker__row')) {
-                        var type = focused.data('type');
-                        if (type === 'h') h = (h + 5) % 360;
-                        if (type === 's') s = Math.min(100, s + 2);
-                        if (type === 'l') l = Math.min(100, l + 2);
-                        update();
-                    } else if (focused.data('action') === 'save') Lampa.Controller.collectionFocus(modal.find('[data-action="cancel"]')[0], modal[0]);
-                },
-                up: function() {
-                    var focused = modal.find('.selector.focus');
-                    if (focused.hasClass('themes-picker__btn')) Lampa.Controller.collectionFocus(modal.find('[data-type="l"]')[0], modal[0]);
-                    else if (focused.data('type') === 'l') Lampa.Controller.collectionFocus(modal.find('[data-type="s"]')[0], modal[0]);
-                    else if (focused.data('type') === 's') Lampa.Controller.collectionFocus(modal.find('[data-type="h"]')[0], modal[0]);
-                },
-                down: function() {
-                    var focused = modal.find('.selector.focus');
-                    if (focused.data('type') === 'h') Lampa.Controller.collectionFocus(modal.find('[data-type="s"]')[0], modal[0]);
-                    else if (focused.data('type') === 's') Lampa.Controller.collectionFocus(modal.find('[data-type="l"]')[0], modal[0]);
-                    else if (focused.data('type') === 'l') Lampa.Controller.collectionFocus(modal.find('[data-action="save"]')[0], modal[0]);
-                },
-                back: close
-            });
-            $('body').append(modal); Lampa.Controller.toggle('themes_color_picker'); update();
-        };
-
-
         Lampa.SettingsApi.addComponent({
             component: 'themes_plugin',
             name: 'Теми інтерфейсу',
@@ -568,25 +396,15 @@
 
         Lampa.SettingsApi.addParam({
             component: 'themes_plugin',
-            param: { name: 'themes_visual_picker', type: 'button' },
-            field: { name: 'Вибір кольору', description: 'Палітру для зручного налаштування акцентного кольору' },
-            onRender: function(item) {
-                item.on('hover:enter click', function() {
-                    showColorPicker();
-                });
-            }
-        });
-
-        
-        Lampa.SettingsApi.addParam({
-            component: 'themes_plugin',
             param: { name: 'themes_dynamic_theme', type: 'trigger', values: '', 'default': false },
             field: { name: 'Динамічна тема в картці фільму', description: 'Підлаштовує кнопки під колір логотипу' },
             onChange: function(val) {
                 var ignoreItem = $('div[data-name="themes_dynamic_ignore_white"]');
                 if (val) ignoreItem.show(); else ignoreItem.hide();
-                if (!val && window.themes_dynamic_current_hex) {
-                    window.themes_dynamic_current_hex = null;
+                
+                if (!val) {
+                    var active = Lampa.Activity.active();
+                    if (active) active.themes_color = null;
                     applyTheme();
                 }
             }
@@ -611,7 +429,7 @@
         type: 'interface',
         version: '2.0',
         name: 'Теми інтерфейсу',
-        description: 'Динамічні теми та візуальна кастомізація інтерфейсу',
+        description: 'Динамічні теми та візуальна кастомізація',
         author: '@bodya_elven',
         icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3V4M12 20V21M4 12H3M21 12H20M18.364 5.636L17.6569 6.34315M6.34315 17.6569L5.63604 18.364M18.364 18.364L17.6569 17.6569M6.34315 6.34315L5.63604 5.636M12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     };
