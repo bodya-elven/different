@@ -98,7 +98,6 @@
 
     }
 
-     // ДИНАМІЧНИЙ ФОКУС (М'які селектори, без !important)
     function generateDynamicFocusCSS(mainHex) {
         var hsl = hexToHsl(mainHex);
         var r = parseInt(mainHex.slice(1, 3), 16);
@@ -108,12 +107,10 @@
         
         var isLight = yiq >= 140;
         var txtCol = isLight ? '#000000' : '#ffffff';
-        
         var gradL = isLight ? hsl.l - 10 : hsl.l + 10;
         gradL = Math.max(0, Math.min(100, gradL));
         var secondaryHex = hslToHex(hsl.h, hsl.s, gradL);
 
-        // Жорстко блокуємо анімацію тексту без використання !important
         var resetTransition = 'transition: background-color 0.1s ease, border-color 0.1s ease, transform 0.3s ease; ';
 
         return ':root{--main-color:' + mainHex + '} ' +
@@ -127,6 +124,7 @@
                'border: 0.2em solid ' + mainHex + '; box-shadow: none; } ' + 
                '.torrent-serial.focus { background-color: ' + secondaryHex + '44; border: 0.2em solid ' + mainHex + '; }';
     }
+
 
 
     window.themes_dynamic_current_hex = null;
@@ -354,41 +352,26 @@
             if (e.type === 'start') {
                 var active = Lampa.Activity.active();
                 var trustedCircle = ['category_full', 'torrent_list', 'online_view', 'video_player', 'LampaUaNg'];
-
-                if (e.component === 'main') {
-                    if (active) active.themes_color = null;
-                } 
+                if (e.component === 'main') { if (active) active.themes_color = null; } 
                 else if (active && !active.themes_color && window.themesLastActivity) {
-                    var isTrustedHeir = trustedCircle.indexOf(e.component) > -1;
-
-                    if (isTrustedHeir && window.themesLastActivity.component === 'full' && window.themesLastActivity.themes_color) {
+                    if (trustedCircle.indexOf(e.component) > -1 && window.themesLastActivity.component === 'full' && window.themesLastActivity.themes_color) {
                         active.themes_color = window.themesLastActivity.themes_color;
                     }
                 }
-                
                 window.themesLastActivity = active; 
                 applyTheme();
             }
-        } catch (err) {
-            console.log('Themes Plugin Error (Activity):', err);
-        }
+        } catch (err) { console.log('Themes Error:', err); }
     });
     
     Lampa.Listener.follow('full', function (e) {
         try {
             if (!Lampa.Storage.get('themes_dynamic_theme', false)) return;
-
             if (e.type === 'complite' || e.type === 'complete') {
-                // Універсальне отримання картки: підтримує Головну, Пошук та Рекомендації
                 var card = e.data ? (e.data.movie || e.data.card || e.data) : {};
-                
-                // Якщо це не фільм/серіал (немає ID) - відбій, щоб не крашити систему
                 if (!card || (!card.id && !card.tmdb_id)) return; 
-
-                // Безпечно дістаємо активність компонента
-                var targetActivity = (e.object && e.object.activity) ? e.object.activity : Lampa.Activity.active(); 
+                var targetActivity = e.object; 
                 if (!targetActivity) return;
-
                 var cachedColor = getCachedLogoColor(card);
                 if (cachedColor) {
                     targetActivity.themes_color = rgbToHex(cachedColor.r, cachedColor.g, cachedColor.b);
@@ -397,16 +380,14 @@
                     fetchLogoColor(card, function(colorData) {
                         if (colorData && targetActivity) {
                             targetActivity.themes_color = rgbToHex(colorData.r, colorData.g, colorData.b);
-                            // Оновлюємо колір, тільки якщо юзер ще не вийшов з цієї сторінки
                             if (Lampa.Activity.active() === targetActivity) applyTheme();
                         }
                     });
                 }
             }
-        } catch (err) {
-            console.log('Themes Plugin Error (Full):', err);
-        }
+        } catch (err) { console.log('Themes Error:', err); }
     });
+
 
     
     Lampa.Listener.follow('full', function (e) {
@@ -455,28 +436,22 @@
         }
 
         var showColorPicker = function() {
-            // Жорстка чистка: вбиваємо всі залишки старих вікон та слухачів перед відкриттям
             $('.themes-picker').remove();
-            $(window).off('mousemove touchmove', window.themesOnMove);
-            $(window).off('mouseup touchend', window.themesOnEnd);
-            Lampa.Controller.remove('themes_color_picker'); // Звільняємо пам'ять контролера
+            $(window).off('mousemove touchmove', window.themesMove);
+            $(window).off('mouseup touchend', window.themesEnd);
+            Lampa.Controller.remove('themes_color_picker');
 
             var currentHex = Lampa.Storage.get('themes_custom_hex', '#3da18d');
             var hsl = hexToHsl(currentHex);
             var h = hsl.h, s = hsl.s, l = hsl.l;
             
-            var modal = $('<div class="themes-picker">' +
-                '<div class="themes-picker__body">' +
-                    '<div class="themes-picker__preview">#000000</div>' +
-                    '<div class="themes-picker__row selector" data-type="h"><div class="themes-picker__label">Тон (Hue)</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
-                    '<div class="themes-picker__row selector" data-type="s"><div class="themes-picker__label">Насиченість (Saturation)</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
-                    '<div class="themes-picker__row selector" data-type="l"><div class="themes-picker__label">Яскравість (Lightness)</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
-                    '<div class="themes-picker__footer">' +
-                        '<div class="themes-picker__btn selector" data-action="save">Зберегти</div>' +
-                        '<div class="themes-picker__btn selector" data-action="cancel">Скасувати</div>' +
-                    '</div>' +
-                '</div>' +
-            '</div>');
+            var modal = $('<div class="themes-picker"><div class="themes-picker__body">' +
+                '<div class="themes-picker__preview">#000000</div>' +
+                '<div class="themes-picker__row selector" data-type="h"><div class="themes-picker__label">Тон</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
+                '<div class="themes-picker__row selector" data-type="s"><div class="themes-picker__label">Насиченість</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
+                '<div class="themes-picker__row selector" data-type="l"><div class="themes-picker__label">Яскравість</div><div class="themes-picker__range"><div class="themes-picker__range-active"></div></div></div>' +
+                '<div class="themes-picker__footer"><div class="themes-picker__btn selector" data-action="save">Зберегти</div><div class="themes-picker__btn selector" data-action="cancel">Скасувати</div></div>' +
+            '</div></div>');
 
             function update() {
                 var hex = hslToHex(h, s, l);
@@ -486,14 +461,11 @@
                 modal.find('[data-type="l"] .themes-picker__range-active').css('left', l + '%');
             }
 
-            var isDragging = false;
-            var activeSlider = null;
-
+            var isDragging = false, activeSlider = null;
             function handleDrag(e, target) {
                 var rect = target.find('.themes-picker__range')[0].getBoundingClientRect();
                 var clientX = e.clientX || (e.originalEvent && e.originalEvent.touches ? e.originalEvent.touches[0].clientX : 0);
                 var percent = Math.min(100, Math.max(0, (clientX - rect.left) / rect.width * 100));
-                
                 var type = target.data('type');
                 if (type === 'h') h = Math.floor(percent * 3.6);
                 if (type === 's') s = Math.floor(percent);
@@ -501,35 +473,26 @@
                 update();
             }
 
-            // Робимо функції глобальними (в об'єкті window), щоб 100% гарантувати їх видалення з пам'яті
-            window.themesOnMove = function(e) { if (isDragging && activeSlider) handleDrag(e, activeSlider); };
-            window.themesOnEnd = function() { isDragging = false; activeSlider = null; };
-
-            $(window).on('mousemove touchmove', window.themesOnMove);
-            $(window).on('mouseup touchend', window.themesOnEnd);
+            window.themesMove = function(e) { if (isDragging && activeSlider) handleDrag(e, activeSlider); };
+            window.themesEnd = function() { isDragging = false; activeSlider = null; };
+            $(window).on('mousemove touchmove', window.themesMove);
+            $(window).on('mouseup touchend', window.themesEnd);
 
             var close = function() { 
-                $(window).off('mousemove touchmove', window.themesOnMove);
-                $(window).off('mouseup touchend', window.themesOnEnd);
+                $(window).off('mousemove touchmove', window.themesMove);
+                $(window).off('mouseup touchend', window.themesEnd);
                 modal.remove(); 
-                Lampa.Controller.remove('themes_color_picker'); // Чистимо контролер при закритті
+                Lampa.Controller.remove('themes_color_picker');
                 Lampa.Controller.toggle('settings_component'); 
             };
 
-            var saveAction = function() {
+            modal.find('[data-action="save"]').on('click hover:enter', function() {
                 Lampa.Storage.set('themes_custom_hex', hslToHex(h, s, l));
-                applyTheme();
-                Lampa.Settings.update();
-                close();
-            };
-
-            modal.find('[data-action="save"]').on('click hover:enter', saveAction);
+                applyTheme(); Lampa.Settings.update(); close();
+            });
             modal.find('[data-action="cancel"]').on('click hover:enter', close);
-
             modal.find('.themes-picker__row').on('mousedown touchstart', function(e) {
-                isDragging = true;
-                activeSlider = $(this);
-                handleDrag(e, activeSlider);
+                isDragging = true; activeSlider = $(this); handleDrag(e, activeSlider);
                 Lampa.Controller.collectionFocus(this, modal[0]);
             });
 
@@ -546,9 +509,7 @@
                         if (type === 's') s = Math.max(0, s - 2);
                         if (type === 'l') l = Math.max(0, l - 2);
                         update();
-                    } else if (focused.data('action') === 'cancel') {
-                        Lampa.Controller.collectionFocus(modal.find('[data-action="save"]')[0], modal[0]);
-                    }
+                    } else if (focused.data('action') === 'cancel') Lampa.Controller.collectionFocus(modal.find('[data-action="save"]')[0], modal[0]);
                 },
                 right: function() {
                     var focused = modal.find('.selector.focus');
@@ -558,43 +519,29 @@
                         if (type === 's') s = Math.min(100, s + 2);
                         if (type === 'l') l = Math.min(100, l + 2);
                         update();
-                    } else if (focused.data('action') === 'save') {
-                        Lampa.Controller.collectionFocus(modal.find('[data-action="cancel"]')[0], modal[0]);
-                    }
+                    } else if (focused.data('action') === 'save') Lampa.Controller.collectionFocus(modal.find('[data-action="cancel"]')[0], modal[0]);
                 },
                 up: function() {
                     var focused = modal.find('.selector.focus');
-                    if (focused.hasClass('themes-picker__btn')) {
-                        Lampa.Controller.collectionFocus(modal.find('[data-type="l"]')[0], modal[0]);
-                    } else if (focused.data('type') === 'l') {
-                        Lampa.Controller.collectionFocus(modal.find('[data-type="s"]')[0], modal[0]);
-                    } else if (focused.data('type') === 's') {
-                        Lampa.Controller.collectionFocus(modal.find('[data-type="h"]')[0], modal[0]);
-                    }
+                    if (focused.hasClass('themes-picker__btn')) Lampa.Controller.collectionFocus(modal.find('[data-type="l"]')[0], modal[0]);
+                    else if (focused.data('type') === 'l') Lampa.Controller.collectionFocus(modal.find('[data-type="s"]')[0], modal[0]);
+                    else if (focused.data('type') === 's') Lampa.Controller.collectionFocus(modal.find('[data-type="h"]')[0], modal[0]);
                 },
                 down: function() {
                     var focused = modal.find('.selector.focus');
-                    if (focused.data('type') === 'h') {
-                        Lampa.Controller.collectionFocus(modal.find('[data-type="s"]')[0], modal[0]);
-                    } else if (focused.data('type') === 's') {
-                        Lampa.Controller.collectionFocus(modal.find('[data-type="l"]')[0], modal[0]);
-                    } else if (focused.data('type') === 'l') {
-                        Lampa.Controller.collectionFocus(modal.find('[data-action="save"]')[0], modal[0]);
-                    }
+                    if (focused.data('type') === 'h') Lampa.Controller.collectionFocus(modal.find('[data-type="s"]')[0], modal[0]);
+                    else if (focused.data('type') === 's') Lampa.Controller.collectionFocus(modal.find('[data-type="l"]')[0], modal[0]);
+                    else if (focused.data('type') === 'l') Lampa.Controller.collectionFocus(modal.find('[data-action="save"]')[0], modal[0]);
                 },
                 back: close
             });
-
-            $('body').append(modal);
-            Lampa.Controller.toggle('themes_color_picker');
-            update();
+            $('body').append(modal); Lampa.Controller.toggle('themes_color_picker'); update();
         };
-
 
 
         Lampa.SettingsApi.addComponent({
             component: 'themes_plugin',
-            name: 'Персоналізація',
+            name: 'Теми інтерфейсу',
             icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3V4M12 20V21M4 12H3M21 12H20M18.364 5.636L17.6569 6.34315M6.34315 17.6569L5.63604 18.364M18.364 18.364L17.6569 17.6569M6.34315 6.34315L5.63604 5.636M12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
         });
 
@@ -607,8 +554,8 @@
 
         Lampa.SettingsApi.addParam({
             component: 'themes_plugin',
-            param: { name: 'themes_interface_preset', type: 'select', values: { 'default': 'Стандартна', 'violet_stroke': 'Фіолетова', 'mint_dark': 'Mint Dark', 'retro': 'Ретро (Шоколад)', 'emerald': 'Emerald' }, 'default': 'default' },
-            field: { name: 'Пресети тем', description: 'Оберіть одну з підготовлених тем' },
+            param: { name: 'themes_interface_preset', type: 'select', values: { 'default': 'Стандартна', 'violet_stroke': 'Фіолетова', 'mint_dark': 'Mint Dark', 'retro': 'Ретро', 'emerald': 'Emerald' }, 'default': 'default' },
+            field: { name: 'Пресети тем', description: 'Оберіть готову тему' },
             onChange: function() { applyTheme(); }
         });
 
@@ -658,6 +605,19 @@
         });
 
         applyTheme();
+    }
+
+    var pluginManifest = {
+        type: 'interface',
+        version: '2.0',
+        name: 'Теми інтерфейсу',
+        description: 'Динамічні теми та візуальна кастомізація інтерфейсу',
+        author: '@bodya_elven',
+        icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3V4M12 20V21M4 12H3M21 12H20M18.364 5.636L17.6569 6.34315M6.34315 17.6569L5.63604 18.364M18.364 18.364L17.6569 17.6569M6.34315 6.34315L5.63604 5.636M12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    };
+
+    if (Lampa.Manifest && Lampa.Manifest.plugins) {
+        Lampa.Manifest.plugins.themes_plugin = pluginManifest;
     }
 
     if (window.appready) initPlugin();
