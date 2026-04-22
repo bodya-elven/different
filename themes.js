@@ -361,19 +361,23 @@
             <div id="themes_color_picker_modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
                 <style>
                     #themes_color_picker_modal * { box-sizing: border-box; font-family: sans-serif; }
-                    .tcp-range-container { margin-bottom: 10px; padding: 8px 0; border-radius: 8px; border: 1px solid transparent; transition: all 0.2s ease; }
-                    .tcp-range-container.focus { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); padding: 8px 10px; margin-left: -10px; margin-right: -10px; width: calc(100% + 20px); }
+                    .tcp-range-container { margin-bottom: 10px; padding: 8px 0; border-radius: 8px; border: 1px solid transparent; }
                     
-                    /* БІЛІ НАПИСИ */
-                    .tcp-label { color: #fff; font-size: 12px; margin-bottom: 6px; font-weight: 400; }
-                    .tcp-range-container.focus .tcp-label { font-weight: 600; }
+                    /* БІЛІ НАПИСИ (злегка тьмяні без фокусу) */
+                    .tcp-label { color: #fff; font-size: 12px; margin-bottom: 6px; font-weight: 400; opacity: 0.5; transition: opacity 0.2s; }
+                    .tcp-range-container.focus .tcp-label { font-weight: 600; opacity: 1; }
 
                     .tcp-range { -webkit-appearance: none; width: 100%; background: transparent; margin: 0; pointer-events: auto; }
                     .tcp-range:focus { outline: none; }
                     
-                    /* ТОВСТІШІ ПОВЗУНКИ (як в референсі) */
+                    /* ТОВСТІШІ ПОВЗУНКИ */
                     .tcp-range::-webkit-slider-runnable-track { width: 100%; height: 12px; cursor: pointer; background: #262626; border-radius: 6px; }
-                    .tcp-range::-webkit-slider-thumb { height: 20px; width: 20px; border-radius: 50%; background: #fff; cursor: pointer; -webkit-appearance: none; margin-top: -4px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+                    
+                    /* ТОЧКА (СПОКІЙНИЙ СТАН) */
+                    .tcp-range::-webkit-slider-thumb { height: 20px; width: 20px; border-radius: 50%; background: #aaa; cursor: pointer; -webkit-appearance: none; margin-top: -4px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); transition: all 0.2s; }
+                    
+                    /* ФОКУС ВИКЛЮЧНО НА ТОЧЦІ (ЗБІЛЬШУЄТЬСЯ І СВІТИТЬСЯ) */
+                    .tcp-range-container.focus .tcp-range::-webkit-slider-thumb { background: #fff; transform: scale(1.4); box-shadow: 0 0 0 4px rgba(255,255,255,0.2), 0 4px 8px rgba(0,0,0,0.6); }
                     
                     /* МЕНШІ КНОПКИ (зменшено padding та розмір шрифту) */
                     .tcp-btn { flex: 1; text-align: center; background: #262626; padding: 6px; border-radius: 6px; cursor: pointer; color: #aaa; font-size: 12px; border: 1px solid transparent; transition: all 0.2s ease; margin: 0 5px; }
@@ -448,8 +452,20 @@
                 Lampa.Controller.collectionSet(modal);
                 Lampa.Controller.collectionFocus(modal.find('.selector')[0], modal);
             },
-            up: function() { Lampa.Navigator.direction('up'); },
-            down: function() { Lampa.Navigator.direction('down'); },
+            up: function() {
+                var items = modal.find('.selector');
+                var idx = items.index(modal.find('.selector.focus'));
+                // Якщо ми на кнопці Скасувати (індекс 4), переходимо на Яскравість (індекс 2)
+                if (idx === 4) Lampa.Controller.collectionFocus(items.eq(2)[0], modal);
+                // Інакше просто рухаємось на 1 крок вгору
+                else if (idx > 0) Lampa.Controller.collectionFocus(items.eq(idx - 1)[0], modal);
+            },
+            down: function() {
+                var items = modal.find('.selector');
+                var idx = items.index(modal.find('.selector.focus'));
+                // Якщо ми на повзунках (індекси 0, 1, 2), можемо йти вниз
+                if (idx < 3) Lampa.Controller.collectionFocus(items.eq(idx + 1)[0], modal);
+            },
             left: function() {
                 var focused = modal.find('.selector.focus');
                 if (focused.hasClass('tcp-range-container')) {
@@ -475,6 +491,7 @@
         });
 
         Lampa.Controller.toggle('themes_color_picker');
+
     }
 
 
@@ -548,7 +565,7 @@
 
     var pluginManifest = {
         type: 'interface',
-        version: '2.1',
+        version: '2.2',
         name: 'Теми інтерфейсу',
         description: 'Динамічні теми та візуальна кастомізація',
         author: '@bodya_elven',
