@@ -225,7 +225,7 @@ var css = '<style>\
                 
                 return url;
             },
-            getFilter: function () {
+            getFilters: function () {
                 return [
                     {
                         title: 'Навігація Vtrahe',
@@ -245,61 +245,54 @@ var css = '<style>\
             },
             parseItems: function (htmlText, doc) {
                 var results = [];
-                // Беремо всі можливі контейнери карток (відео, категорії, моделі)
+                // Шукаємо всі типи карток
                 var items = doc.querySelectorAll('.innercont, .pornstar, .category-item');
                 
-                for (var i = 0; i < items.length; i++) {
-                    var item = items[i];
+                items.forEach(function(item) {
                     var linkObj = item.querySelector('a');
-                    var imgObj = item.querySelector('img.image, img');
+                    var imgObj = item.querySelector('img');
                     
-                    if (!linkObj || !imgObj) continue;
+                    if (linkObj && imgObj) {
+                        var url = linkObj.getAttribute('href') || '';
+                        var img = imgObj.getAttribute('data-src') || imgObj.getAttribute('src') || '';
+                        var title = '';
+                        
+                        var titleObj = item.querySelector('.preview_title a, .name, .catname');
+                        title = titleObj ? titleObj.textContent.trim() : (imgObj.getAttribute('title') || imgObj.getAttribute('alt') || 'Без назви');
 
-                    var url = linkObj.getAttribute('href');
-                    var img = imgObj.getAttribute('src');
-                    // Підтримка LazyLoad (якщо є)
-                    if (imgObj.hasAttribute('data-src')) img = imgObj.getAttribute('data-src');
+                        if (url && img) {
+                            if (url.indexOf('http') === -1) url = 'https://xom.vtrahe.work' + url;
+                            if (img.indexOf('http') === -1) img = 'https://xom.vtrahe.work' + img;
 
-                    var titleObj = item.querySelector('.preview_title a, .name, .title, .catname');
-                    var title = titleObj ? titleObj.textContent.trim() : imgObj.getAttribute('title') || imgObj.getAttribute('alt') || 'Без назви';
+                            var isModels = url.indexOf('/pornstar/') !== -1 || url.indexOf('/porno-studio/') !== -1;
+                            var isGrid = url.indexOf('/categories/') !== -1;
 
-                    if (url && img) {
-                        if (url.indexOf('http') === -1) url = 'https://xom.vtrahe.work' + url;
-                        if (img.indexOf('http') === -1) img = 'https://xom.vtrahe.work' + img;
-
-                        // Визначаємо тип картки по URL
-                        var isModels = url.indexOf('/pornstar/') !== -1 || url.indexOf('/porno-studio/') !== -1;
-                        var isGrid = url.indexOf('/categories/') !== -1;
-                        var isVideo = url.indexOf('/movie/') !== -1;
-
-                        if (isVideo) {
-                            // Для відео — тільки тривалість
-                            var timeObj = item.querySelector('.dlit');
-                            results.push({
-                                title: title,
-                                url: url,
-                                picture: img,
-                                time: timeObj ? timeObj.textContent.trim() : '',
-                                is_models: false
-                            });
-                        } else {
-                            // Для моделей, студій, категорій — тільки кількість відео
-                            var countObj = item.querySelector('.catnum, .count, .num');
-                            var countText = countObj ? countObj.textContent.replace(/[^0-9]/g, '') : '';
-                            
-                            results.push({
-                                title: title,
-                                url: url,
-                                picture: img,
-                                time: countText ? countText + ' відео' : '',
-                                is_models: isModels,
-                                is_grid: isGrid
-                            });
+                            if (url.indexOf('/movie/') !== -1) {
+                                var timeObj = item.querySelector('.dlit');
+                                results.push({
+                                    title: title,
+                                    url: url,
+                                    picture: img,
+                                    time: timeObj ? timeObj.textContent.trim() : '',
+                                    is_models: false
+                                });
+                            } else {
+                                var countObj = item.querySelector('.catnum, .count');
+                                results.push({
+                                    title: title,
+                                    url: url,
+                                    picture: img,
+                                    time: countObj ? countObj.textContent.trim() : '',
+                                    is_models: isModels,
+                                    is_grid: isGrid
+                                });
+                            }
                         }
                     }
-                }
+                });
                 return { results: results, total_pages: 50 };
             },
+
             getStreams: function (htmlText, doc, element, onSuccess, onError) {
                 // Знаходимо всі кнопки вибору якості
                 var qBtns = doc.querySelectorAll('.chooseq');
