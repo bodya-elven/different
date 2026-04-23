@@ -202,45 +202,59 @@ var css = '<style>\
             // =========================================================================
         vtrahe: {
             title: 'Vtrahe',
-            getUrl: function (action, page, query, category) {
-                var base = 'https://xom.vtrahe.work';
-                
-                if (action === 'search') return base + '/index.php?do=search&subaction=search&story=' + encodeURIComponent(query) + (page > 1 ? '&search_start=' + page : '');
-                
-                if (action === 'direct' && category && category.indexOf('http') !== -1) {
-                    return page > 1 ? category + 'page/' + page + '/' : category;
+            domain: 'https://xom.vtrahe.work',
+            
+            getHomeUrl: function() { return this.domain; },
+            
+            getSearchUrl: function(query) { 
+                return this.domain + '/index.php?do=search&subaction=search&story=' + encodeURIComponent(query); 
+            },
+            
+            getUrl: function(object, page) {
+                var url = object.url || this.domain;
+                // Пагінація для пошуку
+                if (url.indexOf('do=search') !== -1) {
+                    return url + (page > 1 ? '&search_start=' + page : '');
                 }
-
-                var url = base;
-                if (category) url += '/' + category;
-                if (url.slice(-1) !== '/') url += '/';
-                if (page > 1) url += 'page/' + page + '/';
-                
+                // Пагінація для решти сторінок
+                var base = url.replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
+                if (base.indexOf('.html') === -1) {
+                    if (!base.endsWith('/')) base += '/';
+                    if (page > 1) return base + 'page/' + page + '/';
+                }
                 return url;
             },
-            getFilter: function () {
-                return [
-                    {
-                        title: 'Навігація Vtrahe',
-                        name: 'category',
-                        items: [
-                            { title: 'Новинки', value: '' },
-                            { title: 'Рейтингове', value: 'top' },
-                            { title: 'Популярне', value: 'most-popular' },
-                            { title: 'Каталог категорій', value: 'categories' },
-                            { title: 'Каталог студій', value: 'porno-studio' },
-                            { title: 'Моделі (Популярні)', value: 'pornstar' },
-                            { title: 'Моделі (За кількістю)', value: 'pornstar/count' },
-                            { title: 'Моделі (За алфавітом)', value: 'pornstar/abc' }
-                        ]
-                    }
+            
+            getFilters: function(doc, currentUrl) {
+                var items = [
+                    { title: 'Новинки', url: this.domain + '/' },
+                    { title: 'Рейтингове', url: this.domain + '/top/' },
+                    { title: 'Популярне', url: this.domain + '/most-popular/' },
+                    { title: 'Каталог категорій', url: this.domain + '/categories/' },
+                    { title: 'Каталог студій', url: this.domain + '/porno-studio/' },
+                    { title: 'Моделі (Популярні)', url: this.domain + '/pornstar/' },
+                    { title: 'Моделі (За кількістю)', url: this.domain + '/pornstar/count/' },
+                    { title: 'Моделі (За алфавітом)', url: this.domain + '/pornstar/abc/' }
                 ];
+                
+                var activeTitle = 'Навігація Vtrahe';
+                var cleanUrl = currentUrl.replace(/\/page\/[0-9]+\/?$/, '');
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].url === cleanUrl || items[i].url === cleanUrl + '/') {
+                        activeTitle = items[i].title;
+                    }
+                }
+                return { subtitle: activeTitle, items: items };
             },
-            parseItems: function (htmlText, doc) {
+            
+            getNavItems: function() {
+                return []; // Навігація виведена у фільтри, як ти просив
+            },
+            
+            parse: function(doc, currentUrl, object) {
                 var results = [];
                 var items = doc.querySelectorAll('.innercont, .pornstar, .category-item');
                 
-                // Суворо класичний ES5 цикл for
                 for (var i = 0; i < items.length; i++) {
                     var item = items[i];
                     var linkObj = item.querySelector('a');
@@ -253,8 +267,8 @@ var css = '<style>\
                         var title = titleObj ? titleObj.textContent.trim() : (imgObj.getAttribute('title') || imgObj.getAttribute('alt') || 'Без назви');
 
                         if (url && img) {
-                            if (url.indexOf('http') === -1) url = 'https://xom.vtrahe.work' + url;
-                            if (img.indexOf('http') === -1) img = 'https://xom.vtrahe.work' + img;
+                            if (url.indexOf('http') === -1) url = this.domain + (url.startsWith('/') ? '' : '/') + url.replace(/^\//, '');
+                            if (img.indexOf('http') === -1) img = this.domain + (img.startsWith('/') ? '' : '/') + img.replace(/^\//, '');
 
                             var isModels = url.indexOf('/pornstar/') !== -1 || url.indexOf('/porno-studio/') !== -1;
                             var isGrid = url.indexOf('/categories/') !== -1;
@@ -262,19 +276,22 @@ var css = '<style>\
                             if (url.indexOf('/movie/') !== -1) {
                                 var timeObj = item.querySelector('.dlit');
                                 results.push({
-                                    title: title,
+                                    name: title, // ТЕПЕР ПРАВИЛЬНО: 'name', а не 'title'
                                     url: url,
                                     picture: img,
+                                    img: img,
                                     time: timeObj ? timeObj.textContent.trim() : '',
                                     is_models: false
                                 });
                             } else {
                                 var countObj = item.querySelector('.catnum, .count');
+                                var countText = countObj ? countObj.textContent.trim().replace(/[^0-9]/g, '') : '';
                                 results.push({
-                                    title: title,
+                                    name: title,
                                     url: url,
                                     picture: img,
-                                    time: countObj ? countObj.textContent.trim() + ' відео' : '',
+                                    img: img,
+                                    card_badge: countText ? countText + ' відео' : '',
                                     is_models: isModels,
                                     is_grid: isGrid
                                 });
@@ -282,9 +299,10 @@ var css = '<style>\
                         }
                     }
                 }
-                return { results: results, total_pages: 50 };
+                return results;
             },
-            getStreams: function (htmlText, doc, element, onSuccess, onError) {
+            
+            getStreams: function(htmlText, doc, element, startPlayback, onError) {
                 var qBtns = doc.querySelectorAll('.chooseq');
                 var streams = [];
                 
@@ -300,19 +318,18 @@ var css = '<style>\
                 }
 
                 if (streams.length > 0) {
-                    // Віддаємо тільки найкращу якість
                     streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                    onSuccess([{ title: streams[0].title, url: streams[0].url }]);
+                    startPlayback([{ title: streams[0].title, url: streams[0].url }]);
                 } else {
-                    // Фолбек
                     var videoSrc = doc.querySelector('video source');
                     if (videoSrc && videoSrc.getAttribute('src')) {
-                        onSuccess([{ title: 'Vtrahe (Auto)', url: videoSrc.getAttribute('src') }]);
+                        startPlayback([{ title: 'Vtrahe (Auto)', url: videoSrc.getAttribute('src') }]);
                     } else {
                         onError();
                     }
                 }
             },
+            
             getMenu: function(doc, htmlText, element) {
                 var menu = [];
                 
@@ -321,6 +338,7 @@ var css = '<style>\
                     var aUrl = catLinks[i].getAttribute('href');
                     var aTitle = catLinks[i].textContent.trim();
                     if (aUrl && aTitle) {
+                        if (aUrl.indexOf('http') === -1) aUrl = this.domain + (aUrl.startsWith('/') ? '' : '/') + aUrl.replace(/^\//, '');
                         if (aUrl.indexOf('/pornstar/') !== -1) {
                             menu.push({ title: '💃 Модель: ' + aTitle, action: 'direct', url: aUrl });
                         } else if (aUrl.indexOf('/porno-studio/') !== -1) {
@@ -334,6 +352,7 @@ var css = '<style>\
                     var tUrl = tagLinks[j].getAttribute('href');
                     var tTitle = tagLinks[j].textContent.trim();
                     if (tUrl && tTitle) {
+                        if (tUrl.indexOf('http') === -1) tUrl = this.domain + (tUrl.startsWith('/') ? '' : '/') + tUrl.replace(/^\//, '');
                         menu.push({ title: '🏷 Тег: ' + tTitle, action: 'direct', url: tUrl });
                     }
                 }
@@ -346,7 +365,7 @@ var css = '<style>\
                         var sUrl = sLink.getAttribute('href');
                         var sTitle = sTitleObj.textContent.trim();
                         if (sUrl) {
-                            if (sUrl.indexOf('http') === -1) sUrl = 'https://xom.vtrahe.work' + sUrl;
+                            if (sUrl.indexOf('http') === -1) sUrl = this.domain + (sUrl.startsWith('/') ? '' : '/') + sUrl.replace(/^\//, '');
                             menu.push({ title: '🎬 Схоже: ' + sTitle, action: 'sim', url: sUrl });
                         }
                     }
