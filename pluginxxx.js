@@ -328,15 +328,34 @@ var css = '<style>\
 
                         // Перевіряємо, чи це плеєр VOE
                         if (src.indexOf('voe') !== -1) {
-                            window.pluginx_smartRequest(src, function(html) {
-                                var voeMatch = html.match(/["']hls["']\s*:\s*["']([^"']+)["']/i);
-                                if (voeMatch && voeMatch[1]) {
-                                    startPlayback([{ title: 'Voe (Auto)', url: voeMatch[1] }]);
-                                } else {
+                            // Витягуємо ID відео (наприклад, qscods1ja4jr)
+                            var voeIdMatch = src.match(/\/e\/([a-zA-Z0-9]+)/);
+                            if (voeIdMatch && voeIdMatch[1]) {
+                                // Формуємо правильне посилання, як ти і знайшов: домен/ID/download
+                                var voeDomain = src.split('/e/')[0]; 
+                                var downloadUrl = voeDomain + '/' + voeIdMatch[1] + '/download';
+                                
+                                window.pluginx_smartRequest(downloadUrl, function(html) {
+                                    // Шукаємо чисте посилання на mp4 у кнопці завантаження
+                                    var mp4Match = html.match(/href=["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i);
+                                    
+                                    if (mp4Match && mp4Match[1]) {
+                                        // Очищаємо посилання від HTML-сутностей
+                                        var cleanUrl = mp4Match[1].replace(/&amp;/g, '&');
+                                        startPlayback([{ title: 'Voe (MP4)', url: cleanUrl }]);
+                                    } else {
+                                        Lampa.Noty.show('Не вдалося знайти mp4 на сторінці завантаження VOE');
+                                        onError();
+                                    }
+                                }, function() {
+                                    Lampa.Noty.show('Помилка доступу до сторінки завантаження VOE');
                                     onError();
-                                }
-                            }, onError);
+                                });
+                            } else {
+                                onError();
+                            }
                         } else {
+
                             // Якщо з'являться інші плеєри, додамо логіку сюди
                             onError();
                         }
