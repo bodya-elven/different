@@ -196,64 +196,97 @@ var css = '<style>\
                 }
             },
             
-
-            // =========================================================================
-            // АДАПТЕР: VTRAHE
-            // =========================================================================
+        // =========================================================================
+        // АДАПТЕР: VTRAHE
+        // =========================================================================
         vtrahe: {
             title: 'Vtrahe',
             domain: 'https://xom.vtrahe.work',
             
-            getHomeUrl: function() { return this.domain; },
+            getHomeUrl: function() { return this.domain + '/'; },
             
             getSearchUrl: function(query) { 
                 return this.domain + '/index.php?do=search&subaction=search&story=' + encodeURIComponent(query); 
             },
             
             getUrl: function(object, page) {
-                var url = object.url || this.domain;
-                // Пагінація для пошуку
-                if (url.indexOf('do=search') !== -1) {
-                    return url + (page > 1 ? '&search_start=' + page : '');
-                }
-                // Пагінація для решти сторінок
-                var base = url.replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
-                if (base.indexOf('.html') === -1) {
-                    if (!base.endsWith('/')) base += '/';
-                    if (page > 1) return base + 'page/' + page + '/';
+                var url = object.url || this.getHomeUrl();
+                if (page > 1) {
+                    if (url.indexOf('do=search') !== -1) {
+                        return url + '&search_start=' + page;
+                    } else {
+                        var base = url.replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
+                        return base + '/page/' + page + '/';
+                    }
                 }
                 return url;
             },
             
             getFilters: function(doc, currentUrl) {
-                var items = [
-                    { title: 'Новинки', url: this.domain + '/' },
-                    { title: 'Рейтингове', url: this.domain + '/top/' },
-                    { title: 'Популярне', url: this.domain + '/most-popular/' },
-                    { title: 'Каталог категорій', url: this.domain + '/categories/' },
-                    { title: 'Каталог студій', url: this.domain + '/porno-studio/' },
-                    { title: 'Моделі (Популярні)', url: this.domain + '/pornstar/' },
-                    { title: 'Моделі (За кількістю)', url: this.domain + '/pornstar/count/' },
-                    { title: 'Моделі (За алфавітом)', url: this.domain + '/pornstar/abc/' }
-                ];
-                
-                var activeTitle = 'Навігація Vtrahe';
-                var cleanUrl = currentUrl.replace(/\/page\/[0-9]+\/?$/, '');
-                for (var i = 0; i < items.length; i++) {
-                    if (items[i].url === cleanUrl || items[i].url === cleanUrl + '/') {
-                        activeTitle = items[i].title;
-                    }
+                var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
+                if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
+
+                var isModels = targetPath.indexOf('/pornstar') !== -1;
+                var isCategories = targetPath.indexOf('/categories') !== -1;
+                var isStudios = targetPath.indexOf('/porno-studio') !== -1;
+
+                // У категоріях та студіях на сайті немає сортування
+                if (isCategories || isStudios) return null;
+
+                // Фільтри для моделей
+                if (isModels) {
+                    var mTitle = 'За популярністю';
+                    if (targetPath.indexOf('/pornstar/count') !== -1) mTitle = 'За кількістю';
+                    else if (targetPath.indexOf('/pornstar/abc') !== -1) mTitle = 'За алфавітом';
+                    
+                    return [{
+                        subtitle: '↕️ ' + mTitle,
+                        items: [
+                            { title: 'За популярністю', url: this.domain + '/pornstar/' },
+                            { title: 'За кількістю', url: this.domain + '/pornstar/count/' },
+                            { title: 'За алфавітом', url: this.domain + '/pornstar/abc/' }
+                        ]
+                    }];
                 }
-                return { subtitle: activeTitle, items: items };
+
+                // Фільтри для головної сторінки та списків відео
+                if (targetPath === '/' || targetPath === '/top' || targetPath === '/most-popular') {
+                    var activeTitle = 'Новинки';
+                    if (targetPath === '/top') activeTitle = 'Рейтингове';
+                    else if (targetPath === '/most-popular') activeTitle = 'Популярне';
+
+                    return [{
+                        subtitle: '↕️ ' + activeTitle,
+                        items: [
+                            { title: 'Новинки', url: this.domain + '/' },
+                            { title: 'Рейтингове', url: this.domain + '/top/' },
+                            { title: 'Популярне', url: this.domain + '/most-popular/' }
+                        ]
+                    }];
+                }
+                
+                return null;
             },
-            
+
             getNavItems: function() {
-                return []; // Навігація виведена у фільтри, як ти просив
+                return [
+                    { title: '🗄️ Категорії', action: 'nav', url: this.domain + '/categories/', is_categories: true },
+                    { title: '👸 Моделі', action: 'nav', url: this.domain + '/pornstar/', is_models: true },
+                    { title: '🎬 Студії', action: 'nav', url: this.domain + '/porno-studio/', is_studios: true }
+                ];
             },
-            
+
             parse: function(doc, currentUrl, object) {
                 var results = [];
-                var items = doc.querySelectorAll('.innercont, .pornstar, .category-item');
+                var container = doc;
+                
+                // Якщо парсимо "Схожі відео", обмежуємо контейнер
+                if (object.is_related) {
+                    var previewBlock = doc.querySelector('#preview');
+                    if (previewBlock) container = previewBlock;
+                }
+                
+                var items = container.querySelectorAll('.innercont, .pornstar, .category-item');
                 
                 for (var i = 0; i < items.length; i++) {
                     var item = items[i];
@@ -270,13 +303,15 @@ var css = '<style>\
                             if (url.indexOf('http') === -1) url = this.domain + (url.startsWith('/') ? '' : '/') + url.replace(/^\//, '');
                             if (img.indexOf('http') === -1) img = this.domain + (img.startsWith('/') ? '' : '/') + img.replace(/^\//, '');
 
-                            var isModels = url.indexOf('/pornstar/') !== -1 || url.indexOf('/porno-studio/') !== -1;
-                            var isGrid = url.indexOf('/categories/') !== -1;
+                            var isModels = url.indexOf('/pornstar/') !== -1;
+                            var isStudios = url.indexOf('/porno-studio/') !== -1;
+                            var isCategories = url.indexOf('/categories/') !== -1;
 
                             if (url.indexOf('/movie/') !== -1) {
+                                // Це відео
                                 var timeObj = item.querySelector('.dlit');
                                 results.push({
-                                    name: title, // ТЕПЕР ПРАВИЛЬНО: 'name', а не 'title'
+                                    name: title,
                                     url: url,
                                     picture: img,
                                     img: img,
@@ -284,16 +319,20 @@ var css = '<style>\
                                     is_models: false
                                 });
                             } else {
+                                // Це категорія, модель або студія
                                 var countObj = item.querySelector('.catnum, .count');
-                                var countText = countObj ? countObj.textContent.trim().replace(/[^0-9]/g, '') : '';
+                                var badge = countObj ? countObj.textContent.replace(/[^0-9]/g, '').trim() : '';
+                                if (badge) badge = '🎬 ' + badge;
+                                
                                 results.push({
                                     name: title,
                                     url: url,
                                     picture: img,
                                     img: img,
-                                    card_badge: countText ? countText + ' відео' : '',
+                                    card_badge: badge,
                                     is_models: isModels,
-                                    is_grid: isGrid
+                                    is_studios: isStudios,
+                                    is_grid: true
                                 });
                             }
                         }
@@ -301,7 +340,7 @@ var css = '<style>\
                 }
                 return results;
             },
-            
+
             getStreams: function(htmlText, doc, element, startPlayback, onError) {
                 var qBtns = doc.querySelectorAll('.chooseq');
                 var streams = [];
@@ -313,23 +352,25 @@ var css = '<style>\
                     var qNum = parseInt(q.replace(/[^0-9]/g, '')) || 0;
                     
                     if (link) {
-                        streams.push({ url: link, qNum: qNum, title: 'Vtrahe (' + q + ')' });
+                        streams.push({ url: link, qNum: qNum, title: q });
                     }
                 }
 
                 if (streams.length > 0) {
+                    // Сортуємо від найвищої якості до найнижчої
                     streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                    startPlayback([{ title: streams[0].title, url: streams[0].url }]);
+                    startPlayback(streams);
                 } else {
+                    // Резервний варіант, якщо кнопок з якістю немає
                     var videoSrc = doc.querySelector('video source');
                     if (videoSrc && videoSrc.getAttribute('src')) {
-                        startPlayback([{ title: 'Vtrahe (Auto)', url: videoSrc.getAttribute('src') }]);
+                        startPlayback([{ title: 'Auto', url: videoSrc.getAttribute('src') }]);
                     } else {
                         onError();
                     }
                 }
             },
-            
+
             getMenu: function(doc, htmlText, element) {
                 var menu = [];
                 
@@ -340,35 +381,18 @@ var css = '<style>\
                     if (aUrl && aTitle) {
                         if (aUrl.indexOf('http') === -1) aUrl = this.domain + (aUrl.startsWith('/') ? '' : '/') + aUrl.replace(/^\//, '');
                         if (aUrl.indexOf('/pornstar/') !== -1) {
-                            menu.push({ title: '💃 Модель: ' + aTitle, action: 'direct', url: aUrl });
+                            menu.push({ title: '👸 ' + aTitle, action: 'direct', url: aUrl, is_models: true });
                         } else if (aUrl.indexOf('/porno-studio/') !== -1) {
-                            menu.push({ title: '🎥 Студія: ' + aTitle, action: 'direct', url: aUrl });
+                            menu.push({ title: '🎬 ' + aTitle, action: 'direct', url: aUrl, is_studios: true });
                         }
                     }
                 }
 
-                var tagLinks = doc.querySelectorAll('.tagsspisok a');
-                for (var j = 0; j < tagLinks.length; j++) {
-                    var tUrl = tagLinks[j].getAttribute('href');
-                    var tTitle = tagLinks[j].textContent.trim();
-                    if (tUrl && tTitle) {
-                        if (tUrl.indexOf('http') === -1) tUrl = this.domain + (tUrl.startsWith('/') ? '' : '/') + tUrl.replace(/^\//, '');
-                        menu.push({ title: '🏷 Тег: ' + tTitle, action: 'direct', url: tUrl });
-                    }
-                }
+                menu.push({ title: '🏷️ Теги', action: 'cats_custom', sel: '.tagsspisok a' });
 
                 var simBlocks = doc.querySelectorAll('#preview .innercont');
-                for (var k = 0; k < simBlocks.length; k++) {
-                    var sLink = simBlocks[k].querySelector('a');
-                    var sTitleObj = simBlocks[k].querySelector('.preview_title a');
-                    if (sLink && sTitleObj) {
-                        var sUrl = sLink.getAttribute('href');
-                        var sTitle = sTitleObj.textContent.trim();
-                        if (sUrl) {
-                            if (sUrl.indexOf('http') === -1) sUrl = this.domain + (sUrl.startsWith('/') ? '' : '/') + sUrl.replace(/^\//, '');
-                            menu.push({ title: '🎬 Схоже: ' + sTitle, action: 'sim', url: sUrl });
-                        }
-                    }
+                if (simBlocks.length > 0) {
+                    menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
                 }
 
                 return menu;
