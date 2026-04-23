@@ -198,199 +198,186 @@ var css = '<style>\
             
 
             // =========================================================================
-            // АДАПТЕР: LETSJERK
+            // АДАПТЕР: VTRAHE
             // =========================================================================
-            letsjerk: {
-                title: 'Letsjerk',
-                domain: 'https://letsjerk.tv',
+        vtrahe: {
+            title: 'Vtrahe',
+            getUrl: function (action, page, query, category) {
+                var base = 'https://xom.vtrahe.work';
                 
-                getHomeUrl: function() { return this.domain + '/'; },
+                // 1. Пошук
+                if (action === 'search') return base + '/index.php?do=search&subaction=search&story=' + encodeURIComponent(query) + (page > 1 ? '&search_start=' + page : '');
                 
-                getSearchUrl: function(query) { 
-                    return this.domain + '/?s=' + encodeURIComponent(query); 
-                },
+                // 2. Якщо переходимо по прямому посиланню (наприклад, клік по моделі з меню)
+                if (action === 'direct' && category && category.indexOf('http') !== -1) {
+                    return page > 1 ? category + 'page/' + page + '/' : category;
+                }
+
+                // 3. Основна навігація через фільтри
+                var url = base;
+                if (category) url += '/' + category;
                 
-                getUrl: function(object, page) {
-                    var url = object.url || this.getHomeUrl();
-                    if (page > 1) {
-                        // Формат: /page/2/ або /category1/anal/page/2/
-                        var base = url.split('?')[0].replace(/\/$/, '');
-                        return base + '/page/' + page + '/' + (url.indexOf('?') !== -1 ? '?' + url.split('?')[1] : '');
-                    }
-                    return url;
-                },
+                if (url.slice(-1) !== '/') url += '/';
 
-                checkPagination: function(doc, page) {
-                    var pagination = doc.querySelector('.pagination');
-                    if (!pagination) return false;
-                    
-                    // Шукаємо активну сторінку
-                    var current = pagination.querySelector('.current');
-                    if (!current) return false;
-                    
-                    // Перевіряємо, чи номер поточної сторінки в HTML збігається з тим, що запитала Lampa
-                    var currentPageNum = parseInt(current.textContent.trim());
-                    if (currentPageNum !== page) return false;
-
-                    // Правило: якщо після поточного елемента немає більше посилань (inactive/next), зупиняємось
-                    var nextLink = current.parentElement.nextElementSibling;
-                    return !!nextLink;
-                },
-
-                getFilters: function(doc, currentUrl) {
-                    // Показуємо фільтри тільки в розділах з відео (не в списках категорій)
-                    if (currentUrl.indexOf('/categories/') !== -1 || currentUrl.indexOf('/pornstars/') !== -1) return null;
-
-                    var activeSort = 'Newest';
-                    if (currentUrl.indexOf('order=rating') !== -1) activeSort = 'Rating';
-                    else if (currentUrl.indexOf('order=views') !== -1) activeSort = 'Views';
-                    else if (currentUrl.indexOf('order=comments') !== -1) activeSort = 'Comments';
-
-                    var baseUrl = currentUrl.split('?')[0];
-                    return [{
-                        subtitle: '↕️ ' + activeSort,
+                if (page > 1) {
+                    url += 'page/' + page + '/';
+                }
+                
+                return url;
+            },
+            getFilter: function () {
+                return [
+                    {
+                        title: 'Навігація Vtrahe',
+                        name: 'category',
                         items: [
-                            { title: 'Newest', url: baseUrl + '?order=newest' },
-                            { title: 'Rating', url: baseUrl + '?order=rating' },
-                            { title: 'Views', url: baseUrl + '?order=views' },
-                            { title: 'Comments', url: baseUrl + '?order=comments' }
+                            { title: 'Новинки', value: '' },
+                            { title: 'Рейтингове', value: 'top' },
+                            { title: 'Популярне', value: 'most-popular' },
+                            { title: 'Каталог категорій', value: 'categories' },
+                            { title: 'Каталог студій', value: 'porno-studio' },
+                            { title: 'Моделі (Популярні)', value: 'pornstar' },
+                            { title: 'Моделі (За кількістю)', value: 'pornstar/count' }, // якщо сортування інше, зможемо поправити
+                            { title: 'Моделі (За алфавітом)', value: 'pornstar/abc' }
                         ]
-                    }];
-                },
-
-                getNavItems: function() {
-                    return [
-                        { title: '🗄️ Категорії', action: 'nav', url: this.domain + '/categories/', is_categories: true },
-                        { title: '👸 Моделі', action: 'nav', url: this.domain + '/pornstars/', is_models: true }
-                    ];
-                },
-
-                parse: function(doc, currentUrl, object) {
-                    var results = [];
+                    }
+                ];
+            },
+            parseItems: function (htmlText, doc) {
+                var results = [];
+                // Беремо всі можливі контейнери карток (відео, категорії, моделі)
+                var items = doc.querySelectorAll('.innercont, .pornstar, .category-item');
+                
+                for (var i = 0; i < items.length; i++) {
+                    var item = items[i];
+                    var linkObj = item.querySelector('a');
+                    var imgObj = item.querySelector('img.image, img');
                     
-                    // --- 1. ПАРСИНГ КАТЕГОРІЙ ТА МОДЕЛЕЙ (Taxonomy) ---
-                    var taxItems = doc.querySelectorAll('.taxonomy-item');
-                    if (taxItems.length > 0) {
-                        for (var i = 0; i < taxItems.length; i++) {
-                            var t = taxItems[i];
-                            var tLink = t.querySelector('a.th');
-                            var tTitle = t.querySelector('.taxonomy-name');
-                            var tImg = t.querySelector('img');
-                            var tCount = t.querySelector('.taxonomy-videos .number');
+                    if (!linkObj || !imgObj) continue;
 
-                            if (tLink && tTitle) {
-                                var tImgSrc = tImg ? (tImg.getAttribute('data-original') || tImg.getAttribute('src')) : '';
-                                results.push({
-                                    name: tTitle.textContent.trim(),
-                                    url: tLink.getAttribute('href'),
-                                    picture: tImgSrc, img: tImgSrc,
-                                    is_grid: true,
-                                    card_grid: 'categories-grid',
-                                    card_badge: tCount ? tCount.textContent.trim() : ''
-                                });
-                            }
-                        }
-                        return results;
-                    }
+                    var url = linkObj.getAttribute('href');
+                    var img = imgObj.getAttribute('src');
+                    // Підтримка LazyLoad (якщо є)
+                    if (imgObj.hasAttribute('data-src')) img = imgObj.getAttribute('data-src');
 
-                    // --- 2. ПАРСИНГ ВІДЕО ---
-                    var videos = doc.querySelectorAll('.thumbs ul li');
-                    for (var j = 0; j < videos.length; j++) {
-                        var v = videos[j];
-                        var link = v.querySelector('a.th');
-                        if (!link || v.classList.contains('taxonomy-item')) continue;
+                    var titleObj = item.querySelector('.preview_title a, .name, .title, .catname');
+                    var title = titleObj ? titleObj.textContent.trim() : imgObj.getAttribute('title') || imgObj.getAttribute('alt') || 'Без назви';
 
-                        var imgV = v.querySelector('img');
-                        var dur = v.querySelector('.time_thumb em');
-                        var qual = v.querySelector('.quality');
-                        var rate = v.querySelector('.rate_thumb em');
+                    if (url && img) {
+                        if (url.indexOf('http') === -1) url = 'https://xom.vtrahe.work' + url;
+                        if (img.indexOf('http') === -1) img = 'https://xom.vtrahe.work' + img;
 
-                        var vImg = imgV ? (imgV.getAttribute('data-original') || imgV.getAttribute('src')) : '';
-                        var vRate = rate ? '👍 ' + rate.textContent.trim() : '';
-                        var vQual = qual ? qual.textContent.trim() : '';
+                        // Визначаємо тип картки по URL
+                        var isModels = url.indexOf('/pornstar/') !== -1 || url.indexOf('/porno-studio/') !== -1;
+                        var isGrid = url.indexOf('/categories/') !== -1;
+                        var isVideo = url.indexOf('/movie/') !== -1;
 
-                        results.push({
-                            name: link.getAttribute('title') || v.querySelector('.desc .title').textContent.trim(),
-                            url: link.getAttribute('href'),
-                            picture: vImg, img: vImg,
-                            time: dur ? dur.textContent.trim() : '',
-                            card_badge: vRate || vQual // Пріоритет рейтингу, потім якості
-                        });
-                    }
-                    return results;
-                },
-
-                getStreams: function(htmlText, doc, element, startPlayback, onError) {
-                    var iframe = doc.querySelector('.video-container iframe');
-                    if (iframe) {
-                        var src = iframe.getAttribute('src');
-                        if (src.indexOf('//') === 0) src = 'https:' + src;
-
-                        // Перевіряємо, чи це плеєр VOE
-                        if (src.indexOf('voe') !== -1) {
-                            // Витягуємо ID відео (наприклад, qscods1ja4jr)
-                            var voeIdMatch = src.match(/\/e\/([a-zA-Z0-9]+)/);
-                            if (voeIdMatch && voeIdMatch[1]) {
-                                // Формуємо правильне посилання, як ти і знайшов: домен/ID/download
-                                var voeDomain = src.split('/e/')[0]; 
-                                var downloadUrl = voeDomain + '/' + voeIdMatch[1] + '/download';
-                                
-                                window.pluginx_smartRequest(downloadUrl, function(html) {
-                                    // Шукаємо чисте посилання на mp4 у кнопці завантаження
-                                    var mp4Match = html.match(/href=["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i);
-                                    
-                                    if (mp4Match && mp4Match[1]) {
-                                        // Очищаємо посилання від HTML-сутностей
-                                        var cleanUrl = mp4Match[1].replace(/&amp;/g, '&');
-                                        startPlayback([{ title: 'Voe (MP4)', url: cleanUrl }]);
-                                    } else {
-                                        Lampa.Noty.show('Не вдалося знайти mp4 на сторінці завантаження VOE');
-                                        onError();
-                                    }
-                                }, function() {
-                                    Lampa.Noty.show('Помилка доступу до сторінки завантаження VOE');
-                                    onError();
-                                });
-                            } else {
-                                onError();
-                            }
+                        if (isVideo) {
+                            // Для відео — тільки тривалість
+                            var timeObj = item.querySelector('.dlit');
+                            results.push({
+                                title: title,
+                                url: url,
+                                picture: img,
+                                time: timeObj ? timeObj.textContent.trim() : '',
+                                is_models: false
+                            });
                         } else {
-
-                            // Якщо з'являться інші плеєри, додамо логіку сюди
-                            onError();
+                            // Для моделей, студій, категорій — тільки кількість відео
+                            var countObj = item.querySelector('.catnum, .count, .num');
+                            var countText = countObj ? countObj.textContent.replace(/[^0-9]/g, '') : '';
+                            
+                            results.push({
+                                title: title,
+                                url: url,
+                                picture: img,
+                                time: countText ? countText + ' відео' : '',
+                                is_models: isModels,
+                                is_grid: isGrid
+                            });
                         }
+                    }
+                }
+                return { results: results, total_pages: 50 };
+            },
+            getStreams: function (htmlText, doc, element, onSuccess, onError) {
+                // Знаходимо всі кнопки вибору якості
+                var qBtns = doc.querySelectorAll('.chooseq');
+                var streams = [];
+                
+                for (var i = 0; i < qBtns.length; i++) {
+                    var btn = qBtns[i];
+                    var link = btn.getAttribute('data-link');
+                    var q = btn.getAttribute('data-q') || '';
+                    var qNum = parseInt(q.replace(/[^0-9]/g, '')) || 0;
+                    
+                    if (link) {
+                        streams.push({ url: link, qNum: qNum, title: 'Vtrahe (' + q + ')' });
+                    }
+                }
+
+                if (streams.length > 0) {
+                    // Сортуємо по спаданню роздільної здатності (наприклад, 1080 -> 720 -> 480)
+                    streams.sort(function(a, b) { return b.qNum - a.qNum; });
+                    
+                    // Віддаємо тільки найкращу якість (найперший елемент)
+                    onSuccess([{ title: streams[0].title, url: streams[0].url }]);
+                } else {
+                    // Фолбек, якщо плеєр виведено стандартним тегом
+                    var videoSrc = doc.querySelector('video source');
+                    if (videoSrc && videoSrc.getAttribute('src')) {
+                        onSuccess([{ title: 'Vtrahe (Auto)', url: videoSrc.getAttribute('src') }]);
                     } else {
                         onError();
                     }
-                },
-
-                getMenu: function(doc, htmlText, element) {
-                    var menu = [];
-                    
-                    // Збираємо Моделі та Категорії з блоку .tools_cat
-                    var tags = doc.querySelectorAll('.tools_cat a');
-                    for (var i = 0; i < tags.length; i++) {
-                        var tUrl = tags[i].getAttribute('href');
-                        var tName = tags[i].textContent.trim();
-                        
-                        if (tUrl.indexOf('/tags1/') !== -1) {
-                            menu.push({ title: '👸 ' + tName, action: 'direct', url: tUrl, is_models: true });
-                        }
-                    }
-
-                    // Категорії додаємо випадаючим списком (cats_custom)
-                    menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: '.tools_cat a[href*="/category1/"]' });
-
-                    // Схожі відео
-                    var related = doc.querySelectorAll('#related_videos a.th');
-                    if (related.length > 0) {
-                        menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
-                    }
-
-                    return menu;
                 }
             },
-            
+            getMenu: function(doc, htmlText, element) {
+                var menu = [];
+                
+                // 1. Актори та Студії (з блоків інфо)
+                var catLinks = doc.querySelectorAll('.catspisok a, .infocategory a');
+                for (var i = 0; i < catLinks.length; i++) {
+                    var aUrl = catLinks[i].getAttribute('href');
+                    var aTitle = catLinks[i].textContent.trim();
+                    if (aUrl && aTitle) {
+                        if (aUrl.indexOf('/pornstar/') !== -1) {
+                            menu.push({ title: '💃 Модель: ' + aTitle, action: 'direct', url: aUrl });
+                        } else if (aUrl.indexOf('/porno-studio/') !== -1) {
+                            menu.push({ title: '🎥 Студія: ' + aTitle, action: 'direct', url: aUrl });
+                        }
+                    }
+                }
+
+                // 2. Теги
+                var tagLinks = doc.querySelectorAll('.tagsspisok a');
+                for (var j = 0; j < tagLinks.length; j++) {
+                    var tUrl = tagLinks[j].getAttribute('href');
+                    var tTitle = tagLinks[j].textContent.trim();
+                    if (tUrl && tTitle) {
+                        menu.push({ title: '🏷 Тег: ' + tTitle, action: 'direct', url: tUrl });
+                    }
+                }
+
+                // 3. Схожі відео (знаходимо блок #preview і беремо всі картки звідти)
+                var simBlocks = doc.querySelectorAll('#preview .innercont');
+                for (var k = 0; k < simBlocks.length; k++) {
+                    var sLink = simBlocks[k].querySelector('a');
+                    var sTitleObj = simBlocks[k].querySelector('.preview_title a');
+                    if (sLink && sTitleObj) {
+                        var sUrl = sLink.getAttribute('href');
+                        var sTitle = sTitleObj.textContent.trim();
+                        if (sUrl) {
+                            if (sUrl.indexOf('http') === -1) sUrl = 'https://xom.vtrahe.work' + sUrl;
+                            menu.push({ title: '🎬 Схоже: ' + sTitle, action: 'sim', url: sUrl });
+                        }
+                    }
+                }
+
+                return menu;
+            }
+        },
+
 
 
       //      ======================================
