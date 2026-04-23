@@ -1948,12 +1948,13 @@ time: time, url: urlV, picture: imgV, img: imgV });
             
             comp.create = function () {
                 var _this = this; this.activity.loader(true);
-                if (currentSite === 'bookmarks') {
-                    var bmarks = window.Lampa.Storage.get('pluginx_bookmarks', []);
-                    if (bmarks.length > 0) {
-                        _this.build({ results: bmarks, collection: true, total_pages: 1, page: 1 });
+                if (currentSite === 'bookmarks' || currentSite === 'history') {
+                    var storageKey = currentSite === 'bookmarks' ? 'pluginx_bookmarks' : 'pluginx_history';
+                    var localData = window.Lampa.Storage.get(storageKey, []);
+                    if (localData.length > 0) {
+                        _this.build({ results: localData, collection: true, total_pages: 1, page: 1 });
                         var rendered = _this.render(); rendered.addClass('main-grid');
-                        if (bmarks[0].is_noimg_main) rendered.addClass('noimg-main-grid'); else if (bmarks[0].is_noimg) rendered.addClass('noimg-grid'); else if (bmarks[0].is_models) rendered.addClass('models-grid'); else if (bmarks[0].is_grid) rendered.addClass('categories-grid');
+                        if (localData[0].is_noimg_main) rendered.addClass('noimg-main-grid'); else if (localData[0].is_noimg) rendered.addClass('noimg-grid'); else if (localData[0].is_models) rendered.addClass('models-grid'); else if (localData[0].is_grid) rendered.addClass('categories-grid');
 
                     } else _this.empty(); return;
                 }
@@ -1977,7 +1978,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
             };
 
             comp.nextPageReuest = function (object, resolve, reject) {
-                if (currentSite === 'bookmarks' || object.is_related) return reject();
+                if (currentSite === 'bookmarks' || currentSite === 'history' || object.is_related) return reject();
                 var adapter = Adapters[currentSite]; if (!adapter) return reject();
                 var targetPath = (object.url || '').replace(adapter.domain, '').split('?')[0].replace(/\/+$/, '');
                 if (targetPath === '/categories' || object.is_categories || object.is_trends) return reject(); 
@@ -1996,7 +1997,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 var adapter = Adapters[currentSite];
                 var items = [ { title: '🏠 Головна', action: 'home' }, { title: '🔍 Пошук', action: 'search' }, { title: '⭐ Обране', action: 'bookmarks' } ];
                 
-                if (currentSite !== 'bookmarks' && adapter) {
+                if (currentSite !== 'bookmarks' && currentSite !== 'history' && adapter) {
                     var navItems = adapter.getNavItems();
                     items = items.concat(navItems);
                     if (this._dynamicFilters) {
@@ -2228,8 +2229,7 @@ if (currentSite === 'bookmarks' || currentSite === 'history') {
                 item.on('hover:enter', function () {
                     var siteOptions = [
                         { title: '⭐ Обране', site: 'bookmarks' },
-                        { title: '🕒 Історія', site: 'history' },
-                        { title: '---', separator: true } // Візуальний розділювач
+                        { title: '🕒 Історія', site: 'history' }
                     ];
                     
                     for (var key in Adapters) {
