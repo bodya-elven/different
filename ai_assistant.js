@@ -310,6 +310,7 @@
 
 
         this.actionFacts = function(card, btn, render, ctrl) {
+            if (!_this.checkApiKey(btn, render, ctrl)) return; 
             var ukrT = card.title || card.name;
             var origT = card.original_title || card.original_name;
             var year = (card.release_date || card.first_air_date || '').slice(0,4);
@@ -347,6 +348,7 @@
 
 
         this.actionRecapMenu = function(card, btn, render, ctrl) {
+            if (!_this.checkApiKey(btn, render, ctrl)) return;
             var items = [];
             if (card.number_of_seasons > 1) { for (var i = 1; i < card.number_of_seasons; i++) items.push({ title: 'Сезон ' + i, type: 'season', value: i }); }
             else if (card.belongs_to_collection) {
@@ -400,6 +402,7 @@
 
 
         this.actionRecommendations = function(card, btn, render, ctrl) {
+            if (!_this.checkApiKey(btn, render, ctrl)) return;
             var limit = Lampa.Storage.get('ai_result_count', '20'), t = card.original_title || card.original_name, year = (card.release_date || card.first_air_date || '').slice(0,4);
             window.ai_active_controller = ctrl || Lampa.Controller.enabled().name;
             _this.updateStatus('Аналіз фільму');
@@ -411,6 +414,7 @@
         };
 
         this.actionTags = function(card, btn, render, ctrl) {
+            if (!_this.checkApiKey(btn, render, ctrl)) return;
             if (card.translated_tags && card.translated_tags.length > 0) {
                 _this.showTagsMenu(card.translated_tags, card, btn, render, ctrl);
             } else {
@@ -473,7 +477,7 @@
         this.askGemini = function(p, onSuccess, onError, isSilent, useSearch) {
             var rawValue = Lampa.Storage.get(STORAGE_KEY, '');
             if (!rawValue) {
-                if (!isSilent) Lampa.Noty.show('Gemini API key is empty');
+                if (!isSilent) Lampa.Noty.show('ШІ спить 😴 Додайте API ключ у налаштуваннях, щоб розбудити його');
                 if (onError) onError();
                 return;
             }
@@ -920,6 +924,16 @@
             if(statusBox) statusBox.fadeOut(500); 
         };
 
+        this.checkApiKey = function(btn, render, ctrl) {
+            var rawValue = Lampa.Storage.get(STORAGE_KEY, '');
+            if (!rawValue) {
+                Lampa.Noty.show('ШІ спить 😴 Додайте API ключ у налаштуваннях, щоб розбудити його');
+                if (btn && render) _this.restoreFocus(btn, render, ctrl);
+                return false;
+            }
+            return true;
+        };
+
         this.setupSettings = function() {
             Lampa.SettingsApi.addComponent({ component: 'ai_assistant_cfg', name: 'AI Асистент', icon: PLUGIN_ICON });
             
@@ -996,7 +1010,7 @@
 
 var pluginManifest = {
     type: 'other',
-    version: '3.3',
+    version: '3.4',
     name: 'AI Асистент',
     description: 'Ваш персональний ШІ помічник',
     author: '@bodya_elven',
