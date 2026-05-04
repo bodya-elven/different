@@ -196,6 +196,368 @@ var css = '<style>\
                 }
             },
             
+            
+// =========================================================================
+// АДАПТЕР: EPORNER
+// Сайт: https://www.eporner.com
+// Сумісний з плагіном CatalogX (pluginxxx.js) для Lampa
+//
+// ПІДКЛЮЧЕННЯ:
+// Відкрий pluginxxx.js, знайди рядок "var Adapters = {"
+// Після першого блоку (bookmarks/history) або після будь-якого
+// існуючого адаптера (перед закриваючою дужкою } об'єкта Adapters)
+// встав цей код як нове поле об'єкта Adapters:
+//
+//   eporner: { ... }
+//
+// =========================================================================
+
+eporner: {
+    title: 'Eporner',
+    domain: 'https://www.eporner.com',
+
+    // -------------------------------------------------------
+    // Повертає URL головної сторінки (список нових відео)
+    // -------------------------------------------------------
+    getHomeUrl: function() {
+        return this.domain + '/';
+    },
+
+    // -------------------------------------------------------
+    // Формує URL пошуку
+    // -------------------------------------------------------
+    getSearchUrl: function(query) {
+        return this.domain + '/search/' + encodeURIComponent(query.trim().replace(/\s+/g, '-')) + '/';
+    },
+
+    // -------------------------------------------------------
+    // Формує URL сторінки з урахуванням пагінації
+    // Eporner використовує ?from=N (кожна сторінка = 20 відео)
+    // -------------------------------------------------------
+    getUrl: function(object, page) {
+        var url = object.url || this.getHomeUrl();
+        var perPage = 20;
+
+        // Видаляємо старий параметр from=
+        url = url.replace(/[?&]from=\d+/, '');
+
+        if (page > 1) {
+            var from = (page - 1) * perPage;
+            var sep = url.indexOf('?') === -1 ? '?' : '&';
+            url = url + sep + 'from=' + from;
+        }
+        return url;
+    },
+
+    // -------------------------------------------------------
+    // Визначає доступні фільтри / сортування на поточній сторінці
+    // -------------------------------------------------------
+    getFilters: function(doc, currentUrl) {
+        // Не показуємо фільтр на сторінках категорій і моделей
+        var path = currentUrl.replace(this.domain, '').split('?')[0];
+        if (path === '/cat/' || path.indexOf('/pornstar/') === 0) return null;
+
+        // Eporner має кнопки сортування в блоці .sortby
+        var sortBlock = doc.querySelector('.sortby, #sortby');
+        if (!sortBlock) return null;
+
+        var activeTitle = 'Сортування';
+        var items = [];
+        var links = sortBlock.querySelectorAll('a');
+        var self = this;
+
+        for (var i = 0; i < links.length; i++) {
+            var a = links[i];
+            var title = (a.textContent || '').trim();
+            var href = a.getAttribute('href');
+            if (!title || !href) continue;
+            if (href.indexOf('http') !== 0) href = self.domain + (href.charAt(0) === '/' ? '' : '/') + href;
+
+            // Активний пункт (has class "selected" або "active")
+            if (a.classList.contains('selected') || a.classList.contains('active') ||
+                a.parentNode.classList.contains('selected') || a.parentNode.classList.contains('active')) {
+                activeTitle = title;
+            } else {
+                items.push({ title: title, url: href });
+            }
+        }
+
+        if (items.length === 0) return null;
+        return { subtitle: activeTitle, items: items };
+    },
+
+    // -------------------------------------------------------
+    // Пункти верхнього навігаційного меню адаптера
+    // -------------------------------------------------------
+    getNavItems: function() {
+        return [
+            { title: '🗄️ Категорії',  action: 'nav', url: this.domain + '/cat/',        is_categories: true },
+            { title: '👸 Моделі',      action: 'nav', url: this.domain + '/pornstar/',   is_models: true },
+            { title: '🔥 Найпопулярніші', action: 'nav', url: this.domain + '/?order=mv' },
+            { title: '⭐ Топ рейтингу',  action: 'nav', url: this.domain + '/?order=tr' },
+            { title: '📅 Нові',          action: 'nav', url: this.domain + '/?order=dt' }
+        ];
+    },
+
+    // -------------------------------------------------------
+    // Парсинг сторінки: повертає масив карток для відображення
+    // -------------------------------------------------------
+    parse: function(doc, currentUrl, object) {
+        var results = [];
+        var self = this;
+        var path = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/+$/, '');
+
+        // ── КАТЕГОРІЇ (/cat/) ────────────────────────────────
+        if (path === '/cat' || object.is_categories) {
+            var catLinks = doc.querySelectorAll('#catlist a, .categorybox a, ul.catlist a');
+            var addedCat = {};
+
+            for (var c = 0; c < catLinks.length; c++) {
+                var elC = catLinks[c];
+                var href = elC.getAttribute('href');
+                if (!href || addedCat[href]) continue;
+
+                var nameC = (elC.getAttribute('title') || elC.textContent || '').trim();
+                if (!nameC) continue;
+
+                var imgC = elC.querySelector('img');
+                var imgSrc = imgC ? (imgC.getAttribute('data-src') || imgC.getAttribute('src') || '') : '';
+                if (imgSrc && imgSrc.indexOf('//') === 0) imgSrc = 'https:' + imgSrc;
+                if (imgSrc && imgSrc.indexOf('/') === 0) imgSrc = self.domain + imgSrc;
+
+                var urlC = href.indexOf('http') === 0 ? href : self.domain + (href.charAt(0) === '/' ? '' : '/') + href;
+
+                results.push({ name: nameC, url: urlC, picture: imgSrc, img: imgSrc, is_grid: true });
+                addedCat[href] = true;
+            }
+            return results;
+        }
+
+        // ── МОДЕЛІ (/pornstar/) ──────────────────────────────
+        if (path === '/pornstar' || path.indexOf('/pornstar') === 0 && path.split('/').length <= 3 || object.is_models) {
+            // Eporner: картки моделей знаходяться в .pclist2 або #pornstarlist
+            var modelEls = doc.querySelectorAll('#pornstarlist li, .pclist2 li, ul.modellist li');
+
+            for (var m = 0; m < modelEls.length; m++) {
+                var elM = modelEls[m];
+                var linkM = elM.querySelector('a');
+                var imgM = elM.querySelector('img');
+                var nameElM = elM.querySelector('.pstarname, .modelname, strong, span.name');
+
+                if (!linkM) continue;
+
+                var hrefM = linkM.getAttribute('href');
+                var nameM = nameElM
+                    ? (nameElM.textContent || '').trim()
+                    : (imgM ? imgM.getAttribute('alt') : (linkM.textContent || '').trim());
+                if (!nameM) continue;
+
+                var imgSrcM = imgM ? (imgM.getAttribute('data-src') || imgM.getAttribute('src') || '') : '';
+                if (imgSrcM && imgSrcM.indexOf('//') === 0) imgSrcM = 'https:' + imgSrcM;
+                if (imgSrcM && imgSrcM.indexOf('/') === 0) imgSrcM = self.domain + imgSrcM;
+
+                var urlM = hrefM && hrefM.indexOf('http') === 0 ? hrefM : self.domain + (hrefM && hrefM.charAt(0) === '/' ? '' : '/') + (hrefM || '');
+
+                // Кількість відео (якщо є)
+                var countElM = elM.querySelector('.pstarvideos, .videocount, span.cnt');
+                var countM = countElM ? (countElM.textContent || '').trim() : '';
+
+                results.push({
+                    name: nameM,
+                    url: urlM,
+                    picture: imgSrcM,
+                    img: imgSrcM,
+                    is_grid: true,
+                    is_models: true,
+                    card_badge: countM
+                });
+            }
+            return results;
+        }
+
+        // ── СПИСОК ВІДЕО (головна / категорія / пошук / модель) ──
+        // Eporner використовує id="videodetails" або ul з class pclist / pclist2
+        var videoEls = doc.querySelectorAll(
+            '#videodetails li, ul.pclist li, ul.pclist2 li, ' +
+            '.videolist li, #videolist li, #searchresult li'
+        );
+
+        for (var v = 0; v < videoEls.length; v++) {
+            var elV = videoEls[v];
+
+            // Пропускаємо рекламні / сервісні блоки
+            if (elV.classList.contains('adv') || elV.classList.contains('ad')) continue;
+
+            var linkV = elV.querySelector('a.mb');     // Основне посилання картки
+            if (!linkV) linkV = elV.querySelector('a');
+            if (!linkV) continue;
+
+            var hrefV = linkV.getAttribute('href');
+            if (!hrefV) continue;
+
+            var urlV = hrefV.indexOf('http') === 0 ? hrefV : self.domain + (hrefV.charAt(0) === '/' ? '' : '/') + hrefV;
+
+            // Тільки сторінки відео (/video-xxx-...)
+            if (urlV.indexOf('/video-') === -1 && urlV.indexOf('/hd-porn/') === -1) continue;
+
+            // Зображення
+            var imgV = elV.querySelector('img');
+            var posterV = imgV
+                ? (imgV.getAttribute('data-src') || imgV.getAttribute('src') || imgV.getAttribute('data-original') || '')
+                : '';
+            if (posterV && posterV.indexOf('//') === 0) posterV = 'https:' + posterV;
+            if (posterV && posterV.indexOf('/') === 0) posterV = self.domain + posterV;
+
+            // Назва
+            var titleElV = elV.querySelector('.mbtit, .btitle, span.title, strong, h1, h2, h3');
+            var nameV = titleElV
+                ? (titleElV.textContent || '').trim()
+                : (imgV ? imgV.getAttribute('alt') : (linkV.getAttribute('title') || '').trim());
+            if (!nameV) nameV = (linkV.textContent || '').trim();
+            if (!nameV) continue;
+
+            // Тривалість
+            var durElV = elV.querySelector('.mbtim, .duration, span.dur, var.duration');
+            var timeV = durElV ? (durElV.textContent || '').trim() : '';
+
+            // Якість (HD / 4K badge)
+            var qualElV = elV.querySelector('.mbhd, .quality, span.hd');
+            var qualV = qualElV ? (qualElV.textContent || '').trim() : '';
+
+            results.push({
+                name: nameV,
+                url: urlV,
+                picture: posterV,
+                img: posterV,
+                time: timeV,
+                card_badge: qualV || timeV
+            });
+        }
+
+        return results;
+    },
+
+    // -------------------------------------------------------
+    // Отримання відеопотоків для відтворення
+    //
+    // Eporner зберігає потоки в JSON об'єкті у тілі сторінки.
+    // Приклад: sources: {"mp4_1080p":"https://...","mp4_720p":"https://..."}
+    // Також у змінних JavaScript типу: var video_url = "...";
+    // -------------------------------------------------------
+    getStreams: function(htmlText, doc, element, startPlayback, onError) {
+        var str = [];
+        var self = this;
+
+        // --- Спосіб 1: JSON-блок "sources" або "qualities" у HTML ---
+        // Eporner вбудовує JSON безпосередньо в JS на сторінці відео
+        var sourcesMatch = htmlText.match(/"sources"\s*:\s*(\{[^}]+\})/);
+        if (!sourcesMatch) sourcesMatch = htmlText.match(/sources\s*=\s*(\{[^}]+\})/);
+
+        if (sourcesMatch && sourcesMatch[1]) {
+            try {
+                var src = JSON.parse(sourcesMatch[1]);
+                // Порядок якості від найвищої до найнижчої
+                var order = ['mp4_1080p', 'mp4_720p', 'mp4_480p', 'mp4_360p', 'mp4_240p'];
+                for (var k = 0; k < order.length; k++) {
+                    if (src[order[k]]) {
+                        var label = order[k].replace('mp4_', '').toUpperCase();
+                        str.push({
+                            title: label,
+                            url: src[order[k]].replace(/\\\//g, '/'),
+                            headers: { 'Referer': self.domain + '/' }
+                        });
+                    }
+                }
+                // Якщо знайшли хоч один потік
+                if (str.length > 0) { startPlayback(str); return; }
+            } catch(e) {}
+        }
+
+        // --- Спосіб 2: масив formats / flashvars ---
+        var flashMatch = htmlText.match(/flashvars\s*=\s*(\{[\s\S]+?\})\s*;/);
+        if (flashMatch && flashMatch[1]) {
+            try {
+                var fv = JSON.parse(flashMatch[1]);
+                if (fv && fv.videoLink) {
+                    str.push({ title: 'Оригінал', url: fv.videoLink.replace(/\\\//g, '/'), headers: { 'Referer': self.domain + '/' } });
+                }
+                if (str.length > 0) { startPlayback(str); return; }
+            } catch(e) {}
+        }
+
+        // --- Спосіб 3: пошук прямих посилань на .mp4 у скриптах ---
+        // Eporner часто зберігає URL в рядку типу: video_url="https://...mp4"
+        var urlPatterns = [
+            /video_url\s*[=:]\s*["']([^"']+\.mp4[^"']*)/i,
+            /file\s*:\s*["']([^"']+\.mp4[^"']*)/i,
+            /src\s*:\s*["']([^"']+\.mp4[^"']*)/i,
+            /"url"\s*:\s*"([^"]+\.mp4[^"]*)"/i
+        ];
+        for (var p = 0; p < urlPatterns.length; p++) {
+            var pMatch = htmlText.match(urlPatterns[p]);
+            if (pMatch && pMatch[1]) {
+                var rawUrl = pMatch[1].replace(/\\\//g, '/').replace(/\\u0026/g, '&');
+                str.push({ title: 'Оригінал', url: rawUrl, headers: { 'Referer': self.domain + '/' } });
+                startPlayback(str);
+                return;
+            }
+        }
+
+        // --- Спосіб 4: тег <source> у HTML (для деяких embed-сторінок) ---
+        var sourceEls = doc.querySelectorAll('video source, source[type="video/mp4"]');
+        for (var s = 0; s < sourceEls.length; s++) {
+            var sUrl = sourceEls[s].getAttribute('src');
+            var sLabel = sourceEls[s].getAttribute('label') || sourceEls[s].getAttribute('res') || 'Оригінал';
+            if (sUrl) str.push({ title: sLabel, url: sUrl, headers: { 'Referer': self.domain + '/' } });
+        }
+        if (str.length > 0) { startPlayback(str); return; }
+
+        // --- Нічого не знайдено ---
+        onError();
+    },
+
+    // -------------------------------------------------------
+    // Додаткове меню на картці відео (Моделі / Категорії / Теги / Схожі)
+    // -------------------------------------------------------
+    getMenu: function(doc, htmlText, element) {
+        var menu = [];
+        var self = this;
+
+        // Якість: альтернативна (якщо є декілька)
+        var altSrc = htmlText.match(/"mp4_720p"\s*:\s*"([^"]+)"/);
+        if (altSrc && altSrc[1]) {
+            menu.push({
+                title: '▶ Відтворити 720p',
+                action: 'play_direct',
+                url: altSrc[1].replace(/\\\//g, '/')
+            });
+        }
+
+        // Моделі
+        var modelLinks = doc.querySelectorAll('.mpcnt a[href*="/pornstar/"], .videoinfo a[href*="/pornstar/"]');
+        for (var m = 0; m < modelLinks.length; m++) {
+            var mName = (modelLinks[m].textContent || '').trim();
+            var mHref = modelLinks[m].getAttribute('href');
+            if (!mName || !mHref) continue;
+            if (mHref.indexOf('http') !== 0) mHref = self.domain + (mHref.charAt(0) === '/' ? '' : '/') + mHref;
+            menu.push({ title: '👸 ' + mName, action: 'direct', url: mHref });
+        }
+
+        // Категорії і теги (посилання з /cat/)
+        menu.push({ title: '🗄️ Категорії', action: 'cats_custom', sel: 'a[href*="/cat/"], .cats a, .tags a' });
+
+        // Схожі відео
+        menu.push({ title: '🔥 Схожі відео', action: 'sim', url: element.url });
+
+        return menu;
+    }
+},
+
+// =========================================================================
+// КІНЕЦЬ АДАПТЕРА EPORNER
+// ===============================================
+            
+            
         // =========================================================================
         // АДАПТЕР: VTRAHE
         // =========================================================================
