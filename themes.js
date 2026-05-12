@@ -182,9 +182,7 @@
         var id = card.id;
         var url = 'https://api.themoviedb.org/3/' + type + '/' + id + '/images?api_key=' + tmdbKey;
         
-        // 3. ВИПРАВЛЕНО Lampa.Request замість Reguest
-        var network = new Lampa.Request();
-        network.silent(url, function(data) {
+        Lampa.Network.silent(url, function(data) {
             if (!data || !data.logos || data.logos.length === 0) return callback(null);
 
             var logo = null;
@@ -636,7 +634,7 @@
 
     var pluginManifest = {
         type: 'interface',
-        version: '2.3',
+        version: '2.4',
         name: 'Теми інтерфейсу',
         description: 'Динамічні теми та візуальна кастомізація',
         author: '@bodya_elven',
