@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.6.3',
+        version: '2.6.4',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -1690,18 +1690,21 @@ is_studios: isStudios,
                 }
             },
 
-            // Блок Porn36
+            // =========================================================================
+            // Porn36
+            // =========================================================================
             porn36: {
                 title: 'Porn36',
                 domain: 'https://www.porn36.com',
                 getHomeUrl: function() { return this.domain + '/latest-updates/'; },
                 getSearchUrl: function(query) { return this.domain + '/search/' + encodeURIComponent(query) + '/relevance/'; },
                 getUrl: function(object, page) {
-                    var url = object.url || (this.domain + '/latest-updates/'), uParts = url.split('?'), base = uParts[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
+                    var url = object.url || (this.domain + '/latest-updates/'), uParts = url.split('?'), base = uParts[0].replace(/\/[0-9]+\/?$/, '').replace(/\/+$/, '');
                     if (!base.endsWith('/')) base += '/';
-                    if (page > 1) return base + 'page/' + page + '/' + (uParts.length > 1 ? '?' + uParts[1] : '');
+                    if (page > 1) return base + page + '/' + (uParts.length > 1 ? '?' + uParts[1] : '');
                     return url;
                 },
+
                 getFilters: function(doc, currentUrl) {
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0];
                     var isTopRated = currentUrl.indexOf('/top-rated') !== -1, isMostViewed = currentUrl.indexOf('/most-popular') !== -1, isLatest = !isTopRated && !isMostViewed && currentUrl.indexOf('/models') === -1 && currentUrl.indexOf('/sites') === -1 && currentUrl.indexOf('/search') === -1;
@@ -1734,12 +1737,13 @@ is_studios: isStudios,
                     return [
                         { title: '🗄️ Категорії', action: 'custom_select', fetchUrl: this.domain + '/categories/', parseSelect: function(doc) {
                             var links = doc.querySelectorAll('.list-categories__row--list a'), menu = [];
-                            for(var i=0; i<links.length; i++) { var h = links[i].getAttribute('href'); if(h) menu.push({title: (links[i].textContent || '').trim(), url: h.startsWith('http') ? h : 'https://www.porn36.com' + h, is_categories: true}); }
-                            return menu;
-                        }},
-                        { title: '🔥 Трендові запити', action: 'custom_select', fetchUrl: this.domain + '/categories/', parseSelect: function(doc) {
-                            var links = doc.querySelectorAll('.tags__item'), menu = [];
-                            for(var i=0; i<links.length; i++) { var h = links[i].getAttribute('href'); if(h) menu.push({title: (links[i].textContent || '').trim(), url: h.startsWith('http') ? h : 'https://www.porn36.com' + h, is_trends: true}); }
+                            for(var i=0; i<links.length; i++) { 
+                                var h = links[i].getAttribute('href'); 
+                                if(h) menu.push({
+                                    title: (links[i].textContent || '').trim(), 
+                                    url: h.startsWith('http') ? h : 'https://www.porn36.com' + h
+                                }); 
+                            }
                             return menu;
                         }},
                         { title: '👸 Моделі', action: 'nav', url: this.domain + '/models/', is_models: true },
@@ -1842,7 +1846,7 @@ is_studios: isStudios,
             },
 
             // =========================================================================
-            // АДАПТЕР: PORNHUB (DEKTOP-READY VERSION + AUTO-FALLBACK)
+            // АДАПТЕР: PORNHUB
             // =========================================================================
             pornhub: {
                 title: 'Pornhub',
