@@ -384,65 +384,83 @@ var css = '<style>\
             },
 
             getStreams: function (htmlText, doc, element, startPlayback, onError) {
-                var embedUrl = '';
+                var streams = [];
+                var playerNode = doc.querySelector('#player');
                 
-                // 1. Беремо посилання тільки з head (og:video)
-                var meta = doc.querySelector('meta[property="og:video"]');
-                if (meta) {
-                    embedUrl = meta.getAttribute('content') || '';
+                // 1. Метод з AdultJS: Конструювання прямого посилання (через префікс JOPORN_NET)
+                if (playerNode) {
+                    var vId = playerNode.getAttribute('data-id');
+                    var dataQ = playerNode.getAttribute('data-q');
+                    var cdnNum = playerNode.getAttribute('data-n') || '4'; 
+                    
+                    if (vId && dataQ) {
+                        var qualities = dataQ.split(',');
+                        for (var i = 0; i < qualities.length; i++) {
+                            var parts = qualities[i].split(';');
+                            
+                            // Структура data-q: "1080p;hash;1080p;size;time"
+                            if (parts.length >= 5) {
+                                var qLabel = parts[0]; 
+                                var hash = parts[1].replace(/^_/, ''); // Відкидаємо зайве підкреслення з початку
+                                var time = parts[4]; 
+                                
+                                // Збираємо URL точнісінько як це робить AdultJS
+                                var url = 'https://v' + cdnNum + '.cdnde.com/x' + cdnNum + '/upload_' + hash + '/' + vId + '/JOPORN_NET_' + vId + '_' + qLabel + '.mp4?time=' + time;
+                                var qNum = parseInt(qLabel.replace(/[^0-9]/g, '')) || 0;
+                                
+                                streams.push({ title: 'Vtrahe (' + qLabel + ')', url: url, qNum: qNum });
+                            }
+                        }
+                        
+                        if (streams.length > 0) {
+                            streams.sort(function(a, b) { return b.qNum - a.qNum; });
+                            startPlayback([{ title: streams[0].title, url: streams[0].url }]);
+                            return; // Успішно віддали прямі посилання, зупиняємо виконання
+                        }
+                    }
                 }
                 
-                // Запасний варіант, якщо тег був у вигляді iframe
+                // 2. Запасний метод: чищення посилань з embed від IP-локу (на випадок змін на сайті)
+                var embedUrl = '';
+                var meta = doc.querySelector('meta[property="og:video"]');
+                if (meta) embedUrl = meta.getAttribute('content') || '';
                 if (!embedUrl) {
                     var iframe = doc.querySelector('iframe[src*="/embed/"]');
                     if (iframe) embedUrl = iframe.getAttribute('src') || '';
                 }
 
                 if (embedUrl) {
-                    // Страховка на випадок відносних посилань (без this.domain, бо його тут немає)
-                    if (embedUrl.indexOf('http') === -1) {
-                        embedUrl = 'https://xom.vtrahe.work' + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
-                    }
+                    if (embedUrl.indexOf('http') === -1) embedUrl = 'https://xom.vtrahe.work' + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
                     
-                    // 2. Додаємо Referer, щоб балансер віддав нам сторінку з Playerjs, а не помилку 403
-                    var customHeaders = {
-                        'Referer': element.url
-                    };
-                    
-                    // 3. Робимо запит на embed
                     window.pluginx_smartRequest(embedUrl, function(embedHtml) {
-                        
-                        // 4. Шукаємо масив з відео у Playerjs
                         var fileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/i);
                         if (fileMatch && fileMatch[1]) {
-                            var streams = [];
-                            var parts = fileMatch[1].split(',');
-                            
-                            for (var i = 0; i < parts.length; i++) {
-                                var part = parts[i].trim();
-                                var qMatch = part.match(/\[(.*?)\]\s*(http.*)/i);
-                                
+                            var embParts = fileMatch[1].split(',');
+                            for (var j = 0; j < embParts.length; j++) {
+                                var qMatch = embParts[j].match(/\[(.*?)\]\s*(http.*)/i);
                                 if (qMatch) {
-                                    var qLabel = qMatch[1]; // Наприклад: 1080p
-                                    var sUrl = qMatch[2].trim().replace(/&amp;/g, '&');
-                                    var qNum = parseInt(qLabel.replace(/[^0-9]/g, '')) || 0;
-                                    streams.push({ title: 'Vtrahe (' + qLabel + ')', url: sUrl, qNum: qNum });
+                                    var qLabel2 = qMatch[1];
+                                    var rawUrl = qMatch[2].trim().replace(/&amp;/g, '&');
+                                    
+                                    // КРИТИЧНО: Вирізаємо токени video= та ip=, які балансер додає для блокування
+                                    var cleanUrl = rawUrl.replace(/([&?])(video|ip)=[^&]+/g, '').replace(/&&/g, '&').replace(/\?&/, '?');
+                                    var qNum2 = parseInt(qLabel2.replace(/[^0-9]/g, '')) || 0;
+                                    
+                                    streams.push({ title: 'Vtrahe (' + qLabel2 + ')', url: cleanUrl, qNum: qNum2 });
                                 }
                             }
-                            
                             if (streams.length > 0) {
-                                // 5. Сортуємо від найкращої якості і відправляємо в плеєр
                                 streams.sort(function(a, b) { return b.qNum - a.qNum; });
                                 startPlayback([{ title: streams[0].title, url: streams[0].url }]);
                             } else {
-                                onError(); // Посилання не розпарсилися
+                                onError();
                             }
                         } else {
-                            onError(); // Playerjs або рядок file не знайдено на сторінці embed
+                            onError();
                         }
-                    }, onError, customHeaders);
+                    }, onError, { 'Referer': element.url });
                 } else {
-                    onError(); // Не знайдено og:video
+                    onError();
                 }
             },
 
