@@ -744,34 +744,71 @@ eporner: {
             },
 
             getStreams: function(htmlText, doc, element, startPlayback, onError) {
-                var qBtns = doc.querySelectorAll('.chooseq');
-                var streams = [];
+
+                var embedMeta = doc.querySelector('meta[property="og:video"]');
+                var embedUrl = '';
                 
-                // Збираємо потоки та якість з кнопок
-                for (var i = 0; i < qBtns.length; i++) {
-                    var btn = qBtns[i];
-                    var link = btn.getAttribute('data-link');
-                    var q = btn.textContent.trim() || btn.getAttribute('data-q');
-                    
-                    if (link) {
-                        var qNum = parseInt((btn.getAttribute('data-q') || '').replace(/[^0-9]/g, '')) || 0;
-                        streams.push({ url: link, qNum: qNum, title: q });
-                    }
+                if (embedMeta) embedUrl = embedMeta.getAttribute('content');
+                if (!embedUrl) {
+                    var iframe = doc.querySelector('iframe[src*="/embed/"]');
+                    if (iframe) embedUrl = iframe.getAttribute('src');
                 }
 
-                if (streams.length > 0) {
-                    streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                    startPlayback(streams);
-                } else {
-                    // Резервний варіант: витягування src з тегу video
-                    var videoSrc = doc.querySelector('video source') || doc.querySelector('video');
-                    if (videoSrc && videoSrc.getAttribute('src')) {
-                        startPlayback([{ title: 'Auto', url: videoSrc.getAttribute('src') }]);
+                function fallback(d) {
+                    var qBtns = d.querySelectorAll('.chooseq'), streams = [];
+                    for (var i = 0; i < qBtns.length; i++) {
+                        var link = qBtns[i].getAttribute('data-link'), q = qBtns[i].getAttribute('data-q') || '';
+                        if (link) streams.push({ url: link, qNum: parseInt(q.replace(/[^0-9]/g, '')) || 0, title: 'Vtrahe (' + q + ')' });
+                    }
+                    if (streams.length > 0) {
+                        streams.sort(function(a, b) { return b.qNum - a.qNum; });
+                        startPlayback([{ title: streams[0].title, url: streams[0].url }]);
                     } else {
                         onError();
                     }
                 }
+
+                if (embedUrl) {
+                    if (embedUrl.indexOf('http') === -1) embedUrl = 'https://xha.vtrahe.work' + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
+                    
+                    window.Lampa.network.clear().get(embedUrl, function(embedHtml) {
+
+                        var fileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/);
+                        if (fileMatch && fileMatch[1]) {
+                            var fileStr = fileMatch[1];
+                            var streams = [];
+                            var parts = fileStr.split(',');
+                            
+                            for (var i = 0; i < parts.length; i++) {
+                                var part = parts[i].trim();
+                                var qMatch = part.match(/\[(.*?)\]\s*(http.*)/);
+                                if (qMatch) {
+                                    var qLabel = qMatch[1];
+                                    var sUrl = qMatch[2].trim();
+                                    var qNum = parseInt(qLabel.replace(/[^0-9]/g, '')) || 0;
+                                    streams.push({ title: 'Vtrahe (' + qLabel + ')', url: sUrl, qNum: qNum });
+                                } else if (part.indexOf('http') === 0) {
+                                    streams.push({ title: 'Vtrahe (Auto)', url: part, qNum: 0 });
+                                }
+                            }
+                            
+                            if (streams.length > 0) {
+                                streams.sort(function(a, b) { return b.qNum - a.qNum; });
+                                startPlayback([{ title: streams[0].title, url: streams[0].url }]);
+                            } else {
+                                fallback(doc);
+                            }
+                        } else {
+                            fallback(doc);
+                        }
+                    }, function() {
+                        fallback(doc);
+                    });
+                } else {
+                    fallback(doc);
+                }
             },
+
 
             getMenu: function(doc, htmlText, element) {
                 var menu = [];
