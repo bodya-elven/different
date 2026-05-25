@@ -386,61 +386,63 @@ var css = '<style>\
             getStreams: function (htmlText, doc, element, startPlayback, onError) {
                 var embedUrl = '';
                 
-                // 1. Шукаємо посилання на embed у мета-тегах (head)
-                var metaMatch = htmlText.match(/<meta[^>]*property=["']og:video["'][^>]*content=["']([^"']+)["']/i) || 
-                                htmlText.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:video["']/i);
+                // 1. Беремо посилання тільки з head (og:video)
+                var meta = doc.querySelector('meta[property="og:video"]');
+                if (meta) {
+                    embedUrl = meta.getAttribute('content') || '';
+                }
                 
-                if (metaMatch && metaMatch[1]) {
-                    embedUrl = metaMatch[1];
-                } else {
-                    // Запасний варіант, якщо og:video відсутній
-                    var iframeMatch = htmlText.match(/<iframe[^>]*src=["']([^"']+\/embed\/[^"']+)["']/i);
-                    if (iframeMatch && iframeMatch[1]) embedUrl = iframeMatch[1];
+                // Запасний варіант, якщо тег був у вигляді iframe
+                if (!embedUrl) {
+                    var iframe = doc.querySelector('iframe[src*="/embed/"]');
+                    if (iframe) embedUrl = iframe.getAttribute('src') || '';
                 }
 
                 if (embedUrl) {
+                    // Страховка на випадок відносних посилань (без this.domain, бо його тут немає)
                     if (embedUrl.indexOf('http') === -1) {
-                        embedUrl = this.domain + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
+                        embedUrl = 'https://xom.vtrahe.work' + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
                     }
                     
-                    // 2. Робимо запит до сторінки embed
+                    // 2. Додаємо Referer, щоб балансер віддав нам сторінку з Playerjs, а не помилку 403
+                    var customHeaders = {
+                        'Referer': element.url
+                    };
+                    
+                    // 3. Робимо запит на embed
                     window.pluginx_smartRequest(embedUrl, function(embedHtml) {
                         
-                        // 3. Витягуємо посилання на відео
+                        // 4. Шукаємо масив з відео у Playerjs
                         var fileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/i);
                         if (fileMatch && fileMatch[1]) {
-                            var fileStr = fileMatch[1];
                             var streams = [];
-                            var parts = fileStr.split(',');
+                            var parts = fileMatch[1].split(',');
                             
                             for (var i = 0; i < parts.length; i++) {
                                 var part = parts[i].trim();
                                 var qMatch = part.match(/\[(.*?)\]\s*(http.*)/i);
                                 
                                 if (qMatch) {
-                                    var qLabel = qMatch[1];
-                                    // Очищаємо від можливих HTML-сутностей, щоб не ламало токен
+                                    var qLabel = qMatch[1]; // Наприклад: 1080p
                                     var sUrl = qMatch[2].trim().replace(/&amp;/g, '&');
                                     var qNum = parseInt(qLabel.replace(/[^0-9]/g, '')) || 0;
                                     streams.push({ title: 'Vtrahe (' + qLabel + ')', url: sUrl, qNum: qNum });
-                                } else if (part.indexOf('http') === 0) {
-                                    streams.push({ title: 'Vtrahe (Auto)', url: part.replace(/&amp;/g, '&'), qNum: 0 });
                                 }
                             }
                             
                             if (streams.length > 0) {
-                                // 4. Відправляємо в плеєр найкращу якість
+                                // 5. Сортуємо від найкращої якості і відправляємо в плеєр
                                 streams.sort(function(a, b) { return b.qNum - a.qNum; });
                                 startPlayback([{ title: streams[0].title, url: streams[0].url }]);
                             } else {
-                                onError();
+                                onError(); // Посилання не розпарсилися
                             }
                         } else {
-                            onError();
+                            onError(); // Playerjs або рядок file не знайдено на сторінці embed
                         }
-                    }, onError);
+                    }, onError, customHeaders);
                 } else {
-                    onError();
+                    onError(); // Не знайдено og:video
                 }
             },
 
