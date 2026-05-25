@@ -402,114 +402,51 @@ var css = '<style>\
                     }
                     if (streams.length > 0) {
                         streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                        startPlayback([{
-    title: streams[0].title,
-    url: streams[0].url,
-    headers: {
-        'Referer': 'https://xha.vtrahe.work/',
-        'Origin': 'https://xha.vtrahe.work',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    }
-}]);
+                        startPlayback([{ title: streams[0].title, url: streams[0].url }]);
                     } else {
                         onError();
                     }
                 }
 
-if (embedUrl) {
-    if (embedUrl.indexOf('http') === -1) {
-        embedUrl = 'https://xha.vtrahe.work' +
-            (embedUrl.startsWith('/') ? '' : '/') +
-            embedUrl.replace(/^\//, '');
-    }
+                if (embedUrl) {
+                    if (embedUrl.indexOf('http') === -1) embedUrl = 'https://xom.vtrahe.work' + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
+                    
+                    window.pluginx_smartRequest(embedUrl, function(embedHtml) {
 
-    var net = new window.Lampa.Reguest();
-
-    net.clear().timeout(15000).get(embedUrl, function(embedHtml) {
-
-        var streams = [];
-
-        // НОВИЙ ПАРСЕР PLAYERJS
-        var playerMatch = embedHtml.match(/file\s*:\s*"([\s\S]*?)"/i);
-
-        if (playerMatch && playerMatch[1]) {
-
-            var fileStr = playerMatch[1]
-                .replace(/\\"/g, '"')
-                .replace(/\\\//g, '/')
-                .replace(/\\u0026/g, '&');
-
-            // Витягуємо всі [720p] https://....
-            var reg = /\[(.*?)\]\s*(https?:\/\/[^,\s"]+)/g;
-
-            var m;
-
-            while ((m = reg.exec(fileStr)) !== null) {
-
-                var qLabel = m[1].trim();
-                var sUrl = m[2].trim();
-
-                var qNum = parseInt(
-                    qLabel.replace(/[^0-9]/g, '')
-                ) || 0;
-
-                streams.push({
-    url: link,
-    qNum: parseInt(q.replace(/[^0-9]/g, '')) || 0,
-    title: 'Vtrahe (' + q + ')',
-    headers: {
-        'Referer': 'https://xha.vtrahe.work/',
-        'Origin': 'https://xha.vtrahe.work',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    }
-});
-            }
-
-            // Якщо regex не знайшов quality —
-            // пробуємо просто MP4
-            if (streams.length === 0) {
-
-                var mp4s = fileStr.match(/https?:\/\/[^,\s"]+\.mp4[^,\s"]*/g);
-
-                if (mp4s) {
-                    for (var z = 0; z < mp4s.length; z++) {
-
-                        streams.push({
-                            title: 'Vtrahe',
-                            url: mp4s[z],
-                            qNum: 0,
-                            headers: {
-                                'Referer': 'https://xha.vtrahe.work/',
-                                'Origin': 'https://xha.vtrahe.work'
+                        var fileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/);
+                        if (fileMatch && fileMatch[1]) {
+                            var fileStr = fileMatch[1];
+                            var streams = [];
+                            var parts = fileStr.split(',');
+                            
+                            for (var i = 0; i < parts.length; i++) {
+                                var part = parts[i].trim();
+                                var qMatch = part.match(/\[(.*?)\]\s*(http.*)/);
+                                if (qMatch) {
+                                    var qLabel = qMatch[1];
+                                    var sUrl = qMatch[2].trim();
+                                    var qNum = parseInt(qLabel.replace(/[^0-9]/g, '')) || 0;
+                                    streams.push({ title: 'Vtrahe (' + qLabel + ')', url: sUrl, qNum: qNum });
+                                } else if (part.indexOf('http') === 0) {
+                                    streams.push({ title: 'Vtrahe (Auto)', url: part, qNum: 0 });
+                                }
                             }
-                        });
-                    }
+                            
+                            if (streams.length > 0) {
+                                streams.sort(function(a, b) { return b.qNum - a.qNum; });
+                                startPlayback([{ title: streams[0].title, url: streams[0].url }]);
+                            } else {
+                                fallback(doc);
+                            }
+                        } else {
+                            fallback(doc);
+                        }
+                    }, function() {
+                        fallback(doc);
+                    });
+                } else {
+                    fallback(doc);
                 }
-            }
-
-            if (streams.length > 0) {
-
-                streams.sort(function(a, b) {
-                    return b.qNum - a.qNum;
-                });
-
-                startPlayback(streams);
-
-            } else {
-                fallback(doc);
-            }
-
-        } else {
-            fallback(doc);
-        }
-
-    }, function() {
-        fallback(doc);
-    });
-
-} else {
-    fallback(doc);
-}
             },
 
 
