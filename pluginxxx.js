@@ -402,7 +402,15 @@ var css = '<style>\
                     }
                     if (streams.length > 0) {
                         streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                        startPlayback([{ title: streams[0].title, url: streams[0].url }]);
+                        startPlayback([{
+    title: streams[0].title,
+    url: streams[0].url,
+    headers: {
+        'Referer': 'https://xha.vtrahe.work/',
+        'Origin': 'https://xha.vtrahe.work',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+}]);
                     } else {
                         onError();
                     }
@@ -446,14 +454,15 @@ if (embedUrl) {
                 ) || 0;
 
                 streams.push({
-                    title: 'Vtrahe (' + qLabel + ')',
-                    url: sUrl,
-                    qNum: qNum,
-                    headers: {
-                        'Referer': 'https://xha.vtrahe.work/',
-                        'Origin': 'https://xha.vtrahe.work'
-                    }
-                });
+    url: link,
+    qNum: parseInt(q.replace(/[^0-9]/g, '')) || 0,
+    title: 'Vtrahe (' + q + ')',
+    headers: {
+        'Referer': 'https://xha.vtrahe.work/',
+        'Origin': 'https://xha.vtrahe.work',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+});
             }
 
             // Якщо regex не знайшов quality —
