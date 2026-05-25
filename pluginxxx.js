@@ -383,28 +383,48 @@ var css = '<style>\
                 return results;
             },
 
-            getStreams: function(htmlText, doc, element, startPlayback, onError) {
+            getStreams: function (htmlText, doc, element, startPlayback, onError) {
                 var streams = [];
+                var added = [];
 
-                // 1. Пріоритетний спосіб: шукаємо прямі посилання у вихідному коді
-                var regex = /data-link=["'](https?:\/\/[^"']+\.mp4[^"']*)["'][^>]*data-q=["']([^"']+)["']/ig;
-                var match;
-                
-                while ((match = regex.exec(htmlText)) !== null) {
-                    var url = match[1];
-                    var q = match[2];
-                    var qNum = parseInt(q.replace(/[^0-9]/g, '')) || 0;
-                    streams.push({ title: 'Vtrahe (' + q + ')', url: url, qNum: qNum });
+                // 1. Спосіб перший: Шукаємо атрибути data-link на mp4 файли (ігноруючи DOM дерево)
+                var linkMatches = htmlText.match(/data-link=["']([^"']+\.mp4[^"']*)["']/ig) || [];
+                for (var i = 0; i < linkMatches.length; i++) {
+                    var uMatch = linkMatches[i].match(/data-link=["']([^"']+)["']/);
+                    if (uMatch && uMatch[1]) {
+                        var url = uMatch[1];
+                        if (added.indexOf(url) === -1) {
+                            added.push(url);
+                            var qMatch = url.match(/_(\d{3,4})p?\.mp4/i);
+                            var qNum = qMatch ? parseInt(qMatch[1]) : 0;
+                            streams.push({ title: 'Vtrahe (' + (qNum ? qNum + 'p' : 'Auto') + ')', url: url, qNum: qNum });
+                        }
+                    }
                 }
 
-                // Якщо знайшли прямі посилання — сортуємо і віддаємо найкраще
+                // 2. Спосіб другий: Шукаємо масив посилань PlayerJS прямо у вихідному коді
+                var fileMatch = htmlText.match(/file\s*:\s*["']([^"']+)["']/i);
+                if (fileMatch && fileMatch[1]) {
+                    var parts = fileMatch[1].split(',');
+                    for (var j = 0; j < parts.length; j++) {
+                        var qm = parts[j].match(/\[(.*?)\]\s*(http[^,]+)/i);
+                        if (qm) {
+                            var sUrl = qm[2].trim();
+                            if (added.indexOf(sUrl) === -1) {
+                                added.push(sUrl);
+                                streams.push({ title: 'Vtrahe (' + qm[1] + ')', url: sUrl, qNum: parseInt(qm[1].replace(/[^0-9]/g, '')) || 0 });
+                            }
+                        }
+                    }
+                }
+
                 if (streams.length > 0) {
                     streams.sort(function(a, b) { return b.qNum - a.qNum; });
                     startPlayback([{ title: streams[0].title, url: streams[0].url }]);
                     return;
                 }
 
-                // 2. Запасний спосіб: фоновий запит до сторінки embed
+                // 3. Спосіб третій: Робимо запит до iframe (embed), якщо на головній нічого немає
                 var embedUrl = '';
                 var meta = doc.querySelector('meta[property="og:video"]');
                 if (meta) embedUrl = meta.getAttribute('content');
@@ -414,31 +434,23 @@ var css = '<style>\
                 }
 
                 if (embedUrl) {
-                    if (embedUrl.indexOf('http') === -1) {
-                        embedUrl = 'https://xha.vtrahe.work' + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
-                    }
+                    if (embedUrl.indexOf('http') === -1) embedUrl = this.domain + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
                     
                     window.pluginx_smartRequest(embedUrl, function(embedHtml) {
-                        var fileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/);
-                        if (fileMatch && fileMatch[1]) {
-                            var parts = fileMatch[1].split(',');
-                            for (var i = 0; i < parts.length; i++) {
-                                var part = parts[i].trim();
-                                var qMatch = part.match(/\[(.*?)\]\s*(http.*)/);
-                                if (qMatch) {
-                                    streams.push({
-                                        title: 'Vtrahe (' + qMatch[1] + ')',
-                                        url: qMatch[2].trim(),
-                                        qNum: parseInt(qMatch[1].replace(/[^0-9]/g, '')) || 0
-                                    });
+                        var embFileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/i);
+                        if (embFileMatch && embFileMatch[1]) {
+                            var embParts = embFileMatch[1].split(',');
+                            for (var k = 0; k < embParts.length; k++) {
+                                var eqm = embParts[k].match(/\[(.*?)\]\s*(http[^,]+)/i);
+                                if (eqm) {
+                                    streams.push({ title: 'Vtrahe (' + eqm[1] + ')', url: eqm[2].trim(), qNum: parseInt(eqm[1].replace(/[^0-9]/g, '')) || 0 });
                                 }
                             }
-                            if (streams.length > 0) {
-                                streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                                startPlayback([{ title: streams[0].title, url: streams[0].url }]);
-                            } else {
-                                onError();
-                            }
+                        }
+                        
+                        if (streams.length > 0) {
+                            streams.sort(function(a, b) { return b.qNum - a.qNum; });
+                            startPlayback([{ title: streams[0].title, url: streams[0].url }]);
                         } else {
                             onError();
                         }
