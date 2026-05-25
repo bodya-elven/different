@@ -384,70 +384,70 @@ var css = '<style>\
             },
 
             getStreams: function(htmlText, doc, element, startPlayback, onError) {
+                var streams = [];
 
-                var embedMeta = doc.querySelector('meta[property="og:video"]');
-                var embedUrl = '';
+                // 1. Пріоритетний спосіб: шукаємо прямі посилання у вихідному коді
+                var regex = /data-link=["'](https?:\/\/[^"']+\.mp4[^"']*)["'][^>]*data-q=["']([^"']+)["']/ig;
+                var match;
                 
-                if (embedMeta) embedUrl = embedMeta.getAttribute('content');
+                while ((match = regex.exec(htmlText)) !== null) {
+                    var url = match[1];
+                    var q = match[2];
+                    var qNum = parseInt(q.replace(/[^0-9]/g, '')) || 0;
+                    streams.push({ title: 'Vtrahe (' + q + ')', url: url, qNum: qNum });
+                }
+
+                // Якщо знайшли прямі посилання — сортуємо і віддаємо найкраще
+                if (streams.length > 0) {
+                    streams.sort(function(a, b) { return b.qNum - a.qNum; });
+                    startPlayback([{ title: streams[0].title, url: streams[0].url }]);
+                    return;
+                }
+
+                // 2. Запасний спосіб: фоновий запит до сторінки embed
+                var embedUrl = '';
+                var meta = doc.querySelector('meta[property="og:video"]');
+                if (meta) embedUrl = meta.getAttribute('content');
                 if (!embedUrl) {
                     var iframe = doc.querySelector('iframe[src*="/embed/"]');
                     if (iframe) embedUrl = iframe.getAttribute('src');
                 }
 
-                function fallback(d) {
-                    var qBtns = d.querySelectorAll('.chooseq'), streams = [];
-                    for (var i = 0; i < qBtns.length; i++) {
-                        var link = qBtns[i].getAttribute('data-link'), q = qBtns[i].getAttribute('data-q') || '';
-                        if (link) streams.push({ url: link, qNum: parseInt(q.replace(/[^0-9]/g, '')) || 0, title: 'Vtrahe (' + q + ')' });
-                    }
-                    if (streams.length > 0) {
-                        streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                        startPlayback([{ title: streams[0].title, url: streams[0].url }]);
-                    } else {
-                        onError();
-                    }
-                }
-
                 if (embedUrl) {
-                    if (embedUrl.indexOf('http') === -1) embedUrl = 'https://xom.vtrahe.work' + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
+                    if (embedUrl.indexOf('http') === -1) {
+                        embedUrl = 'https://xha.vtrahe.work' + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
+                    }
                     
                     window.pluginx_smartRequest(embedUrl, function(embedHtml) {
-
                         var fileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/);
                         if (fileMatch && fileMatch[1]) {
-                            var fileStr = fileMatch[1];
-                            var streams = [];
-                            var parts = fileStr.split(',');
-                            
+                            var parts = fileMatch[1].split(',');
                             for (var i = 0; i < parts.length; i++) {
                                 var part = parts[i].trim();
                                 var qMatch = part.match(/\[(.*?)\]\s*(http.*)/);
                                 if (qMatch) {
-                                    var qLabel = qMatch[1];
-                                    var sUrl = qMatch[2].trim();
-                                    var qNum = parseInt(qLabel.replace(/[^0-9]/g, '')) || 0;
-                                    streams.push({ title: 'Vtrahe (' + qLabel + ')', url: sUrl, qNum: qNum });
-                                } else if (part.indexOf('http') === 0) {
-                                    streams.push({ title: 'Vtrahe (Auto)', url: part, qNum: 0 });
+                                    streams.push({
+                                        title: 'Vtrahe (' + qMatch[1] + ')',
+                                        url: qMatch[2].trim(),
+                                        qNum: parseInt(qMatch[1].replace(/[^0-9]/g, '')) || 0
+                                    });
                                 }
                             }
-                            
                             if (streams.length > 0) {
                                 streams.sort(function(a, b) { return b.qNum - a.qNum; });
                                 startPlayback([{ title: streams[0].title, url: streams[0].url }]);
                             } else {
-                                fallback(doc);
+                                onError();
                             }
                         } else {
-                            fallback(doc);
+                            onError();
                         }
-                    }, function() {
-                        fallback(doc);
-                    });
+                    }, onError);
                 } else {
-                    fallback(doc);
+                    onError();
                 }
             },
+
 
 
             getMenu: function(doc, htmlText, element) {
