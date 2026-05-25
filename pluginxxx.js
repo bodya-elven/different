@@ -384,73 +384,57 @@ var css = '<style>\
             },
 
             getStreams: function (htmlText, doc, element, startPlayback, onError) {
-                var streams = [];
-                var added = [];
-
-                // 1. Спосіб перший: Шукаємо атрибути data-link на mp4 файли (ігноруючи DOM дерево)
-                var linkMatches = htmlText.match(/data-link=["']([^"']+\.mp4[^"']*)["']/ig) || [];
-                for (var i = 0; i < linkMatches.length; i++) {
-                    var uMatch = linkMatches[i].match(/data-link=["']([^"']+)["']/);
-                    if (uMatch && uMatch[1]) {
-                        var url = uMatch[1];
-                        if (added.indexOf(url) === -1) {
-                            added.push(url);
-                            var qMatch = url.match(/_(\d{3,4})p?\.mp4/i);
-                            var qNum = qMatch ? parseInt(qMatch[1]) : 0;
-                            streams.push({ title: 'Vtrahe (' + (qNum ? qNum + 'p' : 'Auto') + ')', url: url, qNum: qNum });
-                        }
-                    }
-                }
-
-                // 2. Спосіб другий: Шукаємо масив посилань PlayerJS прямо у вихідному коді
-                var fileMatch = htmlText.match(/file\s*:\s*["']([^"']+)["']/i);
-                if (fileMatch && fileMatch[1]) {
-                    var parts = fileMatch[1].split(',');
-                    for (var j = 0; j < parts.length; j++) {
-                        var qm = parts[j].match(/\[(.*?)\]\s*(http[^,]+)/i);
-                        if (qm) {
-                            var sUrl = qm[2].trim();
-                            if (added.indexOf(sUrl) === -1) {
-                                added.push(sUrl);
-                                streams.push({ title: 'Vtrahe (' + qm[1] + ')', url: sUrl, qNum: parseInt(qm[1].replace(/[^0-9]/g, '')) || 0 });
-                            }
-                        }
-                    }
-                }
-
-                if (streams.length > 0) {
-                    streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                    startPlayback([{ title: streams[0].title, url: streams[0].url }]);
-                    return;
-                }
-
-                // 3. Спосіб третій: Робимо запит до iframe (embed), якщо на головній нічого немає
                 var embedUrl = '';
-                var meta = doc.querySelector('meta[property="og:video"]');
-                if (meta) embedUrl = meta.getAttribute('content');
-                if (!embedUrl) {
-                    var iframe = doc.querySelector('iframe[src*="/embed/"]');
-                    if (iframe) embedUrl = iframe.getAttribute('src');
+                
+                // 1. Шукаємо посилання на embed у мета-тегах (head)
+                var metaMatch = htmlText.match(/<meta[^>]*property=["']og:video["'][^>]*content=["']([^"']+)["']/i) || 
+                                htmlText.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:video["']/i);
+                
+                if (metaMatch && metaMatch[1]) {
+                    embedUrl = metaMatch[1];
+                } else {
+                    // Запасний варіант, якщо og:video відсутній
+                    var iframeMatch = htmlText.match(/<iframe[^>]*src=["']([^"']+\/embed\/[^"']+)["']/i);
+                    if (iframeMatch && iframeMatch[1]) embedUrl = iframeMatch[1];
                 }
 
                 if (embedUrl) {
-                    if (embedUrl.indexOf('http') === -1) embedUrl = this.domain + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
+                    if (embedUrl.indexOf('http') === -1) {
+                        embedUrl = this.domain + (embedUrl.startsWith('/') ? '' : '/') + embedUrl.replace(/^\//, '');
+                    }
                     
+                    // 2. Робимо запит до сторінки embed
                     window.pluginx_smartRequest(embedUrl, function(embedHtml) {
-                        var embFileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/i);
-                        if (embFileMatch && embFileMatch[1]) {
-                            var embParts = embFileMatch[1].split(',');
-                            for (var k = 0; k < embParts.length; k++) {
-                                var eqm = embParts[k].match(/\[(.*?)\]\s*(http[^,]+)/i);
-                                if (eqm) {
-                                    streams.push({ title: 'Vtrahe (' + eqm[1] + ')', url: eqm[2].trim(), qNum: parseInt(eqm[1].replace(/[^0-9]/g, '')) || 0 });
+                        
+                        // 3. Витягуємо посилання на відео
+                        var fileMatch = embedHtml.match(/file\s*:\s*["']([^"']+)["']/i);
+                        if (fileMatch && fileMatch[1]) {
+                            var fileStr = fileMatch[1];
+                            var streams = [];
+                            var parts = fileStr.split(',');
+                            
+                            for (var i = 0; i < parts.length; i++) {
+                                var part = parts[i].trim();
+                                var qMatch = part.match(/\[(.*?)\]\s*(http.*)/i);
+                                
+                                if (qMatch) {
+                                    var qLabel = qMatch[1];
+                                    // Очищаємо від можливих HTML-сутностей, щоб не ламало токен
+                                    var sUrl = qMatch[2].trim().replace(/&amp;/g, '&');
+                                    var qNum = parseInt(qLabel.replace(/[^0-9]/g, '')) || 0;
+                                    streams.push({ title: 'Vtrahe (' + qLabel + ')', url: sUrl, qNum: qNum });
+                                } else if (part.indexOf('http') === 0) {
+                                    streams.push({ title: 'Vtrahe (Auto)', url: part.replace(/&amp;/g, '&'), qNum: 0 });
                                 }
                             }
-                        }
-                        
-                        if (streams.length > 0) {
-                            streams.sort(function(a, b) { return b.qNum - a.qNum; });
-                            startPlayback([{ title: streams[0].title, url: streams[0].url }]);
+                            
+                            if (streams.length > 0) {
+                                // 4. Відправляємо в плеєр найкращу якість
+                                streams.sort(function(a, b) { return b.qNum - a.qNum; });
+                                startPlayback([{ title: streams[0].title, url: streams[0].url }]);
+                            } else {
+                                onError();
+                            }
                         } else {
                             onError();
                         }
