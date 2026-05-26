@@ -207,10 +207,9 @@ var css = '<style>\
             
             getHomeUrl: function() { return this.domain + '/'; },
             
-            getSearchUrl: function(query) { 
-                return this.domain + '/search/?story=' + encodeURIComponent(query); 
+            getSearchUrl: function(query) { return this.domain + '/search/?search=' + encodeURIComponent(query); 
             },
-            
+          
             getUrl: function(object, page) {
                 var url = object.url || this.getHomeUrl();
                 if (page > 1) {
@@ -429,7 +428,7 @@ var css = '<style>\
                 var streams = [];
                 var playerNode = doc.querySelector('#player');
                 
-                // 1. Метод з AdultJS: Конструювання прямого посилання (через префікс JOPORN_NET)
+                // Конструювання прямого посилання ґ
                 if (playerNode) {
                     var vId = playerNode.getAttribute('data-id');
                     var dataQ = playerNode.getAttribute('data-q');
@@ -443,10 +442,9 @@ var css = '<style>\
                             // Структура data-q: "1080p;hash;1080p;size;time"
                             if (parts.length >= 5) {
                                 var qLabel = parts[0]; 
-                                var hash = parts[1].replace(/^_/, ''); // Відкидаємо зайве підкреслення з початку
+                                var hash = parts[1].replace(/^_/, '');
                                 var time = parts[4]; 
                                 
-                                // Збираємо URL точнісінько як це робить AdultJS
                                 var url = 'https://v' + cdnNum + '.cdnde.com/x' + cdnNum + '/upload_' + hash + '/' + vId + '/JOPORN_NET_' + vId + '_' + qLabel + '.mp4?time=' + time;
                                 var qNum = parseInt(qLabel.replace(/[^0-9]/g, '')) || 0;
                                 
@@ -457,12 +455,12 @@ var css = '<style>\
                         if (streams.length > 0) {
                             streams.sort(function(a, b) { return b.qNum - a.qNum; });
                             startPlayback([{ title: streams[0].title, url: streams[0].url }]);
-                            return; // Успішно віддали прямі посилання, зупиняємо виконання
+                            return;
                         }
                     }
                 }
                 
-                // 2. Запасний метод: чищення посилань з embed від IP-локу (на випадок змін на сайті)
+                // Запасний метод: чищення посилань з embed від IP-локу (на випадок змін на сайті)
                 var embedUrl = '';
                 var meta = doc.querySelector('meta[property="og:video"]');
                 if (meta) embedUrl = meta.getAttribute('content') || '';
@@ -519,14 +517,14 @@ var css = '<style>\
                         if (aUrl.indexOf('http') === -1) aUrl = this.domain + (aUrl.startsWith('/') ? '' : '/') + aUrl.replace(/^\//, '');
                         
                         if (aUrl.indexOf('/pornstar/') !== -1) {
-                            menu.push({ title: 'Модель: ' + aTitle, action: 'direct', url: aUrl, is_models: true });
+                            menu.push({ title: aTitle, action: 'direct', url: aUrl, is_models: true });
                         } else if (aUrl.indexOf('/porno-studio/') !== -1) {
-                            menu.push({ title: 'Студія: ' + aTitle, action: 'direct', url: aUrl, is_studios: true });
+                            menu.push({ title: aTitle, action: 'direct', url: aUrl, is_studios: true });
                         }
                     }
                 }
 
-                // Випадаючий список Категорій (відкидаємо посилання на моделі та студії)
+                // Випадаючий список Категорій
                 var catsExist = doc.querySelector('.catspisok a:not([href*="/pornstar/"]):not([href*="/porno-studio/"])');
                 if (catsExist && !element.is_models) {
                     menu.push({ title: 'Категорії', action: 'cats_custom', sel: '.catspisok a:not([href*="/pornstar/"]):not([href*="/porno-studio/"])' });
