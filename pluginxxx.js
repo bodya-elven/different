@@ -262,39 +262,48 @@ var css = '<style>\
                     if (iframeUrl) {
                         if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
                         
-                        // 1. Завантажуємо сторінку самого iframe плеєра
+                        var urlParts = iframeUrl.split('/');
+                        var baseHost = urlParts[0] + '//' + urlParts[2]; // https://watchstreamhd.com
+
+                        // 1. Спочатку завантажуємо сторінку самого iframe
                         window.pluginx_smartRequest(iframeUrl, function(embedHtml) {
                             
-                            // Шукаємо посилання на master.txt у коді сторінки плеєра
-                            var txtMatch = embedHtml.match(/https?:\/\/[^"'\s<>\\]+\.txt/i);
+                            // Шукаємо посилання на файл конфігу плейлиста (master.txt або .m3u8)
+                            var txtMatch = embedHtml.match(/https?:\/\/[^"'\s<>\\]+\.(txt|m3u8)/i);
                             if (txtMatch) {
                                 var masterUrl = txtMatch[0];
                                 
-                                // 2. Завантажуємо вміст самого файлу master.txt через проксі
+                                // 2. Завантажуємо вміст файлу конфігу через проксі
                                 window.pluginx_smartRequest(masterUrl, function(masterContent) {
+                                    if (typeof masterContent !== 'string') masterContent = JSON.stringify(masterContent);
                                     
-                                    // Шукаємо перше ліпше пряме посилання на потік /m3/ всередині плейлиста
-                                    var streamMatch = masterContent.match(/https?:\/\/watchstreamhd\.com\/m3\/[^"'\s\r\n]+/i);
+                                    // Шукаємо посилання на потік /m3/. Воно може бути повним або відносним
+                                    var streamMatch = masterContent.match(/(https?:\/\/[^"'\s\r\n]+)?\/m3\/[^"'\s\r\n]+/i);
                                     
                                     if (streamMatch) {
-                                        var finalStreamUrl = streamMatch[0].trim();
+                                        var streamPath = streamMatch[0].trim();
                                         
-                                        // Передаємо чисте посилання на потік, яке відкрив 1DM+
+                                        // Якщо посилання відносне (починається з /m3/), склеюємо його з доменом балансера
+                                        if (!streamPath.startsWith('http')) {
+                                            streamPath = baseHost + (streamPath.startsWith('/') ? '' : '/') + streamPath;
+                                        }
+                                        
+                                        // Передаємо чисте, розгорнуте посилання прямо в плеєр
                                         startPlayback([{ 
                                             title: 'FamilyPorn (1080p)', 
-                                            url: finalStreamUrl
+                                            url: streamPath
                                         }]);
                                     } else {
-                                        onError(); // Не знайшли посилання на потік всередині txt
+                                        onError(); // Не вдалося знайти рядок з /m3/ всередині файлу
                                     }
                                 }, onError, { 'Referer': iframeUrl });
                                 
                             } else {
-                                onError(); // Не знайшли master.txt у коді iframe
+                                onError(); // Не знайшли посилання на плейлист у коді iframe
                             }
                         }, onError);
                     } else {
-                        onError(); // Не знайшли iframe на сторінці відео
+                        onError(); // Не знайшли сам iframe
                     }
                 },
 
