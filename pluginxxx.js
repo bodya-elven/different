@@ -295,47 +295,38 @@ var css = '<style>\
                         // 2. Витягуємо поточний домен балансера та ID відео
                         var urlParts = iframeUrl.split('/');
                         var baseHost = urlParts[0] + '//' + urlParts[2]; // наприклад: https://watchstreamhd.com
-                        var fileCode = urlParts.pop().split('?')[0];     // наприклад: 92c8c96e4c37100777c7190b76d28233
+                        var fileCode = urlParts.pop().split('?')[0];
 
-                        // 3. Якщо це BestWish (в нього інший тип API - GET)
+                        // 3. BestWish (GET-запит через проксі)
                         if (baseHost.indexOf('bestwish.lol') !== -1) {
                             var getUrl = baseHost + '/ajax/stream?filecode=' + fileCode;
                             
-                            $.ajax({
-                                url: getUrl,
-                                type: 'GET',
-                                headers: { 'Referer': iframeUrl },
-                                success: function(json) {
-                                    if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
-                                    if (json && json.streaming_url) {
-                                        startPlayback([{ title: 'FamilyPorn (Auto)', url: json.streaming_url }]);
-                                    } else onError();
-                                },
-                                error: onError
-                            });
+                            window.pluginx_smartRequest(getUrl, function(res) {
+                                var json = res;
+                                if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
+                                
+                                if (json && json.streaming_url) {
+                                    startPlayback([{ title: 'FamilyPorn (Auto)', url: json.streaming_url }]);
+                                } else onError();
+                            }, onError, { 'Referer': iframeUrl });
                         } 
-                        // 4. Універсальний парсер для WatchStreamHD, VideoStreamingWorld та їхніх клонів
+                        // 4. WatchStreamHD, VideoStreamingWorld та клони (POST-запит через проксі)
                         else {
                             var postUrl = baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo';
                             
-                            $.ajax({
-                                url: postUrl,
-                                type: 'POST',
-                                headers: {
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                                    'Referer': baseHost + '/'
-                                },
-                                success: function(json) {
-                                    // Перестраховка: іноді сервер віддає текст замість об'єкта
-                                    if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
-                                    
-                                    if (json && json.videoSource) {
-                                        startPlayback([{ title: 'FamilyPorn (Auto)', url: json.videoSource }]);
-                                    } else onError();
-                                },
-                                error: onError
-                            });
+                            // Передаємо 5-й параметр ("p=1"), щоб змусити проксі зробити POST-запит
+                            window.pluginx_smartRequest(postUrl, function(res) {
+                                var json = res;
+                                if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
+                                
+                                if (json && json.videoSource) {
+                                    startPlayback([{ title: 'FamilyPorn (Auto)', url: json.videoSource }]);
+                                } else onError();
+                            }, onError, {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                                'Referer': baseHost + '/'
+                            }, "p=1");
                         }
                     } else {
                         onError(); // iframe не знайдено
