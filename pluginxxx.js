@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.6.5',
+        version: '2.6.6',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -197,7 +197,152 @@ var css = '<style>\
             },
             
             
+            // Блок FamilyPorn
+            familyporn: {
+                title: 'FamilyPorn',
+                domain: 'https://familypornhd.com',
+                
+                getHomeUrl: function() { 
+                    return this.domain + '/'; 
+                },
+                
+                getSearchUrl: function(query) { 
+                    return this.domain + '/?s=' + encodeURIComponent(query); 
+                },
+                
+                getUrl: function(object, page) {
+                    var url = object.url || (this.domain + '/');
+                    if (page > 1) {
+                        var uParts = url.split('?');
+                        var base = uParts[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
+                        var pagination = '/page/' + page + '/';
+                        
+                        if (uParts.length > 1) {
+                            return base + pagination + '?' + uParts[1];
+                        }
+                        return base + pagination;
+                    }
+                    return url;
+                },
 
+                getNavItems: function() {
+                    return [
+                        { title: 'Red Head', action: 'nav', url: this.domain + '/tag/redhead/' },
+                        { title: 'Cowgirl', action: 'nav', url: this.domain + '/tag/cowgirl/' },
+                        { title: 'DoggyStyle', action: 'nav', url: this.domain + '/tag/doggystyle/' },
+                        { title: 'Latina', action: 'nav', url: this.domain + '/tag/latina/' },
+                        { title: 'Milf', action: 'nav', url: this.domain + '/tag/milf/' },
+                        { title: 'Natural Tits', action: 'nav', url: this.domain + '/tag/natural-tits/' },
+                        { title: 'Stepmom', action: 'nav', url: this.domain + '/tag/stepmomporn/' },
+                        { title: 'Step Sister', action: 'nav', url: this.domain + '/tag/stepsisterporn/' },
+                        { title: 'Big Tits', action: 'nav', url: this.domain + '/tag/big-tits/' }
+                    ];
+                },
+
+                parse: function(doc, currentUrl, object) {
+                    var results = [];
+                    // Селектор карток згідно з CloudStream репозиторієм
+                    var items = doc.querySelectorAll('li.g1-collection-item');
+                    
+                    for (var i = 0; i < items.length; i++) {
+                        var item = items[i];
+                        var anchor = item.querySelector('article a');
+                        var imgEl = item.querySelector('img');
+                        
+                        if (anchor) {
+                            var url = anchor.getAttribute('href') || '';
+                            var title = anchor.getAttribute('title') || anchor.textContent.trim();
+                            var img = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '') : '';
+                            
+                            if (url && title) {
+                                if (url.indexOf('http') === -1) url = this.domain + (url.startsWith('/') ? '' : '/') + url.replace(/^\//, '');
+                                if (img && img.indexOf('http') === -1) img = 'https:' + img;
+                                
+                                results.push({
+                                    name: title,
+                                    url: url,
+                                    picture: img,
+                                    img: img,
+                                    is_models: false,
+                                    is_grid: false
+                                });
+                            }
+                        }
+                    }
+                    return results;
+                },
+
+                getStreams: function(htmlText, doc, element, startPlayback, onError) {
+                    var iframeUrl = '';
+                    
+                    // 1. Шукаємо iframe всередині класу embed-container за допомогою регулярки або DOM
+                    var iframeMatch = htmlText.match(/<div[^>]*class=["'][^"']*embed-container[^"']*["'][^>]*>\s*<iframe[^>]*src=["']([^"']+)["']/i);
+                    if (iframeMatch && iframeMatch[1]) {
+                        iframeUrl = iframeMatch[1];
+                    } else {
+                        var iframeNode = doc.querySelector('div.embed-container iframe');
+                        if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
+                    }
+
+                    if (iframeUrl) {
+                        if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + iframeUrl;
+                        
+                        // Витягуємо унікальний код відео (остання частина шляху)
+                        var fileCode = iframeUrl.split('/').pop().split('?')[0];
+                        var network = new window.Lampa.Reguest();
+                        network.timeout(15000);
+
+                        // 2. Дешифрування для балансера VideoStreamingWorld
+                        if (iframeUrl.indexOf('videostreamingworld.com') !== -1) {
+                            var postUrl = 'https://videostreamingworld.com/player/index.php?data=' + fileCode + '&do=getVideo';
+                            
+                            network.request(postUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                                    'Referer': 'https://videostreamingworld.com/'
+                                }
+                            }, function(json) {
+                                if (json && json.videoSource) {
+                                    startPlayback([{ title: 'FamilyPorn (Auto)', url: json.videoSource }]);
+                                } else {
+                                    onError();
+                                }
+                            }, function() {
+                                onError();
+                            });
+                        } 
+                        // 3. Дешифрування для балансера BestWish
+                        else if (iframeUrl.indexOf('bestwish.lol') !== -1) {
+                            var getUrl = 'https://bestwish.lol/ajax/stream?filecode=' + fileCode;
+                            
+                            network.request(getUrl, {
+                                method: 'GET',
+                                headers: {
+                                    'Referer': iframeUrl
+                                }
+                            }, function(json) {
+                                if (json && json.streaming_url) {
+                                    startPlayback([{ title: 'FamilyPorn (Auto)', url: json.streaming_url }]);
+                                } else {
+                                    onError();
+                                }
+                            }, function() {
+                                onError();
+                            });
+                        } 
+                        else {
+                            onError(); // Інший непідтримуваний балансер
+                        }
+                    } else {
+                        onError(); // iframe не знайдено
+                    }
+                }
+            },
+            
+            
+            
         // =========================================================================
         // АДАПТЕР: VTRAHE
         // =========================================================================
