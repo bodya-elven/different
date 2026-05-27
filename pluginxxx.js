@@ -254,47 +254,49 @@ var css = '<style>\
                     return results;
                 },
                 
-getStreams: function(htmlText, doc, element, startPlayback, onError) {
-    var iframeUrl = '';
-    var iframeNode = doc.querySelector('div.embed-container iframe');
-    if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
+                getStreams: function(htmlText, doc, element, startPlayback, onError) {
+                    var iframeUrl = '';
+                    var iframeNode = doc.querySelector('div.embed-container iframe');
+                    if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
 
-    if (iframeUrl) {
-        if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
-        
-        var urlParts = iframeUrl.split('/');
-        var baseHost = urlParts[0] + '//' + urlParts[2];
-        var fileCode = urlParts.pop().split('?')[0];
-        
-        // Використовуємо $.ajax для повного контролю заголовків
-        $.ajax({
-            url: baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo',
-            type: 'POST',
-            data: 'p=1',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Referer': iframeUrl,
-                'Origin': baseHost,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
-            },
-            success: function(res) {
-                try {
-                    var json = typeof res === 'string' ? JSON.parse(res) : res;
-                    if (json && json.videoSource) {
-                        // Додаємо Referer до URL через синтаксис Lampa, щоб плеєр підхопив його
-                        var finalUrl = json.videoSource + '|Referer=' + baseHost + '/&User-Agent=Mozilla/5.0';
-                        startPlayback([{ title: 'FamilyPorn (Auto)', url: finalUrl }]);
+                    if (iframeUrl) {
+                        if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
+                        
+                        // 1. Завантажуємо сторінку самого iframe плеєра
+                        window.pluginx_smartRequest(iframeUrl, function(embedHtml) {
+                            
+                            // Шукаємо посилання на master.txt у коді сторінки плеєра
+                            var txtMatch = embedHtml.match(/https?:\/\/[^"'\s<>\\]+\.txt/i);
+                            if (txtMatch) {
+                                var masterUrl = txtMatch[0];
+                                
+                                // 2. Завантажуємо вміст самого файлу master.txt через проксі
+                                window.pluginx_smartRequest(masterUrl, function(masterContent) {
+                                    
+                                    // Шукаємо перше ліпше пряме посилання на потік /m3/ всередині плейлиста
+                                    var streamMatch = masterContent.match(/https?:\/\/watchstreamhd\.com\/m3\/[^"'\s\r\n]+/i);
+                                    
+                                    if (streamMatch) {
+                                        var finalStreamUrl = streamMatch[0].trim();
+                                        
+                                        // Передаємо чисте посилання на потік, яке відкрив 1DM+
+                                        startPlayback([{ 
+                                            title: 'FamilyPorn (1080p)', 
+                                            url: finalStreamUrl
+                                        }]);
+                                    } else {
+                                        onError(); // Не знайшли посилання на потік всередині txt
+                                    }
+                                }, onError, { 'Referer': iframeUrl });
+                                
+                            } else {
+                                onError(); // Не знайшли master.txt у коді iframe
+                            }
+                        }, onError);
                     } else {
-                        onError();
+                        onError(); // Не знайшли iframe на сторінці відео
                     }
-                } catch(e) { onError(); }
-            },
-            error: onError
-        });
-    } else {
-        onError();
-    }
-}
+                },
 
             },
             
