@@ -272,13 +272,12 @@ var css = '<style>\
 
                         if (baseHost.indexOf('bestwish.lol') !== -1) {
                             var getUrl = baseHost + '/ajax/stream?filecode=' + fileCode;
+                            // GET-запит чудово працює через твій проксі
                             window.pluginx_smartRequest(getUrl, function(res) {
                                 try {
                                     var json = typeof res === 'string' ? JSON.parse(res) : res;
-                                    if (json && json.streaming_url) {
-                                        var finalUrl = json.streaming_url + '|Referer=' + iframeUrl + '&User-Agent=Mozilla/5.0';
-                                        startPlayback([{ title: 'FamilyPorn (Auto)', url: finalUrl }]);
-                                    } else onError();
+                                    if (json && json.streaming_url) startPlayback([{ title: '1080p (Auto)', url: json.streaming_url }]);
+                                    else onError();
                                 } catch(e) { onError(); }
                             }, onError, { 'Referer': iframeUrl });
                         } else {
@@ -286,16 +285,14 @@ var css = '<style>\
                             var network = new window.Lampa.Reguest();
                             var isAndroid = typeof window !== 'undefined' && window.Lampa && window.Lampa.Platform && window.Lampa.Platform.is('android');
                             
+                            // Примусово передаємо POST-дані, щоб обійти false у pluginx_smartRequest
                             var postData = "hash=" + fileCode; 
                             
                             var successCallback = function(res) {
                                 try {
                                     var json = typeof res === 'string' ? JSON.parse(res) : res;
-                                    if (json && json.videoSource) {
-                                        // Формуємо посилання для зовнішніх плеєрів з прокиданням заголовків
-                                        var finalUrl = json.videoSource + '|Referer=' + baseHost + '/&User-Agent=Mozilla/5.0';
-                                        startPlayback([{ title: 'FamilyPorn (Auto)', url: finalUrl }]);
-                                    } else onError();
+                                    if (json && json.videoSource) startPlayback([{ title: '1080p (Auto)', url: json.videoSource }]);
+                                    else onError();
                                 } catch(e) { onError(); }
                             };
                             
@@ -316,9 +313,11 @@ var css = '<style>\
                         }
                     } else onError();
                 },
-
+                
+                getMenu: function(doc, htmlText, element) {
+                    return [ { title: '🔥 Схожі відео', action: 'sim', url: element.url } ];
+                }
             },
-            
             
             
         // =========================================================================
