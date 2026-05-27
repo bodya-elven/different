@@ -256,55 +256,65 @@ var css = '<style>\
                 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var iframeUrl = '';
-                    var iframeNode = doc.querySelector('div.embed-container iframe');
-                    if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
+                    var iframeMatch = htmlText.match(/<div[^>]*class=["'][^"']*embed-container[^"']*["'][^>]*>\s*<iframe[^>]*src=["']([^"']+)["']/i);
+                    
+                    if (iframeMatch && iframeMatch[1]) iframeUrl = iframeMatch[1];
+                    else {
+                        var iframeNode = doc.querySelector('div.embed-container iframe');
+                        if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
+                    }
 
                     if (iframeUrl) {
                         if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
-                        
                         var urlParts = iframeUrl.split('/');
-                        var baseHost = urlParts[0] + '//' + urlParts[2]; // https://watchstreamhd.com
+                        var baseHost = urlParts[0] + '//' + urlParts[2];
+                        var fileCode = urlParts.pop().split('?')[0];
 
-                        // 1. Спочатку завантажуємо сторінку самого iframe
-                        window.pluginx_smartRequest(iframeUrl, function(embedHtml) {
+                        if (baseHost.indexOf('bestwish.lol') !== -1) {
+                            var getUrl = baseHost + '/ajax/stream?filecode=' + fileCode;
+                            window.pluginx_smartRequest(getUrl, function(res) {
+                                try {
+                                    var json = typeof res === 'string' ? JSON.parse(res) : res;
+                                    if (json && json.streaming_url) {
+                                        var finalUrl = json.streaming_url + '|Referer=' + iframeUrl + '&User-Agent=Mozilla/5.0';
+                                        startPlayback([{ title: 'FamilyPorn (Auto)', url: finalUrl }]);
+                                    } else onError();
+                                } catch(e) { onError(); }
+                            }, onError, { 'Referer': iframeUrl });
+                        } else {
+                            var postUrl = baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo';
+                            var network = new window.Lampa.Reguest();
+                            var isAndroid = typeof window !== 'undefined' && window.Lampa && window.Lampa.Platform && window.Lampa.Platform.is('android');
                             
-                            // Шукаємо посилання на файл конфігу плейлиста (master.txt або .m3u8)
-                            var txtMatch = embedHtml.match(/https?:\/\/[^"'\s<>\\]+\.(txt|m3u8)/i);
-                            if (txtMatch) {
-                                var masterUrl = txtMatch[0];
-                                
-                                // 2. Завантажуємо вміст файлу конфігу через проксі
-                                window.pluginx_smartRequest(masterUrl, function(masterContent) {
-                                    if (typeof masterContent !== 'string') masterContent = JSON.stringify(masterContent);
-                                    
-                                    // Шукаємо посилання на потік /m3/. Воно може бути повним або відносним
-                                    var streamMatch = masterContent.match(/(https?:\/\/[^"'\s\r\n]+)?\/m3\/[^"'\s\r\n]+/i);
-                                    
-                                    if (streamMatch) {
-                                        var streamPath = streamMatch[0].trim();
-                                        
-                                        // Якщо посилання відносне (починається з /m3/), склеюємо його з доменом балансера
-                                        if (!streamPath.startsWith('http')) {
-                                            streamPath = baseHost + (streamPath.startsWith('/') ? '' : '/') + streamPath;
-                                        }
-                                        
-                                        // Передаємо чисте, розгорнуте посилання прямо в плеєр
-                                        startPlayback([{ 
-                                            title: 'FamilyPorn (1080p)', 
-                                            url: streamPath
-                                        }]);
-                                    } else {
-                                        onError(); // Не вдалося знайти рядок з /m3/ всередині файлу
-                                    }
-                                }, onError, { 'Referer': iframeUrl });
-                                
+                            var postData = "hash=" + fileCode; 
+                            
+                            var successCallback = function(res) {
+                                try {
+                                    var json = typeof res === 'string' ? JSON.parse(res) : res;
+                                    if (json && json.videoSource) {
+                                        // Формуємо посилання для зовнішніх плеєрів з прокиданням заголовків
+                                        var finalUrl = json.videoSource + '|Referer=' + baseHost + '/&User-Agent=Mozilla/5.0';
+                                        startPlayback([{ title: 'FamilyPorn (Auto)', url: finalUrl }]);
+                                    } else onError();
+                                } catch(e) { onError(); }
+                            };
+                            
+                            var reqOptions = {
+                                dataType: 'text',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                                    'Referer': baseHost + '/'
+                                }
+                            };
+
+                            if (isAndroid) {
+                                network.native(postUrl, successCallback, onError, postData, reqOptions);
                             } else {
-                                onError(); // Не знайшли посилання на плейлист у коді iframe
+                                network.silent(postUrl, successCallback, onError, postData, reqOptions);
                             }
-                        }, onError);
-                    } else {
-                        onError(); // Не знайшли сам iframe
-                    }
+                        }
+                    } else onError();
                 },
 
             },
