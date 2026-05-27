@@ -254,69 +254,56 @@ var css = '<style>\
                     return results;
                 },
                 
-                getStreams: function(htmlText, doc, element, startPlayback, onError) {
-                    var iframeUrl = '';
-                    var iframeMatch = htmlText.match(/<div[^>]*class=["'][^"']*embed-container[^"']*["'][^>]*>\s*<iframe[^>]*src=["']([^"']+)["']/i);
-                    
-                    if (iframeMatch && iframeMatch[1]) iframeUrl = iframeMatch[1];
-                    else {
-                        var iframeNode = doc.querySelector('div.embed-container iframe');
-                        if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
-                    }
+getStreams: function(htmlText, doc, element, startPlayback, onError) {
+    var iframeUrl = '';
+    var iframeNode = doc.querySelector('div.embed-container iframe');
+    if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
 
-                    if (iframeUrl) {
-                        if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
-                        var urlParts = iframeUrl.split('/');
-                        var baseHost = urlParts[0] + '//' + urlParts[2];
-                        var fileCode = urlParts.pop().split('?')[0];
-
-                        if (baseHost.indexOf('bestwish.lol') !== -1) {
-                            var getUrl = baseHost + '/ajax/stream?filecode=' + fileCode;
-                            // GET-запит чудово працює через твій проксі
-                            window.pluginx_smartRequest(getUrl, function(res) {
-                                try {
-                                    var json = typeof res === 'string' ? JSON.parse(res) : res;
-                                    if (json && json.streaming_url) startPlayback([{ title: '1080p (Auto)', url: json.streaming_url }]);
-                                    else onError();
-                                } catch(e) { onError(); }
-                            }, onError, { 'Referer': iframeUrl });
-                        } else {
-                            var postUrl = baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo';
-                            var network = new window.Lampa.Reguest();
-                            var isAndroid = typeof window !== 'undefined' && window.Lampa && window.Lampa.Platform && window.Lampa.Platform.is('android');
-                            
-                            // Примусово передаємо POST-дані, щоб обійти false у pluginx_smartRequest
-                            var postData = "hash=" + fileCode; 
-                            
-                            var successCallback = function(res) {
-                                try {
-                                    var json = typeof res === 'string' ? JSON.parse(res) : res;
-                                    if (json && json.videoSource) startPlayback([{ title: '1080p (Auto)', url: json.videoSource }]);
-                                    else onError();
-                                } catch(e) { onError(); }
-                            };
-                            
-                            var reqOptions = {
-                                dataType: 'text',
-                                headers: {
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                                    'Referer': baseHost + '/'
-                                }
-                            };
-
-                            if (isAndroid) {
-                                network.native(postUrl, successCallback, onError, postData, reqOptions);
-                            } else {
-                                network.silent(postUrl, successCallback, onError, postData, reqOptions);
-                            }
-                        }
-                    } else onError();
-                },
+    if (iframeUrl) {
+        if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
+        
+        // Отримуємо контент самого плеєра
+        window.pluginx_smartRequest(iframeUrl, function(embedHtml) {
+            // Шукаємо посилання на .m3u8 або master.txt
+            var m3u8Match = embedHtml.match(/(https?:\/\/[^"'\s]+\.(m3u8|txt))/i);
+            
+            if (m3u8Match && m3u8Match[1]) {
+                var streamUrl = m3u8Match[1];
                 
-                getMenu: function(doc, htmlText, element) {
-                    return [ { title: '🔥 Схожі відео', action: 'sim', url: element.url } ];
-                }
+                // Перевіряємо, чи це посилання, яке ти знайшов (через cdn/hls)
+                // Якщо посилання не містить master.txt, можливо, треба взяти його з API, як ми робили раніше
+                
+                startPlayback([{ 
+                    title: 'FamilyPorn (HLS)', 
+                    url: streamUrl + '|Referer=' + iframeUrl + '&User-Agent=Mozilla/5.0',
+                    headers: { 'Referer': iframeUrl }
+                }]);
+            } else {
+                // Якщо не знайшли в HTML, йдемо перевіреним API шляхом (повертаємо POST запит)
+                var urlParts = iframeUrl.split('/');
+                var baseHost = urlParts[0] + '//' + urlParts[2];
+                var fileCode = urlParts.pop().split('?')[0];
+                var postUrl = baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo';
+
+                window.pluginx_smartRequest(postUrl, function(res) {
+                    var json = typeof res === 'string' ? JSON.parse(res) : res;
+                    if (json && json.videoSource) {
+                        startPlayback([{ 
+                            title: 'FamilyPorn (Auto)', 
+                            url: json.videoSource + '|Referer=' + baseHost + '/',
+                            headers: { 'Referer': baseHost + '/' }
+                        }]);
+                    } else onError();
+                }, onError, {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Referer': baseHost + '/'
+                }, "p=1");
+            }
+        }, onError);
+    } else onError();
+}
+
             },
             
             
