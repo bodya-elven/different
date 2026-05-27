@@ -262,46 +262,38 @@ getStreams: function(htmlText, doc, element, startPlayback, onError) {
     if (iframeUrl) {
         if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
         
-        // Отримуємо контент самого плеєра
-        window.pluginx_smartRequest(iframeUrl, function(embedHtml) {
-            // Шукаємо посилання на .m3u8 або master.txt
-            var m3u8Match = embedHtml.match(/(https?:\/\/[^"'\s]+\.(m3u8|txt))/i);
-            
-            if (m3u8Match && m3u8Match[1]) {
-                var streamUrl = m3u8Match[1];
-                
-                // Перевіряємо, чи це посилання, яке ти знайшов (через cdn/hls)
-                // Якщо посилання не містить master.txt, можливо, треба взяти його з API, як ми робили раніше
-                
-                startPlayback([{ 
-                    title: 'FamilyPorn (HLS)', 
-                    url: streamUrl + '|Referer=' + iframeUrl + '&User-Agent=Mozilla/5.0',
-                    headers: { 'Referer': iframeUrl }
-                }]);
-            } else {
-                // Якщо не знайшли в HTML, йдемо перевіреним API шляхом (повертаємо POST запит)
-                var urlParts = iframeUrl.split('/');
-                var baseHost = urlParts[0] + '//' + urlParts[2];
-                var fileCode = urlParts.pop().split('?')[0];
-                var postUrl = baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo';
-
-                window.pluginx_smartRequest(postUrl, function(res) {
+        var urlParts = iframeUrl.split('/');
+        var baseHost = urlParts[0] + '//' + urlParts[2];
+        var fileCode = urlParts.pop().split('?')[0];
+        
+        // Використовуємо $.ajax для повного контролю заголовків
+        $.ajax({
+            url: baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo',
+            type: 'POST',
+            data: 'p=1',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': iframeUrl,
+                'Origin': baseHost,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+            },
+            success: function(res) {
+                try {
                     var json = typeof res === 'string' ? JSON.parse(res) : res;
                     if (json && json.videoSource) {
-                        startPlayback([{ 
-                            title: 'FamilyPorn (Auto)', 
-                            url: json.videoSource + '|Referer=' + baseHost + '/',
-                            headers: { 'Referer': baseHost + '/' }
-                        }]);
-                    } else onError();
-                }, onError, {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Referer': baseHost + '/'
-                }, "p=1");
-            }
-        }, onError);
-    } else onError();
+                        // Додаємо Referer до URL через синтаксис Lampa, щоб плеєр підхопив його
+                        var finalUrl = json.videoSource + '|Referer=' + baseHost + '/&User-Agent=Mozilla/5.0';
+                        startPlayback([{ title: 'FamilyPorn (Auto)', url: finalUrl }]);
+                    } else {
+                        onError();
+                    }
+                } catch(e) { onError(); }
+            },
+            error: onError
+        });
+    } else {
+        onError();
+    }
 }
 
             },
