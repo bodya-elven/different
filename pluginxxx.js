@@ -280,6 +280,7 @@ var css = '<style>\
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var iframeUrl = '';
                     
+                    // 1. Шукаємо iframe
                     var iframeMatch = htmlText.match(/<div[^>]*class=["'][^"']*embed-container[^"']*["'][^>]*>\s*<iframe[^>]*src=["']([^"']+)["']/i);
                     if (iframeMatch && iframeMatch[1]) {
                         iframeUrl = iframeMatch[1];
@@ -289,57 +290,58 @@ var css = '<style>\
                     }
 
                     if (iframeUrl) {
-                        if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + iframeUrl;
+                        if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
                         
-                        var fileCode = iframeUrl.split('/').pop().split('?')[0];
-                        var network = new window.Lampa.Reguest();
-                        network.timeout(15000);
+                        // 2. Витягуємо поточний домен балансера та ID відео
+                        var urlParts = iframeUrl.split('/');
+                        var baseHost = urlParts[0] + '//' + urlParts[2]; // наприклад: https://watchstreamhd.com
+                        var fileCode = urlParts.pop().split('?')[0];     // наприклад: 92c8c96e4c37100777c7190b76d28233
 
-                        if (iframeUrl.indexOf('videostreamingworld.com') !== -1) {
-                            var postUrl = 'https://videostreamingworld.com/player/index.php?data=' + fileCode + '&do=getVideo';
+                        // 3. Якщо це BestWish (в нього інший тип API - GET)
+                        if (baseHost.indexOf('bestwish.lol') !== -1) {
+                            var getUrl = baseHost + '/ajax/stream?filecode=' + fileCode;
                             
-                            network.request(postUrl, {
-                                method: 'POST',
+                            $.ajax({
+                                url: getUrl,
+                                type: 'GET',
+                                headers: { 'Referer': iframeUrl },
+                                success: function(json) {
+                                    if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
+                                    if (json && json.streaming_url) {
+                                        startPlayback([{ title: 'FamilyPorn (Auto)', url: json.streaming_url }]);
+                                    } else onError();
+                                },
+                                error: onError
+                            });
+                        } 
+                        // 4. Універсальний парсер для WatchStreamHD, VideoStreamingWorld та їхніх клонів
+                        else {
+                            var postUrl = baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo';
+                            
+                            $.ajax({
+                                url: postUrl,
+                                type: 'POST',
                                 headers: {
                                     'X-Requested-With': 'XMLHttpRequest',
                                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                                    'Referer': 'https://videostreamingworld.com/'
-                                }
-                            }, function(json) {
-                                if (json && json.videoSource) {
-                                    startPlayback([{ title: 'FamilyPorn (Auto)', url: json.videoSource }]);
-                                } else {
-                                    onError();
-                                }
-                            }, function() {
-                                onError();
+                                    'Referer': baseHost + '/'
+                                },
+                                success: function(json) {
+                                    // Перестраховка: іноді сервер віддає текст замість об'єкта
+                                    if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
+                                    
+                                    if (json && json.videoSource) {
+                                        startPlayback([{ title: 'FamilyPorn (Auto)', url: json.videoSource }]);
+                                    } else onError();
+                                },
+                                error: onError
                             });
-                        } 
-                        else if (iframeUrl.indexOf('bestwish.lol') !== -1) {
-                            var getUrl = 'https://bestwish.lol/ajax/stream?filecode=' + fileCode;
-                            
-                            network.request(getUrl, {
-                                method: 'GET',
-                                headers: {
-                                    'Referer': iframeUrl
-                                }
-                            }, function(json) {
-                                if (json && json.streaming_url) {
-                                    startPlayback([{ title: 'FamilyPorn (Auto)', url: json.streaming_url }]);
-                                } else {
-                                    onError();
-                                }
-                            }, function() {
-                                onError();
-                            });
-                        } 
-                        else {
-                            onError(); 
                         }
                     } else {
-                        onError(); 
+                        onError(); // iframe не знайдено
                     }
                 },
+
 
                 // Обов'язкова функція, інакше контекстне меню крашиться
                 getMenu: function(doc, htmlText, element) {
