@@ -225,6 +225,11 @@ var css = '<style>\
                     return url;
                 },
 
+                // Обов'язкова функція, інакше плагін крашиться
+                getFilters: function(doc, currentUrl) {
+                    return null;
+                },
+
                 getNavItems: function() {
                     return [
                         { title: 'Red Head', action: 'nav', url: this.domain + '/tag/redhead/' },
@@ -241,7 +246,7 @@ var css = '<style>\
 
                 parse: function(doc, currentUrl, object) {
                     var results = [];
-                    // Селектор карток згідно з CloudStream репозиторієм
+                    // Селектор карток
                     var items = doc.querySelectorAll('li.g1-collection-item');
                     
                     for (var i = 0; i < items.length; i++) {
@@ -275,7 +280,6 @@ var css = '<style>\
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var iframeUrl = '';
                     
-                    // 1. Шукаємо iframe всередині класу embed-container за допомогою регулярки або DOM
                     var iframeMatch = htmlText.match(/<div[^>]*class=["'][^"']*embed-container[^"']*["'][^>]*>\s*<iframe[^>]*src=["']([^"']+)["']/i);
                     if (iframeMatch && iframeMatch[1]) {
                         iframeUrl = iframeMatch[1];
@@ -287,12 +291,10 @@ var css = '<style>\
                     if (iframeUrl) {
                         if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + iframeUrl;
                         
-                        // Витягуємо унікальний код відео (остання частина шляху)
                         var fileCode = iframeUrl.split('/').pop().split('?')[0];
                         var network = new window.Lampa.Reguest();
                         network.timeout(15000);
 
-                        // 2. Дешифрування для балансера VideoStreamingWorld
                         if (iframeUrl.indexOf('videostreamingworld.com') !== -1) {
                             var postUrl = 'https://videostreamingworld.com/player/index.php?data=' + fileCode + '&do=getVideo';
                             
@@ -313,7 +315,6 @@ var css = '<style>\
                                 onError();
                             });
                         } 
-                        // 3. Дешифрування для балансера BestWish
                         else if (iframeUrl.indexOf('bestwish.lol') !== -1) {
                             var getUrl = 'https://bestwish.lol/ajax/stream?filecode=' + fileCode;
                             
@@ -333,13 +334,21 @@ var css = '<style>\
                             });
                         } 
                         else {
-                            onError(); // Інший непідтримуваний балансер
+                            onError(); 
                         }
                     } else {
-                        onError(); // iframe не знайдено
+                        onError(); 
                     }
+                },
+
+                // Обов'язкова функція, інакше контекстне меню крашиться
+                getMenu: function(doc, htmlText, element) {
+                    return [
+                        { title: '🔥 Схожі відео', action: 'sim', url: element.url }
+                    ];
                 }
             },
+
             
             
             
