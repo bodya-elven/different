@@ -204,12 +204,6 @@ var css = '<style>\
                 title: 'FamilyPorn',
                 domain: 'https://familypornhd.com',
                 
-                // Допоміжна функція для форматування тексту (MILF -> Milf)
-                fixTitle: function(str) {
-                    if (!str) return '';
-                    return str.toLowerCase().replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-                },
-
                 getHomeUrl: function() { 
                     return this.domain + '/'; 
                 },
@@ -220,6 +214,10 @@ var css = '<style>\
                 
                 getUrl: function(object, page) {
                     var url = object.url || (this.domain + '/');
+                    
+                    // На сторінці моделей пагінації немає, тому ігноруємо номер сторінки
+                    if (url.indexOf('/pornstars/') !== -1) return url;
+
                     if (page > 1) {
                         var uParts = url.split('?');
                         var base = uParts[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
@@ -234,7 +232,6 @@ var css = '<style>\
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
                     if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
 
-                    // Сортування тільки для головної або її розділів
                     var mainPaths = ['', '/', '/popular', '/hot', '/trending', '/popular/', '/hot/', '/trending/'];
                     if (mainPaths.indexOf(targetPath) !== -1) {
                         var activeTitle = 'Latest';
@@ -284,11 +281,9 @@ var css = '<style>\
 
                 parse: function(doc, currentUrl, object) {
                     var results = [];
-                    var _this = this;
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
                     if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
 
-                    // ПАРСИНГ КАТАЛОГІВ (КАТЕГОРІЇ ТА МОДЕЛІ)
                     if (targetPath === '/categories' || targetPath === '/pornstars') {
                         var isModelPage = (targetPath === '/pornstars');
                         var items = doc.querySelectorAll('.entry-content h3 a, .entry-content h4 a, .entry-content figure');
@@ -301,8 +296,7 @@ var css = '<style>\
                             
                             if (a) {
                                 var url = a.getAttribute('href');
-                                var rawTitle = cap ? cap.textContent : a.textContent;
-                                var title = _this.fixTitle(rawTitle.replace(/[0-9]+\s*entries/i, '').trim());
+                                var title = cap ? cap.textContent.trim() : a.textContent.replace(/[0-9]+\s*entries/i, '').trim();
                                 var img = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src')) : '';
                                 var badge = '';
                                 var countMatch = (cap ? item.textContent : a.textContent).match(/([0-9]+)\s*entries/i);
@@ -311,7 +305,7 @@ var css = '<style>\
                                 if (url && title) {
                                     results.push({
                                         name: title,
-                                        url: url.startsWith('http') ? url : _this.domain + url,
+                                        url: url.startsWith('http') ? url : this.domain + url,
                                         picture: img ? 'https:' + img.replace(/^https?:/, '') : '',
                                         img: img ? 'https:' + img.replace(/^https?:/, '') : '',
                                         card_badge: badge,
@@ -325,7 +319,6 @@ var css = '<style>\
                         return results;
                     }
 
-                    // СТАНДАРТНИЙ ПАРСИНГ ВІДЕО
                     var items = doc.querySelectorAll('li.g1-collection-item, article.g1-card');
                     for (var i = 0; i < items.length; i++) {
                         var anchor = items[i].querySelector('h3 a, .g1-frame, article a');
@@ -393,7 +386,7 @@ var css = '<style>\
                     var menu = [];
                     var _this = this;
 
-                    // Моделі
+                    // 1. Моделі строго з параграфа Pornstar (повернено оригінальний регістр)
                     var pornstarPara = Array.prototype.find.call(doc.querySelectorAll('p.has-text-align-center'), function(p) {
                         return p.textContent.indexOf('Pornstar:') !== -1;
                     });
@@ -409,26 +402,19 @@ var css = '<style>\
                         }
                     }
 
-                    // Студія
-                    var studioLink = doc.querySelector('.g1-delta-2nd a[href*="/category/"]');
+                    // 2. Студія з More From (без зайвих префіксів)
+                    var studioLink = doc.querySelector('.g1-collection-title a[href*="/category/"]');
                     if (studioLink) {
                         menu.push({ title: studioLink.textContent.trim(), action: 'direct', url: studioLink.getAttribute('href'), is_studios: true });
                     }
 
-                    // Теги
-                    var tags = doc.querySelectorAll('.entry-tags-inner a');
-                    if (tags.length > 0) {
-                        var tagItems = [];
-                        for(var j=0; j<tags.length; j++) {
-                            tagItems.push({
-                                title: _this.fixTitle(tags[j].textContent.trim()),
-                                url: tags[j].getAttribute('href')
-                            });
-                        }
-                        menu.push({ title: 'Теги', action: 'static_select', items: tagItems });
+                    // 3. Теги (оригінальний регістр, випадаючий список)
+                    var tagsExist = doc.querySelector('.entry-tags-inner a');
+                    if (tagsExist) {
+                        menu.push({ title: 'Теги', action: 'cats_custom', sel: '.entry-tags-inner a' });
                     }
 
-                    // Схожі відео
+                    // 4. Схожі відео з g1-related-entries
                     var relatedExist = doc.querySelector('aside.g1-related-entries li');
                     if (relatedExist) {
                         menu.push({ title: 'Схожі відео', action: 'sim', url: element.url });
