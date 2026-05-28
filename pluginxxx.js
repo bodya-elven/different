@@ -215,7 +215,6 @@ var css = '<style>\
                 getUrl: function(object, page) {
                     var url = object.url || (this.domain + '/');
                     
-                    // На сторінці моделей пагінації немає, тому ігноруємо номер сторінки
                     if (url.indexOf('/pornstars/') !== -1) return url;
 
                     if (page > 1) {
@@ -281,19 +280,24 @@ var css = '<style>\
 
                 parse: function(doc, currentUrl, object) {
                     var results = [];
+                    var container = doc;
+
+                    if (object.is_related) {
+                        var relatedBlock = doc.querySelector('aside.g1-related-entries');
+                        if (relatedBlock) container = relatedBlock;
+                    }
+
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
                     if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
 
                     if (targetPath === '/categories' || targetPath === '/pornstars') {
                         var isModelPage = (targetPath === '/pornstars');
-                        var items = doc.querySelectorAll('.entry-content h3 a, .entry-content h4 a, .entry-content figure');
-                        
+                        var items = container.querySelectorAll('.entry-content h3 a, .entry-content h4 a, .entry-content figure');
                         for (var i = 0; i < items.length; i++) {
                             var item = items[i];
                             var a = item.tagName === 'A' ? item : item.querySelector('a');
                             var imgEl = item.querySelector('img');
                             var cap = item.querySelector('figcaption');
-                            
                             if (a) {
                                 var url = a.getAttribute('href');
                                 var title = cap ? cap.textContent.trim() : a.textContent.replace(/[0-9]+\s*entries/i, '').trim();
@@ -301,16 +305,12 @@ var css = '<style>\
                                 var badge = '';
                                 var countMatch = (cap ? item.textContent : a.textContent).match(/([0-9]+)\s*entries/i);
                                 if (countMatch) badge = '🎬 ' + countMatch[1];
-
                                 if (url && title) {
                                     results.push({
-                                        name: title,
-                                        url: url.startsWith('http') ? url : this.domain + url,
+                                        name: title, url: url.startsWith('http') ? url : this.domain + url,
                                         picture: img ? 'https:' + img.replace(/^https?:/, '') : '',
                                         img: img ? 'https:' + img.replace(/^https?:/, '') : '',
-                                        card_badge: badge,
-                                        is_grid: true,
-                                        is_models: isModelPage,
+                                        card_badge: badge, is_grid: true, is_models: isModelPage,
                                         card_grid: isModelPage ? 'models-grid' : 'categories-grid'
                                     });
                                 }
@@ -319,7 +319,7 @@ var css = '<style>\
                         return results;
                     }
 
-                    var items = doc.querySelectorAll('li.g1-collection-item, article.g1-card');
+                    var items = container.querySelectorAll('li.g1-collection-item, article.g1-card');
                     for (var i = 0; i < items.length; i++) {
                         var anchor = items[i].querySelector('h3 a, .g1-frame, article a');
                         var imgEl = items[i].querySelector('img');
@@ -329,8 +329,7 @@ var css = '<style>\
                             var img = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src')) : '';
                             if (url && title) {
                                 results.push({
-                                    name: title,
-                                    url: url.startsWith('http') ? url : this.domain + url,
+                                    name: title, url: url.startsWith('http') ? url : this.domain + url,
                                     picture: img ? 'https:' + img.replace(/^https?:/, '') : '',
                                     img: img ? 'https:' + img.replace(/^https?:/, '') : '',
                                     is_grid: false
@@ -343,12 +342,8 @@ var css = '<style>\
 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var iframeUrl = '';
-                    var iframeMatch = htmlText.match(/<div[^>]*class=["'][^"']*embed-container[^"']*["'][^>]*>\s*<iframe[^>]*src=["']([^"']+)["']/i);
-                    if (iframeMatch && iframeMatch[1]) iframeUrl = iframeMatch[1];
-                    else {
-                        var iframeNode = doc.querySelector('div.embed-container iframe');
-                        if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
-                    }
+                    var iframeNode = doc.querySelector('div.embed-container iframe');
+                    if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
                     if (iframeUrl) {
                         if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
                         var urlParts = iframeUrl.split('/');
@@ -385,8 +380,6 @@ var css = '<style>\
                 getMenu: function(doc, htmlText, element) {
                     var menu = [];
                     var _this = this;
-
-                    // 1. Моделі строго з параграфа Pornstar (повернено оригінальний регістр)
                     var pornstarPara = Array.prototype.find.call(doc.querySelectorAll('p.has-text-align-center'), function(p) {
                         return p.textContent.indexOf('Pornstar:') !== -1;
                     });
@@ -401,25 +394,18 @@ var css = '<style>\
                             menu.push({ title: mName, action: 'direct', url: mUrl, is_models: true });
                         }
                     }
-
-                    // 2. Студія з More From (без зайвих префіксів)
                     var studioLink = doc.querySelector('.g1-collection-title a[href*="/category/"]');
                     if (studioLink) {
                         menu.push({ title: studioLink.textContent.trim(), action: 'direct', url: studioLink.getAttribute('href'), is_studios: true });
                     }
-
-                    // 3. Теги (оригінальний регістр, випадаючий список)
                     var tagsExist = doc.querySelector('.entry-tags-inner a');
                     if (tagsExist) {
                         menu.push({ title: 'Теги', action: 'cats_custom', sel: '.entry-tags-inner a' });
                     }
-
-                    // 4. Схожі відео з g1-related-entries
                     var relatedExist = doc.querySelector('aside.g1-related-entries li');
                     if (relatedExist) {
                         menu.push({ title: 'Схожі відео', action: 'sim', url: element.url });
                     }
-
                     return menu;
                 }
             },
