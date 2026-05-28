@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.6.7',
+        version: '2.6.8',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -200,6 +200,7 @@ var css = '<style>\
             // ======================================
             // БЛОК FAMILYPORN
             // ======================================
+
             familyporn: {
                 title: 'FamilyPorn',
                 domain: 'https://familypornhd.com',
@@ -215,7 +216,7 @@ var css = '<style>\
                 getUrl: function(object, page) {
                     var url = object.url || (this.domain + '/');
                     
-                    if (url.indexOf('/pornstars/') !== -1) return url;
+                    if (url.indexOf('/pornstars/') !== -1) return this.domain + '/pornstars/';[span_3](start_span)[span_3](end_span)
 
                     if (page > 1) {
                         var uParts = url.split('?');
@@ -283,8 +284,8 @@ var css = '<style>\
                     var container = doc;
 
                     if (object.is_related) {
-                        var relatedBlock = doc.querySelector('aside.g1-related-entries');
-                        if (relatedBlock) container = relatedBlock;
+                        container = doc.querySelector('aside.g1-related-entries');[span_4](start_span)[span_4](end_span)
+                        if (!container) return [];
                     }
 
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
@@ -319,7 +320,7 @@ var css = '<style>\
                         return results;
                     }
 
-                    var items = container.querySelectorAll('li.g1-collection-item, article.g1-card');
+                    var items = container.querySelectorAll('li.g1-collection-item, article.g1-card');[span_5](start_span)[span_5](end_span)[span_6](start_span)[span_6](end_span)[span_7](start_span)[span_7](end_span)
                     for (var i = 0; i < items.length; i++) {
                         var anchor = items[i].querySelector('h3 a, .g1-frame, article a');
                         var imgEl = items[i].querySelector('img');
@@ -342,8 +343,12 @@ var css = '<style>\
 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var iframeUrl = '';
-                    var iframeNode = doc.querySelector('div.embed-container iframe');
-                    if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
+                    var iframeMatch = htmlText.match(/<div[^>]*class=["'][^"']*embed-container[^"']*["'][^>]*>\s*<iframe[^>]*src=["']([^"']+)["']/i);
+                    if (iframeMatch && iframeMatch[1]) iframeUrl = iframeMatch[1];
+                    else {
+                        var iframeNode = doc.querySelector('div.embed-container iframe');
+                        if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
+                    }
                     if (iframeUrl) {
                         if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
                         var urlParts = iframeUrl.split('/');
@@ -382,7 +387,7 @@ var css = '<style>\
                     var _this = this;
                     var pornstarPara = Array.prototype.find.call(doc.querySelectorAll('p.has-text-align-center'), function(p) {
                         return p.textContent.indexOf('Pornstar:') !== -1;
-                    });
+                    });[span_8](start_span)[span_8](end_span)
                     if (pornstarPara) {
                         var modelLinks = pornstarPara.querySelectorAll('a');
                         for (var i = 0; i < modelLinks.length; i++) {
@@ -394,15 +399,15 @@ var css = '<style>\
                             menu.push({ title: mName, action: 'direct', url: mUrl, is_models: true });
                         }
                     }
-                    var studioLink = doc.querySelector('.g1-collection-title a[href*="/category/"]');
+                    var studioLink = doc.querySelector('.g1-collection-title a[href*="/category/"]');[span_9](start_span)[span_9](end_span)
                     if (studioLink) {
                         menu.push({ title: studioLink.textContent.trim(), action: 'direct', url: studioLink.getAttribute('href'), is_studios: true });
                     }
-                    var tagsExist = doc.querySelector('.entry-tags-inner a');
+                    var tagsExist = doc.querySelector('.entry-tags-inner a');[span_10](start_span)[span_10](end_span)
                     if (tagsExist) {
                         menu.push({ title: 'Теги', action: 'cats_custom', sel: '.entry-tags-inner a' });
                     }
-                    var relatedExist = doc.querySelector('aside.g1-related-entries li');
+                    var relatedExist = doc.querySelector('aside.g1-related-entries li');[span_11](start_span)[span_11](end_span)
                     if (relatedExist) {
                         menu.push({ title: 'Схожі відео', action: 'sim', url: element.url });
                     }
