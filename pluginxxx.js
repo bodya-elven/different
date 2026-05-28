@@ -7,7 +7,7 @@
 
     var pluginManifest = {
         name: 'CatalogX',
-        version: '2.6.6',
+        version: '2.6.7',
         description: 'Мульти-каталог для медіаконтенту.',
         author: '@bodya_elven'
     };
@@ -200,7 +200,6 @@ var css = '<style>\
             // ======================================
             // БЛОК FAMILYPORN
             // ======================================
-            // Блок FamilyPorn
             familyporn: {
                 title: 'FamilyPorn',
                 domain: 'https://familypornhd.com',
@@ -215,16 +214,11 @@ var css = '<style>\
                 
                 getUrl: function(object, page) {
                     var url = object.url || (this.domain + '/');
-                    
-                    // Обробка пагінації для WordPress (додавання /page/X/)
                     if (page > 1) {
                         var uParts = url.split('?');
                         var base = uParts[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
                         var pagination = '/page/' + page + '/';
-                        
-                        if (uParts.length > 1) {
-                            return base + pagination + '?' + uParts[1];
-                        }
+                        if (uParts.length > 1) return base + pagination + '?' + uParts[1];
                         return base + pagination;
                     }
                     return url;
@@ -234,13 +228,8 @@ var css = '<style>\
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
                     if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
 
-                    // Каталоги списків (без фільтрації)
-                    if (targetPath === '/categories' || targetPath === '/channels' || targetPath === '/pornstars') return null;
-
-                    var isMain = (targetPath === '' || targetPath === '/');
-                    
-                    if (isMain) {
-                        // Сортування для Головної сторінки
+                    // Сортування ТІЛЬКИ для головної сторінки
+                    if (targetPath === '' || targetPath === '/') {
                         var activeTitle = 'Latest';
                         if (currentUrl.indexOf('m_sort=views') !== -1) activeTitle = 'Popular';
                         else if (currentUrl.indexOf('m_sort=hot') !== -1) activeTitle = 'Hot';
@@ -255,131 +244,75 @@ var css = '<style>\
                                 { title: 'Trending', url: this.domain + '/?m_sort=trending' }
                             ]
                         }];
-                    } else {
-                        // Сортування для внутрішніх сторінок (Категорії, Студії, Моделі)
-                        var activeTitle = 'Latest';
-                        if (currentUrl.indexOf('m_sort=views') !== -1) activeTitle = 'Most Viewed';
-                        else if (currentUrl.indexOf('m_sort=likes') !== -1) activeTitle = 'Oldest'; // WordPress сортування за датою назад
-
-                        var baseUrl = currentUrl.split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
-
-                        return [{
-                            subtitle: '↕️ ' + activeTitle,
-                            items: [
-                                { title: 'Latest', url: baseUrl + '/' },
-                                { title: 'Oldest', url: baseUrl + '/?m_sort=likes' },
-                                { title: 'Most Viewed', url: baseUrl + '/?m_sort=views' }
-                            ]
-                        }];
                     }
+                    return null;
                 },
 
                 getNavItems: function() {
                     return [
-                        { title: 'Channels', action: 'nav', url: this.domain + '/channels/' },
-                        { title: 'Categories', action: 'nav', url: this.domain + '/categories/' },
-                        { title: 'Pornstars', action: 'nav', url: this.domain + '/pornstars/' }
+                        { 
+                            title: '🎬 Студії', 
+                            action: 'custom_select', 
+                            fetchUrl: this.domain + '/channels/', 
+                            parseSelect: function(doc) {
+                                var links = doc.querySelectorAll('.entry-content ul li a');
+                                var menu = [];
+                                for(var i=0; i<links.length; i++) {
+                                    var title = links[i].querySelector('h4') ? links[i].querySelector('h4').textContent.trim() : links[i].textContent.split('\n')[0].trim();
+                                    menu.push({ title: title, url: links[i].getAttribute('href') });
+                                }
+                                return menu;
+                            }
+                        },
+                        { 
+                            title: '🗄️ Категорії', 
+                            action: 'custom_select', 
+                            fetchUrl: this.domain + '/categories/', 
+                            parseSelect: function(doc) {
+                                var links = doc.querySelectorAll('.entry-content h3 a, .entry-content h4 a');
+                                var menu = [];
+                                for(var i=0; i<links.length; i++) {
+                                    menu.push({ title: links[i].textContent.trim(), url: links[i].getAttribute('href') });
+                                }
+                                return menu;
+                            }
+                        },
+                        { 
+                            title: '👸 Моделі', 
+                            action: 'custom_select', 
+                            fetchUrl: this.domain + '/pornstars/', 
+                            parseSelect: function(doc) {
+                                var items = doc.querySelectorAll('.entry-content figure');
+                                var menu = [];
+                                for(var i=0; i<items.length; i++) {
+                                    var a = items[i].querySelector('a');
+                                    var cap = items[i].querySelector('figcaption');
+                                    if (a && cap) menu.push({ title: cap.textContent.trim(), url: a.getAttribute('href'), is_models: true });
+                                }
+                                return menu;
+                            }
+                        }
                     ];
                 },
 
                 parse: function(doc, currentUrl, object) {
                     var results = [];
-                    var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
-                    if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
-
-                    // 1. ПАРСИНГ КАТАЛОГУ СТУДІЙ (CHANNELS)
-                    if (targetPath === '/channels') {
-                        var items = doc.querySelectorAll('.g1-layer-content, .g1-card');
-                        for (var i = 0; i < items.length; i++) {
-                            var a = items[i].querySelector('h3 a, a.g1-frame');
-                            var imgEl = items[i].querySelector('img');
-                            var countEl = items[i].querySelector('.g1-meta-entries, p');
-                            
-                            if (a) {
-                                var url = a.getAttribute('href');
-                                var title = a.textContent.trim() || (imgEl ? imgEl.getAttribute('alt') : '');
-                                var img = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src')) : '';
-                                var badge = '';
-                                
-                                if (countEl) {
-                                    var countMatch = countEl.textContent.match(/([0-9]+)\s*entries/i);
-                                    if (countMatch) badge = '🎬 ' + countMatch[1];
-                                }
-
-                                if (url && title) {
-                                    results.push({
-                                        name: title,
-                                        url: this.domain + url.replace(this.domain, ''),
-                                        picture: img ? 'https:' + img.replace(/^https?:/, '') : '',
-                                        img: img ? 'https:' + img.replace(/^https?:/, '') : '',
-                                        badge: badge,
-                                        is_models: false,
-                                        is_grid: true,
-                                        card_grid: 'categories-grid studios-grid'
-                                    });
-                                }
-                            }
-                        }
-                        return results;
-                    }
-
-                    // 2. ПАРСИНГ КАТАЛОГУ КАТЕГОРІЙ АБО МОДЕЛЕЙ (ТЕКСТОВІ СПИСКИ)
-                    if (targetPath === '/categories' || targetPath === '/pornstars') {
-                        var isModelPage = (targetPath === '/pornstars');
-                        var items = doc.querySelectorAll('.entry-content p a, .entry-content li a, .g1-column a');
-                        
-                        // Якщо на сторінці моделей пустий масив, шукаємо ширші блоки
-                        if (items.length === 0) items = doc.querySelectorAll('.entry-content a');
-
-                        for (var i = 0; i < items.length; i++) {
-                            var a = items[i];
-                            var url = a.getAttribute('href');
-                            var text = a.textContent.trim();
-                            
-                            if (url && text && text.length > 1) {
-                                var title = text.replace(/[0-9]+\s*entries/i, '').replace(/\s*\(.*\)/, '').trim();
-                                var badge = '';
-                                var countMatch = text.match(/([0-9]+)\s*entries/i);
-                                if (countMatch) badge = '🎬 ' + countMatch[1];
-
-                                results.push({
-                                    name: title,
-                                    url: this.domain + url.replace(this.domain, ''),
-                                    picture: '',
-                                    img: '',
-                                    badge: badge,
-                                    is_models: isModelPage,
-                                    is_grid: true,
-                                    card_grid: isModelPage ? 'models-grid' : 'categories-grid'
-                                });
-                            }
-                        }
-                        return results;
-                    }
-
-                    // 3. СТАНДАРТНИЙ ПАРСИНГ КАРТОК ВІДЕО
                     var items = doc.querySelectorAll('li.g1-collection-item, article.g1-card');
                     for (var i = 0; i < items.length; i++) {
-                        var item = items[i];
-                        var anchor = item.querySelector('h3 a, .g1-frame, article a');
-                        var imgEl = item.querySelector('img');
-                        
+                        var anchor = items[i].querySelector('h3 a, .g1-frame, article a');
+                        var imgEl = items[i].querySelector('img');
                         if (anchor) {
-                            var url = anchor.getAttribute('href') || '';
+                            var url = anchor.getAttribute('href');
                             var title = anchor.getAttribute('title') || anchor.textContent.trim();
-                            var img = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '') : '';
-                            
-                            if (url && title && url.indexOf('/channels/') === -1 && url.indexOf('/categories/') === -1) {
-                                if (url.indexOf('http') === -1) url = this.domain + (url.startsWith('/') ? '' : '/') + url.replace(/^\//, '');
-                                if (img && img.indexOf('http') === -1) img = 'https:' + img.replace(/^https?:/, '');
-                                
+                            var img = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src')) : '';
+                            if (url && title) {
                                 results.push({
                                     name: title,
-                                    url: url,
-                                    picture: img,
-                                    img: img,
-                                    is_models: false,
-                                    is_grid: false
+                                    url: url.startsWith('http') ? url : this.domain + url,
+                                    picture: img ? 'https:' + img.replace(/^https?:/, '') : '',
+                                    img: img ? 'https:' + img.replace(/^https?:/, '') : '',
+                                    is_grid: false,
+                                    is_models: object.is_models || false
                                 });
                             }
                         }
@@ -390,19 +323,16 @@ var css = '<style>\
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var iframeUrl = '';
                     var iframeMatch = htmlText.match(/<div[^>]*class=["'][^"']*embed-container[^"']*["'][^>]*>\s*<iframe[^>]*src=["']([^"']+)["']/i);
-                    
                     if (iframeMatch && iframeMatch[1]) iframeUrl = iframeMatch[1];
                     else {
                         var iframeNode = doc.querySelector('div.embed-container iframe');
                         if (iframeNode) iframeUrl = iframeNode.getAttribute('src');
                     }
-
                     if (iframeUrl) {
                         if (iframeUrl.indexOf('http') === -1) iframeUrl = 'https:' + (iframeUrl.startsWith('//') ? '' : '//') + iframeUrl.replace(/^\/\//, '');
                         var urlParts = iframeUrl.split('/');
                         var baseHost = urlParts[0] + '//' + urlParts[2];
                         var fileCode = urlParts.pop().split('?')[0];
-
                         if (baseHost.indexOf('bestwish.lol') !== -1) {
                             var getUrl = baseHost + '/ajax/stream?filecode=' + fileCode;
                             window.pluginx_smartRequest(getUrl, function(res) {
@@ -416,9 +346,7 @@ var css = '<style>\
                             var postUrl = baseHost + '/player/index.php?data=' + fileCode + '&do=getVideo';
                             var network = new window.Lampa.Reguest();
                             var isAndroid = typeof window !== 'undefined' && window.Lampa && window.Lampa.Platform && window.Lampa.Platform.is('android');
-                            
                             var postData = "hash=" + fileCode; 
-                            
                             var successCallback = function(res) {
                                 try {
                                     var json = typeof res === 'string' ? JSON.parse(res) : res;
@@ -426,55 +354,48 @@ var css = '<style>\
                                     else onError();
                                 } catch(e) { onError(); }
                             };
-                            
-                            var reqOptions = {
-                                dataType: 'text',
-                                headers: {
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                                    'Referer': baseHost + '/'
-                                }
-                            };
-
-                            if (isAndroid) {
-                                network.native(postUrl, successCallback, onError, postData, reqOptions);
-                            } else {
-                                network.silent(postUrl, successCallback, onError, postData, reqOptions);
-                            }
+                            var reqOptions = { dataType: 'text', headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'Referer': baseHost + '/' } };
+                            if (isAndroid) network.native(postUrl, successCallback, onError, postData, reqOptions);
+                            else network.silent(postUrl, successCallback, onError, postData, reqOptions);
                         }
                     } else onError();
                 },
 
                 getMenu: function(doc, htmlText, element) {
                     var menu = [];
-                    
-                    // 1. Моделі та Студія (з блоку медіа-даних під плеєром)
-                    var links = doc.querySelectorAll('.g1-meta-categories a, .entry-categories a, .entry-tags a');
-                    for (var i = 0; i < links.length; i++) {
-                        var aUrl = links[i].getAttribute('href');
-                        var aTitle = links[i].textContent.trim();
-                        
-                        if (aUrl && aTitle && aTitle !== element.name) {
-                            if (aUrl.indexOf('http') === -1) aUrl = this.domain + (aUrl.startsWith('/') ? '' : '/') + aUrl.replace(/^\//, '');
-                            
-                            if (aUrl.indexOf('/pornstar/') !== -1 || aUrl.indexOf('/tag/') !== -1) {
-                                // Пряме виведення імені моделі (без префіксів)
-                                menu.push({ title: aTitle, action: 'direct', url: aUrl, is_models: true });
-                            } else if (aUrl.indexOf('/category/') !== -1) {
-                                menu.push({ title: 'Студія: ' + aTitle, action: 'direct', url: aUrl, is_studios: true });
+                    var _this = this;
+
+                    // 1. Моделі строго з параграфа Pornstar:
+                    var pornstarPara = Array.prototype.find.call(doc.querySelectorAll('p.has-text-align-center'), function(p) {
+                        return p.textContent.indexOf('Pornstar:') !== -1;
+                    });
+                    if (pornstarPara) {
+                        var modelLinks = pornstarPara.querySelectorAll('a');
+                        for (var i = 0; i < modelLinks.length; i++) {
+                            var mName = modelLinks[i].textContent.trim();
+                            var mUrl = modelLinks[i].getAttribute('href');
+                            if (!mUrl || mUrl.indexOf('/tag/') === -1) {
+                                mUrl = _this.domain + '/tag/' + mName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '/';
                             }
+                            menu.push({ title: mName, action: 'direct', url: mUrl, is_models: true });
                         }
                     }
 
-                    // 2. Випадаючий список категорій (збираємо всі інші теги)
-                    var catsExist = doc.querySelector('.entry-tags a, .g1-meta-categories a');
-                    if (catsExist && !element.is_models) {
-                        menu.push({ title: 'Категорії', action: 'cats_custom', sel: '.entry-tags a, .g1-meta-categories a' });
+                    // 2. Студія з блоку More From:
+                    var studioLink = doc.querySelector('.g1-collection-title a[href*="/category/"]');
+                    if (studioLink) {
+                        menu.push({ title: 'Студія: ' + studioLink.textContent.trim(), action: 'direct', url: studioLink.getAttribute('href'), is_studios: true });
                     }
 
-                    // 3. Схожі відео (блок під плеєром)
-                    var simExist = doc.querySelectorAll('aside.g1-related-entries li');
-                    if (simExist.length > 0 && !element.is_models) {
+                    // 3. Теги (замість Категорії)
+                    var tagsExist = doc.querySelector('.entry-tags-inner a');
+                    if (tagsExist) {
+                        menu.push({ title: 'Теги', action: 'cats_custom', sel: '.entry-tags-inner a' });
+                    }
+
+                    // 4. Схожі відео строго з g1-related-entries
+                    var relatedExist = doc.querySelector('aside.g1-related-entries li');
+                    if (relatedExist) {
                         menu.push({ title: 'Схожі відео', action: 'sim', url: element.url });
                     }
 
