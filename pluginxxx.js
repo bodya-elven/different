@@ -216,7 +216,7 @@ var css = '<style>\
                 getUrl: function(object, page) {
                     var url = object.url || (this.domain + '/');
                     
-                    if (url.indexOf('/pornstars/') !== -1) return this.domain + '/pornstars/';[span_3](start_span)[span_3](end_span)
+                    if (url.indexOf('/pornstars/') !== -1) return this.domain + '/pornstars/';
 
                     if (page > 1) {
                         var uParts = url.split('?');
@@ -227,6 +227,7 @@ var css = '<style>\
                     }
                     return url;
                 },
+
 
                 getFilters: function(doc, currentUrl) {
                     var targetPath = currentUrl.replace(this.domain, '').split('?')[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
