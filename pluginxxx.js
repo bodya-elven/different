@@ -2351,10 +2351,13 @@ time: time, url: urlV, picture: imgV, img: imgV });
         // ==========================================
 
         function PluginXGlobalSearch(object) {
-            var comp = new Lampa.InteractionMain(object);
+            var comp = new window.Lampa.InteractionMain(object);
 
             comp.create = function () {
                 var _this = this;
+                
+                // Додаємо клас, щоб застосувати наші CSS стилі для горизонтальних карток
+                this.render().addClass('pluginx_search_main');
                 this.activity.loader(true);
 
                 var query = object.query;
@@ -2376,7 +2379,6 @@ time: time, url: urlV, picture: imgV, img: imgV });
                         (function(siteKey) {
                             var searchUrl = Adapters[siteKey].getSearchUrl(query);
                             
-                            // Захист для сайтів типу youperv, де потрібна мінімальна довжина
                             if (!searchUrl) {
                                 finished++;
                                 if (finished === total) {
@@ -2393,7 +2395,6 @@ time: time, url: urlV, picture: imgV, img: imgV });
                                 if (items && items.length > 0) {
                                     items.forEach(function(item) { item.site = siteKey; });
                                     
-                                    // Додаємо рядок для конкретного сайту
                                     fulldata.push({
                                         title: Adapters[siteKey].title,
                                         results: items,
@@ -2419,9 +2420,8 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 }
             };
 
-            // Що робити, коли натискають кнопку "Більше" (показати всі результати з цього сайту)
             comp.onMore = function (data) {
-                Lampa.Activity.push({
+                window.Lampa.Activity.push({
                     title: 'Пошук: ' + object.query + ' (' + data.title + ')',
                     url: data.url,
                     component: 'pluginx_comp',
@@ -2430,11 +2430,49 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 });
             };
 
+            // ПЕРЕВИЗНАЧАЄМО КОНТЕКСТНЕ МЕНЮ ДЛЯ РЕЗУЛЬТАТІВ ПОШУКУ
+            comp.onContextMenu = function (item) {
+                var menu = [];
+                // Перевіряємо, чи є вже відео в обраному
+                var favs = window.Lampa.Storage.get('pluginx_bookmarks', []);
+                var favIndex = favs.findIndex(function(f) { return f.url === item.url; });
+                
+                if (favIndex > -1) {
+                    menu.push({ title: '❌ Видалити з обраного', action: 'remove_fav' });
+                } else {
+                    menu.push({ title: '⭐ Додати в обране', action: 'add_fav' });
+                }
+
+                window.Lampa.Select.show({
+                    title: item.name,
+                    items: menu,
+                    onSelect: function(a) {
+                        if (a.action === 'add_fav') {
+                            favs.push(item);
+                            window.Lampa.Storage.set('pluginx_bookmarks', favs);
+                            window.Lampa.Noty.show('Додано в обране');
+                        } else if (a.action === 'remove_fav') {
+                            favs.splice(favIndex, 1);
+                            window.Lampa.Storage.set('pluginx_bookmarks', favs);
+                            window.Lampa.Noty.show('Видалено з обраного');
+                        }
+                    }
+                });
+            };
+
             return comp;
         }
 
-        Lampa.Component.add('pluginx_search_main', PluginXGlobalSearch);
-        
+        window.Lampa.Component.add('pluginx_search_main', PluginXGlobalSearch);
+
+        // ІНЖЕКТИМО СТИЛІ ДЛЯ ГОРИЗОНТАЛЬНИХ КАРТОК (Формат 16:9)
+        if (!$('#pluginx-search-css').length) {
+            $('body').append('<style id="pluginx-search-css">' +
+                '.pluginx_search_main .card { width: 18em !important; }' +
+                '.pluginx_search_main .card__img { padding-bottom: 56.25% !important; background-position: center; background-size: cover; }' +
+                '</style>');
+        }
+
 
         function CustomCatalog(object) {
             var comp = new Lampa.InteractionCategory(object), currentSite = object.site || 'porno365';
