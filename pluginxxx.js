@@ -68,61 +68,7 @@
         }
         window.Lampa.Noty.show('Видалено з історії');
     };
-    
-    window.pluginx_globalSearch = function(query) {
-        var catalog = []; // Це буде наш каталог з рядками
-        var total = 0;
-        var finished = 0;
-
-        for (var key in Adapters) { if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++; }
-
-        for (var key in Adapters) {
-            if (Adapters[key].getSearchUrl && !Adapters[key].is_global) {
-                (function(siteKey) {
-                    var url = Adapters[siteKey].getSearchUrl(query);
-                    window.pluginx_smartRequest(url, function(html) {
-                        var doc = new DOMParser().parseFromString(html, 'text/html');
-                        var items = Adapters[siteKey].parse(doc, url, {});
-                        
-                        if (items.length > 0) {
-                            // Додаємо окремий рядок для цього сайту
-                            catalog.push({
-                                title: Adapters[siteKey].title,
-                                items: items.map(function(item) {
-                                    item.site = siteKey;
-                                    return item;
-                                })
-                            });
-                        }
-                        finished++;
-                        if (finished === total) {
-                            showGlobalCatalog(catalog);
-                        }
-                    }, function() { finished++; });
-                })(key);
-            }
-        }
-    };
-
-    function showGlobalCatalog(catalog) {
-        window.Lampa.Select.show({
-            title: 'Результати пошуку',
-            items: catalog, // Тепер це список категорій (сайтів)
-            onSelect: function(category) {
-                // Відкриваємо вибраний сайт із його результатами
-                window.Lampa.Select.show({
-                    title: category.title,
-                    items: category.items,
-                    onSelect: function(item) {
-                        window.Lampa.Activity.push({ title: item.name, component: 'pluginx_comp', url: item.url, site: item.site });
-                    }
-                });
-            }
-        });
-    }
-
-
-
+   
     
     function startPlugin() {
         if (window.pluginx_ready) return;
@@ -2404,6 +2350,92 @@ time: time, url: urlV, picture: imgV, img: imgV });
         // ЯДРО ПЛАГІНА (Взаємодія з Lampa та Адаптерами)
         // ==========================================
 
+        function PluginXGlobalSearch(object) {
+            var comp = new Lampa.InteractionMain(object);
+
+            comp.create = function () {
+                var _this = this;
+                this.activity.loader(true);
+
+                var query = object.query;
+                var fulldata = [];
+                var total = 0;
+                var finished = 0;
+
+                for (var key in Adapters) {
+                    if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++;
+                }
+
+                if (total === 0) {
+                    _this.empty();
+                    return;
+                }
+
+                for (var key in Adapters) {
+                    if (Adapters[key].getSearchUrl && !Adapters[key].is_global) {
+                        (function(siteKey) {
+                            var searchUrl = Adapters[siteKey].getSearchUrl(query);
+                            
+                            // Захист для сайтів типу youperv, де потрібна мінімальна довжина
+                            if (!searchUrl) {
+                                finished++;
+                                if (finished === total) {
+                                    if (fulldata.length) { _this.build(fulldata); _this.activity.loader(false); }
+                                    else _this.empty();
+                                }
+                                return;
+                            }
+
+                            window.pluginx_smartRequest(searchUrl, function(html) {
+                                var doc = new DOMParser().parseFromString(html, 'text/html');
+                                var items = Adapters[siteKey].parse(doc, searchUrl, { is_search: true });
+                                
+                                if (items && items.length > 0) {
+                                    items.forEach(function(item) { item.site = siteKey; });
+                                    
+                                    // Додаємо рядок для конкретного сайту
+                                    fulldata.push({
+                                        title: Adapters[siteKey].title,
+                                        results: items,
+                                        url: searchUrl,
+                                        site: siteKey
+                                    });
+                                }
+                                
+                                finished++;
+                                if (finished === total) {
+                                    if (fulldata.length) { _this.build(fulldata); _this.activity.loader(false); }
+                                    else _this.empty();
+                                }
+                            }, function() {
+                                finished++;
+                                if (finished === total) {
+                                    if (fulldata.length) { _this.build(fulldata); _this.activity.loader(false); }
+                                    else _this.empty();
+                                }
+                            });
+                        })(key);
+                    }
+                }
+            };
+
+            // Що робити, коли натискають кнопку "Більше" (показати всі результати з цього сайту)
+            comp.onMore = function (data) {
+                Lampa.Activity.push({
+                    title: 'Пошук: ' + object.query + ' (' + data.title + ')',
+                    url: data.url,
+                    component: 'pluginx_comp',
+                    site: data.site,
+                    page: 1
+                });
+            };
+
+            return comp;
+        }
+
+        Lampa.Component.add('pluginx_search_main', PluginXGlobalSearch);
+        
+
         function CustomCatalog(object) {
             var comp = new Lampa.InteractionCategory(object), currentSite = object.site || 'porno365';
             
@@ -2685,21 +2717,31 @@ if (currentSite === 'bookmarks' || currentSite === 'history') {
                     window.Lampa.Select.show({ 
                         title: 'CatalogX', 
                         items: siteOptions, 
-                        onSelect: function(a) { 
+                          onSelect: function(a) { 
                             if (a.separator) return;
+                            
+                            // Виклик НОВОГО компонента пошуку
                             if (a.action === 'global_search') {
-                                window.Lampa.Input.edit({ title: 'Пошук по всіх сайтах', value: '', free: true }, function(v) {
-                                    if (v) window.pluginx_globalSearch(v);
+                                window.Lampa.Input.edit({ title: 'Глобальний пошук', value: '', free: true }, function(v) {
+                                    if (v && v.trim().length > 0) {
+                                        window.Lampa.Activity.push({
+                                            title: 'Пошук: ' + v.trim(),
+                                            component: 'pluginx_search_main', // Відкриваємо горизонтальний каталог
+                                            query: v.trim()
+                                        });
+                                    }
                                 });
                                 return;
                             }
+                            
                             window.Lampa.Activity.push({ 
                                 title: a.title, 
                                 component: 'pluginx_comp', 
                                 site: a.site, 
                                 page: 1 
                             }); 
-                        },
+                        }, 
+
 
                         onBack: function() { window.Lampa.Controller.toggle('menu'); } 
                     });
