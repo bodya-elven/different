@@ -73,11 +73,7 @@
         var results = [];
         var total = 0;
         var finished = 0;
-
-        for (var key in Adapters) {
-            if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++;
-        }
-
+        for (var key in Adapters) { if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++; }
         for (var key in Adapters) {
             if (Adapters[key].getSearchUrl && !Adapters[key].is_global) {
                 (function(siteKey) {
@@ -85,7 +81,7 @@
                         var doc = new DOMParser().parseFromString(html, 'text/html');
                         var items = Adapters[siteKey].parse(doc, Adapters[siteKey].getSearchUrl(query), {});
                         items.forEach(function(item) {
-                            item.site = siteKey; 
+                            item.site = siteKey;
                             item.name = '[' + Adapters[siteKey].title + '] ' + item.name;
                             results.push(item);
                         });
@@ -98,6 +94,7 @@
             }
         }
     };
+
 
     
     function startPlugin() {
@@ -216,7 +213,10 @@ var css = '<style>\
             // =========================================================================
             globalsearch: {
                 title: '🔍 Глобальний пошук',
-                is_global: true
+                is_global: true,
+                // Додаємо заглушку, щоб Lampa не сварилася
+                getHomeUrl: function() { return ''; },
+                getUrl: function() { return ''; }
             },
              
             bookmarks: {
@@ -2650,8 +2650,8 @@ if (currentSite === 'bookmarks' || currentSite === 'history') {
                     ];
                     
                     for (var key in Adapters) {
-                        // Пропускаємо віртуальні, бо ми їх вже додали зверху вручну
-                        if (key === 'bookmarks' || key === 'history') continue;
+                        // Пропускаємо віртуальні, щоб не дублювалися
+                        if (key === 'bookmarks' || key === 'history' || key === 'globalsearch') continue;
                         siteOptions.push({ title: Adapters[key].title, site: key });
                     }
 
@@ -2660,21 +2660,20 @@ if (currentSite === 'bookmarks' || currentSite === 'history') {
                         items: siteOptions, 
                         onSelect: function(a) { 
                             if (a.separator) return;
-                            
                             if (a.action === 'global_search') {
                                 window.Lampa.Input.edit({ title: 'Пошук по всіх сайтах', value: '', free: true }, function(v) {
                                     if (v) window.pluginx_globalSearch(v);
                                 });
                                 return;
                             }
-                            
                             window.Lampa.Activity.push({ 
                                 title: a.title, 
                                 component: 'pluginx_comp', 
                                 site: a.site, 
                                 page: 1 
                             }); 
-                        }, 
+                        },
+
                         onBack: function() { window.Lampa.Controller.toggle('menu'); } 
                     });
                 });
