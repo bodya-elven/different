@@ -70,30 +70,63 @@
     };
     
     window.pluginx_globalSearch = function(query) {
+        console.log('Глобальний пошук: початок для', query);
         var results = [];
         var total = 0;
         var finished = 0;
-        for (var key in Adapters) { if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++; }
+
+        for (var key in Adapters) { 
+            if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++; 
+        }
+
+        if (total === 0) {
+            console.log('Пошук не знайдено жодного адаптера!');
+            return;
+        }
+
         for (var key in Adapters) {
             if (Adapters[key].getSearchUrl && !Adapters[key].is_global) {
                 (function(siteKey) {
-                    window.pluginx_smartRequest(Adapters[siteKey].getSearchUrl(query), function(html) {
+                    var url = Adapters[siteKey].getSearchUrl(query);
+                    console.log('Запит на сайт:', siteKey, url);
+                    
+                    window.pluginx_smartRequest(url, function(html) {
                         var doc = new DOMParser().parseFromString(html, 'text/html');
-                        var items = Adapters[siteKey].parse(doc, Adapters[siteKey].getSearchUrl(query), {});
+                        var items = Adapters[siteKey].parse(doc, url, {});
+                        
+                        console.log('Результати для', siteKey, ':', items.length);
+                        
                         items.forEach(function(item) {
                             item.site = siteKey;
                             item.name = '[' + Adapters[siteKey].title + '] ' + item.name;
                             results.push(item);
                         });
+                        
                         finished++;
-                        if (finished === total) window.Lampa.Select.show({ title: 'Результати', items: results, onSelect: function(item) {
-                            window.Lampa.Activity.push({ title: item.name, component: 'pluginx_comp', url: item.url, site: item.site });
-                        }});
-                    }, function() { finished++; });
+                        if (finished === total) {
+                            console.log('Пошук завершено, всього знайдено:', results.length);
+                            if (results.length > 0) {
+                                window.Lampa.Select.show({ 
+                                    title: 'Результати пошуку', 
+                                    items: results, 
+                                    onSelect: function(item) {
+                                        window.Lampa.Activity.push({ title: item.name, component: 'pluginx_comp', url: item.url, site: item.site });
+                                    }
+                                });
+                            } else {
+                                Lampa.Noty.show('Нічого не знайдено');
+                            }
+                        }
+                    }, function() { 
+                        console.log('Помилка запиту:', siteKey);
+                        finished++; 
+                        if (finished === total && results.length === 0) Lampa.Noty.show('Помилка при пошуку');
+                    });
                 })(key);
             }
         }
     };
+
 
 
     
