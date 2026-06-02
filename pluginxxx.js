@@ -2355,9 +2355,6 @@ time: time, url: urlV, picture: imgV, img: imgV });
 
             comp.create = function () {
                 var _this = this;
-                
-                // Додаємо клас, щоб застосувати наші CSS стилі для горизонтальних карток
-                this.render().addClass('pluginx_search_main');
                 this.activity.loader(true);
 
                 var query = object.query;
@@ -2393,7 +2390,11 @@ time: time, url: urlV, picture: imgV, img: imgV });
                                 var items = Adapters[siteKey].parse(doc, searchUrl, { is_search: true });
                                 
                                 if (items && items.length > 0) {
-                                    items.forEach(function(item) { item.site = siteKey; });
+                                    items.forEach(function(item) { 
+                                        item.site = siteKey; 
+                                        // КРИТИЧНО ДЛЯ ХОРІЗОНТАЛЬНИХ КАРТОК (Трансформація в 16:9)
+                                        item.style = { name: 'wide' }; 
+                                    });
                                     
                                     fulldata.push({
                                         title: Adapters[siteKey].title,
@@ -2430,10 +2431,9 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 });
             };
 
-            // ПЕРЕВИЗНАЧАЄМО КОНТЕКСТНЕ МЕНЮ ДЛЯ РЕЗУЛЬТАТІВ ПОШУКУ
-            comp.onContextMenu = function (item) {
+            // ФІКС КОНТЕКСТНОГО МЕНЮ (Lampa викликає саме onLongEnter для довгих утримань)
+            comp.onLongEnter = function (item) {
                 var menu = [];
-                // Перевіряємо, чи є вже відео в обраному
                 var favs = window.Lampa.Storage.get('pluginx_bookmarks', []);
                 var favIndex = favs.findIndex(function(f) { return f.url === item.url; });
                 
@@ -2465,11 +2465,10 @@ time: time, url: urlV, picture: imgV, img: imgV });
 
         window.Lampa.Component.add('pluginx_search_main', PluginXGlobalSearch);
 
-        // ІНЖЕКТИМО СТИЛІ ДЛЯ ГОРИЗОНТАЛЬНИХ КАРТОК (Формат 16:9)
+        // Додаткове коригування відображення сітки через CSS для сумісності з темами
         if (!$('#pluginx-search-css').length) {
             $('body').append('<style id="pluginx-search-css">' +
-                '.pluginx_search_main .card { width: 18em !important; }' +
-                '.pluginx_search_main .card__img { padding-bottom: 56.25% !important; background-position: center; background-size: cover; }' +
+                '.activity__body:has(.card--wide) .card--wide { width: 18.3em !important; }' +
                 '</style>');
         }
 
@@ -2755,16 +2754,15 @@ if (currentSite === 'bookmarks' || currentSite === 'history') {
                     window.Lampa.Select.show({ 
                         title: 'CatalogX', 
                         items: siteOptions, 
-                          onSelect: function(a) { 
+                        onSelect: function(a) { 
                             if (a.separator) return;
                             
-                            // Виклик НОВОГО компонента пошуку
                             if (a.action === 'global_search') {
                                 window.Lampa.Input.edit({ title: 'Глобальний пошук', value: '', free: true }, function(v) {
                                     if (v && v.trim().length > 0) {
                                         window.Lampa.Activity.push({
                                             title: 'Пошук: ' + v.trim(),
-                                            component: 'pluginx_search_main', // Відкриваємо горизонтальний каталог
+                                            component: 'pluginx_search_main',
                                             query: v.trim()
                                         });
                                     }
@@ -2779,6 +2777,7 @@ if (currentSite === 'bookmarks' || currentSite === 'history') {
                                 page: 1 
                             }); 
                         }, 
+
 
 
                         onBack: function() { window.Lampa.Controller.toggle('menu'); } 
