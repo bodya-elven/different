@@ -69,6 +69,37 @@
         window.Lampa.Noty.show('Видалено з історії');
     };
     
+    window.pluginx_globalSearch = function(query) {
+        var results = [];
+        var total = 0;
+        var finished = 0;
+
+        for (var key in Adapters) {
+            if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++;
+        }
+
+        for (var key in Adapters) {
+            if (Adapters[key].getSearchUrl && !Adapters[key].is_global) {
+                (function(siteKey) {
+                    window.pluginx_smartRequest(Adapters[siteKey].getSearchUrl(query), function(html) {
+                        var doc = new DOMParser().parseFromString(html, 'text/html');
+                        var items = Adapters[siteKey].parse(doc, Adapters[siteKey].getSearchUrl(query), {});
+                        items.forEach(function(item) {
+                            item.site = siteKey; 
+                            item.name = '[' + Adapters[siteKey].title + '] ' + item.name;
+                            results.push(item);
+                        });
+                        finished++;
+                        if (finished === total) window.Lampa.Select.show({ title: 'Результати', items: results, onSelect: function(item) {
+                            window.Lampa.Activity.push({ title: item.name, component: 'pluginx_comp', url: item.url, site: item.site });
+                        }});
+                    }, function() { finished++; });
+                })(key);
+            }
+        }
+    };
+
+    
     function startPlugin() {
         if (window.pluginx_ready) return;
         window.pluginx_ready = true;
@@ -181,8 +212,13 @@ var css = '<style>\
         var Adapters = {
 
             // =========================================================================
-            // ОБРАНЕ ТА ІСТОРІЯ
+            // ОБРАНЕ, ІСТОРІЯ ТА ГЛОБАЛЬНИЙ ПОШУК
             // =========================================================================
+            globalsearch: {
+                title: '🔍 Глобальний пошук',
+                is_global: true
+            },
+             
             bookmarks: {
                 title: '⭐ Обране',
                 parse: function() {
@@ -2608,6 +2644,7 @@ if (currentSite === 'bookmarks' || currentSite === 'history') {
                 var item = $('<li class="menu__item selector" data-action="pluginx" id="menu_pluginx"><div class="menu__ico"><img src="https://bodya-elven.github.io/different/icons/pluginx.svg" width="24" height="24" style="filter: brightness(0) invert(1);" /></div><div class="menu__text">CatalogX</div></li>');
                 item.on('hover:enter', function () {
                     var siteOptions = [
+                        { title: '🔍 Глобальний пошук', action: 'global_search' },
                         { title: '⭐ Обране', site: 'bookmarks' },
                         { title: '🕒 Історія', site: 'history' }
                     ];
@@ -2623,6 +2660,14 @@ if (currentSite === 'bookmarks' || currentSite === 'history') {
                         items: siteOptions, 
                         onSelect: function(a) { 
                             if (a.separator) return;
+                            
+                            if (a.action === 'global_search') {
+                                window.Lampa.Input.edit({ title: 'Пошук по всіх сайтах', value: '', free: true }, function(v) {
+                                    if (v) window.pluginx_globalSearch(v);
+                                });
+                                return;
+                            }
+                            
                             window.Lampa.Activity.push({ 
                                 title: a.title, 
                                 component: 'pluginx_comp', 
