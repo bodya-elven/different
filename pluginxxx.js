@@ -2362,6 +2362,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 var total = 0;
                 var finished = 0;
 
+                // Рахуємо адаптери з підтримкою пошуку
                 for (var key in Adapters) {
                     if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++;
                 }
@@ -2392,9 +2393,10 @@ time: time, url: urlV, picture: imgV, img: imgV });
                                 if (items && items.length > 0) {
                                     items.forEach(function(item) { 
                                         item.site = siteKey; 
-                                        // КРИТИЧНО ДЛЯ ХОРІЗОНТАЛЬНИХ КАРТОК (Трансформація в 16:9)
-                                        item.style = { name: 'wide' }; 
                                     });
+                                    
+                                    // ПРИМУСОВЕ ПЕРЕТВОРЕННЯ КАРТОК НА ШИРОКІ (МЕТОД З PREMIUM INTERFACE)
+                                    window.Lampa.Utils.extendItemsParams(items, { style: { name: 'wide' } });
                                     
                                     fulldata.push({
                                         title: Adapters[siteKey].title,
@@ -2419,8 +2421,41 @@ time: time, url: urlV, picture: imgV, img: imgV });
                         })(key);
                     }
                 }
+                return this.render();
             };
 
+            // КЛІК НА КАРТКУ: Запускаємо відтворення за логікою рідного адаптера сайту
+            comp.onActive = function (item) {
+                window.pluginx_hidePreview();
+                if (!item.url || !item.site) return;
+
+                window.Lampa.Noty.show('Завантаження відео...');
+                window.pluginx_smartRequest(item.url, function(htmlText) {
+                    var doc = new DOMParser().parseFromString(htmlText, 'text/html');
+                    
+                    var startPlayback = function(videoStreams) {
+                        if (videoStreams.length > 0) {
+                            window.pluginx_addToHistory(item);
+                            var playData = { title: item.name, url: videoStreams[0].url, quality: videoStreams };
+                            if (videoStreams[0].headers) playData.headers = videoStreams[0].headers;
+                            window.Lampa.Player.play(playData); 
+                            window.Lampa.Player.playlist([playData]);
+                        } else {
+                            window.Lampa.Noty.show('Не вдалося отримати потоки');
+                        }
+                    };
+
+                    if (Adapters[item.site] && typeof Adapters[item.site].getStreams === 'function') {
+                        Adapters[item.site].getStreams(htmlText, doc, item, startPlayback, function() { 
+                            window.Lampa.Noty.show('Помилка парсингу плеєра'); 
+                        });
+                    }
+                }, function() { 
+                    window.Lampa.Noty.show('Помилка мережі при відкритті'); 
+                });
+            };
+
+            // КЛІК НА КНОПКУ "ЩЕ" (В КІНЦІ РЯДКА)
             comp.onMore = function (data) {
                 window.Lampa.Activity.push({
                     title: 'Пошук: ' + object.query + ' (' + data.title + ')',
@@ -2431,7 +2466,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 });
             };
 
-            // ФІКС КОНТЕКСТНОГО МЕНЮ (Lampa викликає саме onLongEnter для довгих утримань)
+            // ДОВГЕ НАТИСКАННЯ: Контекстне меню "Додати в обране"
             comp.onLongEnter = function (item) {
                 var menu = [];
                 var favs = window.Lampa.Storage.get('pluginx_bookmarks', []);
@@ -2464,13 +2499,6 @@ time: time, url: urlV, picture: imgV, img: imgV });
         }
 
         window.Lampa.Component.add('pluginx_search_main', PluginXGlobalSearch);
-
-        // Додаткове коригування відображення сітки через CSS для сумісності з темами
-        if (!$('#pluginx-search-css').length) {
-            $('body').append('<style id="pluginx-search-css">' +
-                '.activity__body:has(.card--wide) .card--wide { width: 18.3em !important; }' +
-                '</style>');
-        }
 
 
         function CustomCatalog(object) {
