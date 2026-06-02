@@ -216,14 +216,15 @@ var css = '<style>\
                 getUrl: function(object, page) {
                     var url = object.url || (this.domain + '/');
                     
+                    // Обмеження для моделей: пагінації не існує
                     if (url.indexOf('/pornstars/') !== -1) return this.domain + '/pornstars/';
 
                     if (page > 1) {
                         var uParts = url.split('?');
                         var base = uParts[0].replace(/\/page\/[0-9]+\/?$/, '').replace(/\/+$/, '');
                         var pagination = '/page/' + page + '/';
-                        if (uParts.length > 1) return base + pagination + '?' + uParts[1];
-                        return base + pagination;
+                        
+                        return base + pagination + (uParts.length > 1 ? '?' + uParts[1] : '');
                     }
                     return url;
                 },
@@ -285,7 +286,7 @@ var css = '<style>\
                     var container = doc;
 
                     if (object.is_related) {
-                        container = doc.querySelector('aside.g1-related-entries');[span_4](start_span)[span_4](end_span)
+                        container = doc.querySelector('aside.g1-related-entries');
                         if (!container) return [];
                     }
 
@@ -321,7 +322,7 @@ var css = '<style>\
                         return results;
                     }
 
-                    var items = container.querySelectorAll('li.g1-collection-item, article.g1-card');[span_5](start_span)[span_5](end_span)[span_6](start_span)[span_6](end_span)[span_7](start_span)[span_7](end_span)
+                    var items = container.querySelectorAll('li.g1-collection-item, article.g1-card');
                     for (var i = 0; i < items.length; i++) {
                         var anchor = items[i].querySelector('h3 a, .g1-frame, article a');
                         var imgEl = items[i].querySelector('img');
@@ -341,6 +342,7 @@ var css = '<style>\
                     }
                     return results;
                 },
+
 
                 getStreams: function(htmlText, doc, element, startPlayback, onError) {
                     var iframeUrl = '';
@@ -388,7 +390,7 @@ var css = '<style>\
                     var _this = this;
                     var pornstarPara = Array.prototype.find.call(doc.querySelectorAll('p.has-text-align-center'), function(p) {
                         return p.textContent.indexOf('Pornstar:') !== -1;
-                    });[span_8](start_span)[span_8](end_span)
+                    });
                     if (pornstarPara) {
                         var modelLinks = pornstarPara.querySelectorAll('a');
                         for (var i = 0; i < modelLinks.length; i++) {
@@ -400,15 +402,15 @@ var css = '<style>\
                             menu.push({ title: mName, action: 'direct', url: mUrl, is_models: true });
                         }
                     }
-                    var studioLink = doc.querySelector('.g1-collection-title a[href*="/category/"]');[span_9](start_span)[span_9](end_span)
+                    var studioLink = doc.querySelector('.g1-collection-title a[href*="/category/"]');
                     if (studioLink) {
                         menu.push({ title: studioLink.textContent.trim(), action: 'direct', url: studioLink.getAttribute('href'), is_studios: true });
                     }
-                    var tagsExist = doc.querySelector('.entry-tags-inner a');[span_10](start_span)[span_10](end_span)
+                    var tagsExist = doc.querySelector('.entry-tags-inner a');
                     if (tagsExist) {
                         menu.push({ title: 'Теги', action: 'cats_custom', sel: '.entry-tags-inner a' });
                     }
-                    var relatedExist = doc.querySelector('aside.g1-related-entries li');[span_11](start_span)[span_11](end_span)
+                    var relatedExist = doc.querySelector('aside.g1-related-entries li');
                     if (relatedExist) {
                         menu.push({ title: 'Схожі відео', action: 'sim', url: element.url });
                     }
