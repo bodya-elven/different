@@ -2351,7 +2351,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
         // ==========================================
 
         function PluginXFlatSearch(object) {
-            var comp = new window.Lampa.CustomCatalog(object);
+            var comp = new window.Lampa.InteractionCategory(object);
 
             comp.create = function () {
                 var _this = this;
@@ -2362,7 +2362,6 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 var total = 0;
                 var finished = 0;
 
-                // Рахуємо кількість адаптерів із пошуком
                 for (var key in Adapters) {
                     if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++;
                 }
@@ -2390,10 +2389,8 @@ time: time, url: urlV, picture: imgV, img: imgV });
                                 if (items && items.length > 0) {
                                     items.forEach(function(item) { 
                                         item.site = siteKey;
-                                        // Додаємо мітку сайту до назви, щоб орієнтуватися звідки відео
                                         item.name = '[' + Adapters[siteKey].title + '] ' + item.name;
                                     });
-                                    // Зливаємо результати в один великий загальний список
                                     combinedItems = combinedItems.concat(items);
                                 }
                                 
@@ -2409,7 +2406,6 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 return this.render();
             };
 
-            // Допоміжний метод для виведення результатів
             comp.renderResult = function(items) {
                 var _this = this;
                 this.activity.loader(false);
@@ -2419,71 +2415,89 @@ time: time, url: urlV, picture: imgV, img: imgV });
                     return;
                 }
 
-                // Змушуємо Лампу рендерити цей плоский список у форматі широких відео-карток (16:9)
-                window.Lampa.Utils.extendItemsParams(items, { style: { name: 'wide' }, card_wide: true });
+                // Системне перетворення карток на широкі горизонтальні плашки (16:9)
+                window.Lampa.Utils.extendItemsParams(items, { style: { name: 'wide' } });
 
-                // Будуємо плитку
-                this.build(items);
-            };
-
-            // ПЕРЕХОПЛЮЄМО КЛІК: Миттєвий запуск відтворення за логікою рідного сайту відео
-            comp.onActive = function (item) {
-                if (window.pluginx_hidePreview) window.pluginx_hidePreview();
-                if (!item.url || !item.site) return;
-
-                window.Lampa.Noty.show('Завантаження відео...');
-                window.pluginx_smartRequest(item.url, function(htmlText) {
-                    var doc = new DOMParser().parseFromString(htmlText, 'text/html');
-                    
-                    var startPlayback = function(videoStreams) {
-                        if (videoStreams.length > 0) {
-                            if (window.pluginx_addToHistory) window.pluginx_addToHistory(item);
-                            var playData = { title: item.name, url: videoStreams[0].url, quality: videoStreams };
-                            if (videoStreams[0].headers) playData.headers = videoStreams[0].headers;
-                            window.Lampa.Player.play(playData); 
-                            window.Lampa.Player.playlist([playData]);
-                        } else {
-                            window.Lampa.Noty.show('Не вдалося отримати потоки');
-                        }
-                    };
-
-                    if (Adapters[item.site] && typeof Adapters[item.site].getStreams === 'function') {
-                        Adapters[item.site].getStreams(htmlText, doc, item, startPlayback, function() { 
-                            window.Lampa.Noty.show('Помилка парсингу плеєра'); 
-                        });
-                    }
-                }, function() { 
-                    window.Lampa.Noty.show('Помилка мережі при відкритті'); 
-                });
-            };
-
-            // ДОВГЕ НАТИСКАННЯ: Меню "Обране"
-            comp.onLongEnter = function (item) {
-                var menu = [];
-                var favs = window.Lampa.Storage.get('pluginx_bookmarks', []);
-                var favIndex = favs.findIndex(function(f) { return f.url === item.url; });
+                // Передаємо об'єкт у правильному для Lampa форматі
+                this.build({ results: items, collection: true, total_pages: 1, page: 1 });
                 
-                if (favIndex > -1) {
-                    menu.push({ title: '❌ Видалити з обраного', action: 'remove_fav' });
-                } else {
-                    menu.push({ title: '⭐ Додати в обране', action: 'add_fav' });
+                // Примусово додаємо класи відображення для сітки
+                var rendered = this.render();
+                rendered.addClass('main-grid');
+            };
+
+            // Перехоплюємо клік на картку для миттєвого запуску плеєра
+            comp.cardRender = function (card_obj, element, events) {
+                var $card = typeof events.render === 'function' ? events.render() : $(events);
+                
+                // Додаємо відображення тривалості відео на картку, якщо вона є
+                var badgeText = element.card_badge || element.time;
+                if (badgeText && $card && typeof $card.find === 'function') {
+                    var $view = $card.find('.card__view');
+                    if ($view.length > 0 && $view.find('.pluginx-time-badge').length === 0) {
+                        $view.append('<div class="pluginx-time-badge" style="position: absolute; right: 7px; bottom: 7px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; z-index: 10; pointer-events: none;">' + badgeText + '</div>');
+                    }
                 }
 
-                window.Lampa.Select.show({
-                    title: item.name,
-                    items: menu,
-                    onSelect: function(a) {
-                        if (a.action === 'add_fav') {
-                            favs.push(item);
-                            window.Lampa.Storage.set('pluginx_bookmarks', favs);
-                            window.Lampa.Noty.show('Додано в обране');
-                        } else if (a.action === 'remove_fav') {
-                            favs.splice(favIndex, 1);
-                            window.Lampa.Storage.set('pluginx_bookmarks', favs);
-                            window.Lampa.Noty.show('Видалено з обраного');
+                events.onEnter = function () {
+                    if (window.pluginx_hidePreview) window.pluginx_hidePreview();
+                    if (!element.url || !element.site) return;
+
+                    window.Lampa.Noty.show('Завантаження відео...');
+                    window.pluginx_smartRequest(element.url, function(htmlText) {
+                        var doc = new DOMParser().parseFromString(htmlText, 'text/html');
+                        
+                        var startPlayback = function(videoStreams) {
+                            if (videoStreams.length > 0) {
+                                if (window.pluginx_addToHistory) window.pluginx_addToHistory(element);
+                                var playData = { title: element.name, url: videoStreams[0].url, quality: videoStreams };
+                                if (videoStreams[0].headers) playData.headers = videoStreams[0].headers;
+                                window.Lampa.Player.play(playData); 
+                                window.Lampa.Player.playlist([playData]);
+                            } else {
+                                window.Lampa.Noty.show('Не вдалося отримати потоки');
+                            }
+                        };
+
+                        if (Adapters[element.site] && typeof Adapters[element.site].getStreams === 'function') {
+                            Adapters[element.site].getStreams(htmlText, doc, element, startPlayback, function() { 
+                                window.Lampa.Noty.show('Помилка парсингу плеєра'); 
+                            });
                         }
+                    }, function() { 
+                        window.Lampa.Noty.show('Помилка мережі при відкритті'); 
+                    });
+                };
+
+                // Кастомне контекстне меню (Обране) за довгим натисканням
+                events.onMenu = function () {
+                    if (window.pluginx_hidePreview) window.pluginx_hidePreview();
+                    var menu = [];
+                    var favs = window.Lampa.Storage.get('pluginx_bookmarks', []);
+                    var favIndex = favs.findIndex(function(f) { return f.url === element.url; });
+                    
+                    if (favIndex > -1) {
+                        menu.push({ title: '❌ Видалити з обраного', action: 'remove_fav' });
+                    } else {
+                        menu.push({ title: '⭐ Додати в обране', action: 'add_fav' });
                     }
-                });
+
+                    window.Lampa.Select.show({
+                        title: element.name,
+                        items: menu,
+                        onSelect: function(a) {
+                            if (a.action === 'add_fav') {
+                                favs.push(element);
+                                window.Lampa.Storage.set('pluginx_bookmarks', favs);
+                                window.Lampa.Noty.show('Додано в обране');
+                            } else if (a.action === 'remove_fav') {
+                                favs.splice(favIndex, 1);
+                                window.Lampa.Storage.set('pluginx_bookmarks', favs);
+                                window.Lampa.Noty.show('Видалено з обраного');
+                            }
+                        }
+                    });
+                };
             };
 
             return comp;
