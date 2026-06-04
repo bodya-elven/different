@@ -2362,7 +2362,6 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 var total = 0;
                 var finished = 0;
 
-                // Рахуємо адаптери з підтримкою пошуку
                 for (var key in Adapters) {
                     if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++;
                 }
@@ -2391,12 +2390,17 @@ time: time, url: urlV, picture: imgV, img: imgV });
                                 var items = Adapters[siteKey].parse(doc, searchUrl, { is_search: true });
                                 
                                 if (items && items.length > 0) {
+                                    // Форматуємо кожну картку під стандарт горизонтального відео (16:9)
                                     items.forEach(function(item) { 
-                                        item.site = siteKey; 
+                                        item.site = siteKey;
+                                        item.type = 'video'; // Кажемо Лампі, що це не фільм, а пряме відео
                                     });
                                     
-                                    // ПРИМУСОВЕ ПЕРЕТВОРЕННЯ КАРТОК НА ШИРОКІ (МЕТОД З PREMIUM INTERFACE)
-                                    window.Lampa.Utils.extendItemsParams(items, { style: { name: 'wide' } });
+                                    // Передаємо параметри відображення: примусово wide (горизонтальний формат)
+                                    window.Lampa.Utils.extendItemsParams(items, { 
+                                        style: { name: 'wide' },
+                                        card_wide: true 
+                                    });
                                     
                                     fulldata.push({
                                         title: Adapters[siteKey].title,
@@ -2424,9 +2428,42 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 return this.render();
             };
 
-            // КЛІК НА КАРТКУ: Запускаємо відтворення за логікою рідного адаптера сайту
+            // ПЕРЕПИСУЄМО ЛОГІКУ ПОБУДОВИ РЯДКІВ (Наша копія каталогу)
+            comp.build = function(data) {
+                var _this = this;
+                data.forEach(function(line) {
+                    // Створюємо горизонтальну лінію через внутрішній метод Лампи
+                    var row = _this.back_rows ? _this.back_rows({ title: line.title }) : new window.Lampa.CardRows({ title: line.title });
+                    
+                    // Заповнюємо лінію картками
+                    line.results.forEach(function(card_data) {
+                        var card = new window.Lampa.Card(card_data, { 
+                            style: { name: 'wide' },
+                            card_wide: true
+                        });
+                        
+                        card.create();
+                        
+                        // Перехоплюємо стандартний клік, щоб він не відкривав "наступну сторінку"
+                        card.onActive = function() {
+                            _this.onActive(card_data);
+                        };
+
+                        // Перехоплюємо довге натискання
+                        card.onLongEnter = function() {
+                            _this.onLongEnter(card_data);
+                        };
+
+                        row.append(card.render());
+                    });
+
+                    _this.append(row.render());
+                });
+            };
+
+            // ОБРОБКА КЛІКУ: Прямий запуск відтворення через рідний адаптер сайту
             comp.onActive = function (item) {
-                window.pluginx_hidePreview();
+                if (window.pluginx_hidePreview) window.pluginx_hidePreview();
                 if (!item.url || !item.site) return;
 
                 window.Lampa.Noty.show('Завантаження відео...');
@@ -2435,7 +2472,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                     
                     var startPlayback = function(videoStreams) {
                         if (videoStreams.length > 0) {
-                            window.pluginx_addToHistory(item);
+                            if (window.pluginx_addToHistory) window.pluginx_addToHistory(item);
                             var playData = { title: item.name, url: videoStreams[0].url, quality: videoStreams };
                             if (videoStreams[0].headers) playData.headers = videoStreams[0].headers;
                             window.Lampa.Player.play(playData); 
@@ -2455,7 +2492,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 });
             };
 
-            // КЛІК НА КНОПКУ "ЩЕ" (В КІНЦІ РЯДКА)
+            // КЛІК НА КНОПКУ "ЩЕ" В КІНЦІ РЯДКА
             comp.onMore = function (data) {
                 window.Lampa.Activity.push({
                     title: 'Пошук: ' + object.query + ' (' + data.title + ')',
@@ -2466,7 +2503,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 });
             };
 
-            // ДОВГЕ НАТИСКАННЯ: Контекстне меню "Додати в обране"
+            // ДОВГЕ НАТИСКАННЯ: Контекстне меню "Обране"
             comp.onLongEnter = function (item) {
                 var menu = [];
                 var favs = window.Lampa.Storage.get('pluginx_bookmarks', []);
@@ -2499,7 +2536,6 @@ time: time, url: urlV, picture: imgV, img: imgV });
         }
 
         window.Lampa.Component.add('pluginx_search_main', PluginXGlobalSearch);
-
 
         function CustomCatalog(object) {
             var comp = new Lampa.InteractionCategory(object), currentSite = object.site || 'porno365';
