@@ -2390,17 +2390,12 @@ time: time, url: urlV, picture: imgV, img: imgV });
                                 var items = Adapters[siteKey].parse(doc, searchUrl, { is_search: true });
                                 
                                 if (items && items.length > 0) {
-                                    // Форматуємо кожну картку під стандарт горизонтального відео (16:9)
                                     items.forEach(function(item) { 
                                         item.site = siteKey;
-                                        item.type = 'video'; // Кажемо Лампі, що це не фільм, а пряме відео
                                     });
                                     
-                                    // Передаємо параметри відображення: примусово wide (горизонтальний формат)
-                                    window.Lampa.Utils.extendItemsParams(items, { 
-                                        style: { name: 'wide' },
-                                        card_wide: true 
-                                    });
+                                    // Перетворюємо картки на широкі (16:9) за допомогою ядра Lampa
+                                    window.Lampa.Utils.extendItemsParams(items, { style: { name: 'wide' } });
                                     
                                     fulldata.push({
                                         title: Adapters[siteKey].title,
@@ -2428,40 +2423,38 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 return this.render();
             };
 
-            // ПЕРЕПИСУЄМО ЛОГІКУ ПОБУДОВИ РЯДКІВ (Наша копія каталогу)
+            // БРОНЕБІЙНИЙ ПЕРЕХОПЛЮВАЧ КЛІКУ ТА МЕНЮ ДЛЯ СТАНДАРТНОГО КАТАЛОГУ
+            // Використовуємо рідний build компонента Lampa, але переписуємо події елементів лінії
+            var originalBuild = comp.build;
             comp.build = function(data) {
+                if (originalBuild) originalBuild.apply(this, arguments);
+                
                 var _this = this;
-                data.forEach(function(line) {
-                    // Створюємо горизонтальну лінію через внутрішній метод Лампи
-                    var row = _this.back_rows ? _this.back_rows({ title: line.title }) : new window.Lampa.CardRows({ title: line.title });
-                    
-                    // Заповнюємо лінію картками
-                    line.results.forEach(function(card_data) {
-                        var card = new window.Lampa.Card(card_data, { 
-                            style: { name: 'wide' },
-                            card_wide: true
-                        });
-                        
-                        card.create();
-                        
-                        // Перехоплюємо стандартний клік, щоб він не відкривав "наступну сторінку"
-                        card.onActive = function() {
-                            _this.onActive(card_data);
-                        };
-
-                        // Перехоплюємо довге натискання
-                        card.onLongEnter = function() {
-                            _this.onLongEnter(card_data);
-                        };
-
-                        row.append(card.render());
+                // Проходимо по всіх створених об'єктах ліній (рядків) у каталозі
+                if (Array.isArray(_this.lines)) {
+                    _this.lines.forEach(function(line) {
+                        // Якщо всередині лінії є створені картки
+                        if (Array.isArray(line.items)) {
+                            line.items.forEach(function(card) {
+                                if (card && card.data) {
+                                    
+                                    // 1. Перехоплюємо звичайний клік (Запуск плеєра)
+                                    card.onActive = function() {
+                                        _this.onActive(card.data);
+                                    };
+                                    
+                                    // 2. Перехоплюємо довге натискання (Контекстне меню)
+                                    card.onLongEnter = function() {
+                                        _this.onLongEnter(card.data);
+                                    };
+                                }
+                            });
+                        }
                     });
-
-                    _this.append(row.render());
-                });
+                }
             };
 
-            // ОБРОБКА КЛІКУ: Прямий запуск відтворення через рідний адаптер сайту
+            // МЕТОД КЛІКУ: Прямий запуск відтворення через рідний адаптер сайту
             comp.onActive = function (item) {
                 if (window.pluginx_hidePreview) window.pluginx_hidePreview();
                 if (!item.url || !item.site) return;
@@ -2492,7 +2485,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 });
             };
 
-            // КЛІК НА КНОПКУ "ЩЕ" В КІНЦІ РЯДКА
+            // КЛІК НА КНОПКУ "ЩЕ"
             comp.onMore = function (data) {
                 window.Lampa.Activity.push({
                     title: 'Пошук: ' + object.query + ' (' + data.title + ')',
@@ -2503,7 +2496,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 });
             };
 
-            // ДОВГЕ НАТИСКАННЯ: Контекстне меню "Обране"
+            // ДОВГЕ НАТИСКАННЯ: Кастомне меню "Обране"
             comp.onLongEnter = function (item) {
                 var menu = [];
                 var favs = window.Lampa.Storage.get('pluginx_bookmarks', []);
