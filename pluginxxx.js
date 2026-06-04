@@ -2350,18 +2350,19 @@ time: time, url: urlV, picture: imgV, img: imgV });
         // ЯДРО ПЛАГІНА (Взаємодія з Lampa та Адаптерами)
         // ==========================================
 
-        function PluginXGlobalSearch(object) {
-            var comp = new window.Lampa.InteractionMain(object);
+        function PluginXFlatSearch(object) {
+            var comp = new window.Lampa.CustomCatalog(object);
 
             comp.create = function () {
                 var _this = this;
                 this.activity.loader(true);
 
                 var query = object.query;
-                var fulldata = [];
+                var combinedItems = [];
                 var total = 0;
                 var finished = 0;
 
+                // Рахуємо кількість адаптерів із пошуком
                 for (var key in Adapters) {
                     if (Adapters[key].getSearchUrl && !Adapters[key].is_global) total++;
                 }
@@ -2378,10 +2379,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                             
                             if (!searchUrl) {
                                 finished++;
-                                if (finished === total) {
-                                    if (fulldata.length) { _this.build(fulldata); _this.activity.loader(false); }
-                                    else _this.empty();
-                                }
+                                if (finished === total) _this.renderResult(combinedItems);
                                 return;
                             }
 
@@ -2392,30 +2390,18 @@ time: time, url: urlV, picture: imgV, img: imgV });
                                 if (items && items.length > 0) {
                                     items.forEach(function(item) { 
                                         item.site = siteKey;
+                                        // Додаємо мітку сайту до назви, щоб орієнтуватися звідки відео
+                                        item.name = '[' + Adapters[siteKey].title + '] ' + item.name;
                                     });
-                                    
-                                    // Перетворюємо картки на широкі (16:9) за допомогою ядра Lampa
-                                    window.Lampa.Utils.extendItemsParams(items, { style: { name: 'wide' } });
-                                    
-                                    fulldata.push({
-                                        title: Adapters[siteKey].title,
-                                        results: items,
-                                        url: searchUrl,
-                                        site: siteKey
-                                    });
+                                    // Зливаємо результати в один великий загальний список
+                                    combinedItems = combinedItems.concat(items);
                                 }
                                 
                                 finished++;
-                                if (finished === total) {
-                                    if (fulldata.length) { _this.build(fulldata); _this.activity.loader(false); }
-                                    else _this.empty();
-                                }
+                                if (finished === total) _this.renderResult(combinedItems);
                             }, function() {
                                 finished++;
-                                if (finished === total) {
-                                    if (fulldata.length) { _this.build(fulldata); _this.activity.loader(false); }
-                                    else _this.empty();
-                                }
+                                if (finished === total) _this.renderResult(combinedItems);
                             });
                         })(key);
                     }
@@ -2423,38 +2409,24 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 return this.render();
             };
 
-            // БРОНЕБІЙНИЙ ПЕРЕХОПЛЮВАЧ КЛІКУ ТА МЕНЮ ДЛЯ СТАНДАРТНОГО КАТАЛОГУ
-            // Використовуємо рідний build компонента Lampa, але переписуємо події елементів лінії
-            var originalBuild = comp.build;
-            comp.build = function(data) {
-                if (originalBuild) originalBuild.apply(this, arguments);
-                
+            // Допоміжний метод для виведення результатів
+            comp.renderResult = function(items) {
                 var _this = this;
-                // Проходимо по всіх створених об'єктах ліній (рядків) у каталозі
-                if (Array.isArray(_this.lines)) {
-                    _this.lines.forEach(function(line) {
-                        // Якщо всередині лінії є створені картки
-                        if (Array.isArray(line.items)) {
-                            line.items.forEach(function(card) {
-                                if (card && card.data) {
-                                    
-                                    // 1. Перехоплюємо звичайний клік (Запуск плеєра)
-                                    card.onActive = function() {
-                                        _this.onActive(card.data);
-                                    };
-                                    
-                                    // 2. Перехоплюємо довге натискання (Контекстне меню)
-                                    card.onLongEnter = function() {
-                                        _this.onLongEnter(card.data);
-                                    };
-                                }
-                            });
-                        }
-                    });
+                this.activity.loader(false);
+
+                if (!items || items.length === 0) {
+                    this.empty();
+                    return;
                 }
+
+                // Змушуємо Лампу рендерити цей плоский список у форматі широких відео-карток (16:9)
+                window.Lampa.Utils.extendItemsParams(items, { style: { name: 'wide' }, card_wide: true });
+
+                // Будуємо плитку
+                this.build(items);
             };
 
-            // МЕТОД КЛІКУ: Прямий запуск відтворення через рідний адаптер сайту
+            // ПЕРЕХОПЛЮЄМО КЛІК: Миттєвий запуск відтворення за логікою рідного сайту відео
             comp.onActive = function (item) {
                 if (window.pluginx_hidePreview) window.pluginx_hidePreview();
                 if (!item.url || !item.site) return;
@@ -2485,18 +2457,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
                 });
             };
 
-            // КЛІК НА КНОПКУ "ЩЕ"
-            comp.onMore = function (data) {
-                window.Lampa.Activity.push({
-                    title: 'Пошук: ' + object.query + ' (' + data.title + ')',
-                    url: data.url,
-                    component: 'pluginx_comp',
-                    site: data.site,
-                    page: 1
-                });
-            };
-
-            // ДОВГЕ НАТИСКАННЯ: Кастомне меню "Обране"
+            // ДОВГЕ НАТИСКАННЯ: Меню "Обране"
             comp.onLongEnter = function (item) {
                 var menu = [];
                 var favs = window.Lampa.Storage.get('pluginx_bookmarks', []);
@@ -2528,7 +2489,7 @@ time: time, url: urlV, picture: imgV, img: imgV });
             return comp;
         }
 
-        window.Lampa.Component.add('pluginx_search_main', PluginXGlobalSearch);
+        window.Lampa.Component.add('pluginx_search_main', PluginXFlatSearch);
 
         function CustomCatalog(object) {
             var comp = new Lampa.InteractionCategory(object), currentSite = object.site || 'porno365';
