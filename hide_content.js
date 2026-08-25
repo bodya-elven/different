@@ -27,21 +27,29 @@
 
     // Перевірка на медіа-контент
     function isMediaContent(item) {
-        if (!item) return false;
+        if (!item || typeof item !== 'object') return false;
+
         if (item.type && typeof item.type === 'string') {
             var typeLower = item.type.toLowerCase();
-            if (typeLower === 'plugin' || typeLower === 'extension' || typeLower === 'theme' || typeLower === 'addon') return false;
+            if (['plugin', 'extension', 'theme', 'addon', 'hub', 'repository', 'script'].indexOf(typeLower) !== -1) return false;
         }
-        var hasExtensionFields = (item.plugin !== undefined || item.extension !== undefined || (item.type && item.type === 'extension') || (item.type && item.type === 'plugin'));
-        var hasMediaFields = item.original_language !== undefined || item.vote_average !== undefined || item.media_type !== undefined || item.first_air_date !== undefined || item.release_date !== undefined || item.original_title !== undefined || item.original_name !== undefined || (item.genre_ids && Array.isArray(item.genre_ids)) || (item.genres && Array.isArray(item.genres));
-        
-        if (hasExtensionFields && !hasMediaFields) return false;
-        if (!hasMediaFields) return false;
-        
-        return true;
+
+        if (item.author !== undefined || item.version !== undefined || item.url !== undefined || item.plugin !== undefined || item.extension !== undefined || item.installed !== undefined) {
+            return false;
+        }
+
+        var hasMediaFields = item.media_type !== undefined || 
+                             item.first_air_date !== undefined || 
+                             item.release_date !== undefined || 
+                             item.poster_path !== undefined || 
+                             item.backdrop_path !== undefined || 
+                             (item.genre_ids && Array.isArray(item.genre_ids)) || 
+                             (item.genres && Array.isArray(item.genres));
+
+        return Boolean(hasMediaFields);
     }
 
-    // Керування чорним списком + передача фокусу
+    // Керування чорним списком + плавна передача фокусу
     function toggleBlacklist(cardData) {
         var blacklist = Lampa.Storage.get('content_blacklist', []);
         var isBlocked = false;
@@ -62,22 +70,26 @@
             Lampa.Storage.set('content_blacklist', newList);
             Lampa.Noty.show('"' + title + '" ' + Lampa.Lang.translate('blacklist_added_suffix'));
             
-            // Логіка передачі естафети для пульта на Smart TV
             var active = Lampa.Activity.active();
             if (active && active.activity && active.activity.render) {
-                var focusEl = active.activity.render().find('.focus');
+                var focusEl = active.activity.render().find('.card.focus, .item.focus');
                 if (focusEl.length) {
-                    var next = focusEl.nextAll('.item:visible').first();
-                    if (!next.length) next = focusEl.prevAll('.item:visible').first();
-
-                    // Повністю видаляємо картку з DOM, щоб сусідня стала на її фізичне місце
-                    focusEl.remove();
-
-                    // Перезапускаємо контролер, щоб Лампа сфокусувала картку за новими координатами
-                    Lampa.Controller.toggle('content');
-                    if (next.length) {
-                        next.trigger('hover:focus');
-                    }
+                    var next = focusEl.nextAll('.card:visible, .item:visible').first();
+                    if (!next.length) next = focusEl.prevAll('.card:visible, .item:visible').first();
+                    
+                    focusEl.css({
+                        'display': 'none',
+                        'visibility': 'hidden'
+                    });
+                    
+                    setTimeout(function() {
+                        if (next.length) {
+                            next.trigger('hover:focus');
+                        }
+                        if (Lampa.Navigator && Lampa.Navigator.update) {
+                            Lampa.Navigator.update();
+                        }
+                    }, 50);
                 }
             }
         }
@@ -265,6 +277,7 @@
             blacklist_removed_suffix: { uk: 'видалено з чорного списку', en: 'removed from blacklist' }
         });
     }
+
     // Вивід тексту справа в меню
     function updateSettingsValue(el, value) {
         var valEl = el.find('.settings-param__value');
@@ -275,33 +288,12 @@
         valEl.text(value || '');
     }
 
-    // Налаштування плагіна
+    // Чисте додавання налаштувань через API Lampa
     function addSettings() {
-        Lampa.Settings.listener.follow('open', function (e) {
-            if (e.name === 'main') {
-                var render = Lampa.Settings.main().render();
-                if (render.find('[data-component="content_hiding"]').length === 0) {
-                    Lampa.SettingsApi.addComponent({ component: 'content_hiding', name: Lampa.Lang.translate('content_hiding') });
-                }
-                Lampa.Settings.main().update();
-                render.find('[data-component="content_hiding"]').addClass('hide');
-            }
-        });
-
-        Lampa.SettingsApi.addParam({
-            component: 'interface',
-            param: { name: 'content_hiding', type: 'static', default: true },
-            field: { name: Lampa.Lang.translate('content_hiding'), description: Lampa.Lang.translate('content_hiding_desc') },
-            onRender: function (el) {
-                setTimeout(function () {
-                    var title = Lampa.Lang.translate('content_hiding') || 'Приховування контенту';
-                    $('.settings-param > div:contains("' + title + '")').parent().insertAfter($('div[data-name="interface_size"]'));
-                }, 0);
-                el.on('hover:enter', function () {
-                    Lampa.Settings.create('content_hiding');
-                    Lampa.Controller.enabled().controller.back = function () { Lampa.Settings.create('interface'); };
-                });
-            }
+        Lampa.SettingsApi.addComponent({
+            component: 'content_hiding',
+            name: Lampa.Lang.translate('content_hiding'),
+            icon: '<svg height="24" viewBox="0 0 24 24" width="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
         });
 
         ['ru', 'asian', 'in', 'tr', 'ar', 'untranslated'].forEach(function (key) {
@@ -427,7 +419,7 @@
                                 Lampa.Storage.set('content_blacklist', newList);
                                 Lampa.Noty.show('"' + selected.itemData.title + '" ' + Lampa.Lang.translate('blacklist_removed_suffix'));
                                 updateCount();
-                                showManager(); // Рекурсивне оновлення списку
+                                showManager();
                             }
                         },
                         onBack: function() { Lampa.Controller.toggle('settings_component'); }
@@ -443,7 +435,7 @@
         for (var key in settings) settings[key] = Lampa.Storage.get(key, settings[key]);
     }
 
-    // Реєстрація єдиного стабільного пункту в контекстному меню "Приховати"
+    // Реєстрація пункту в контекстному меню "Приховати"
     function registerContextMenu() {
         if (!Lampa.Manifest) Lampa.Manifest = {};
         if (!Lampa.Manifest.plugins) Lampa.Manifest.plugins = [];
@@ -475,7 +467,7 @@
         }
     }
 
-    // Ініціалізація плагіна та класичне приховування
+    // Ініціалізація плагіна
     function initPlugin() {
         if (window.content_hiding_plugin) return;
         window.content_hiding_plugin = true;
@@ -485,13 +477,21 @@
         addSettings();
         registerContextMenu(); 
 
-        // Класичний стабільний метод приховування 
         Lampa.Listener.follow('request_secuses', function (e) {
             if (!e.data || !Array.isArray(e.data.results)) return;
+            
+            var active = Lampa.Activity.active();
+            if (active && active.component) {
+                var comp = String(active.component).toLowerCase();
+                if (comp.indexOf('hub') !== -1 || comp.indexOf('cub') !== -1 || comp.indexOf('plugin') !== -1 || comp.indexOf('extension') !== -1 || comp.indexOf('store') !== -1) return;
+            }
+
             var urlStr = (e.url || (e.data && e.data.url) || '').toLowerCase();
-            if (urlStr.indexOf('extension') !== -1 || urlStr.indexOf('plugin') !== -1 || urlStr.indexOf('store') !== -1) return;
+            if (urlStr.indexOf('extension') !== -1 || urlStr.indexOf('plugin') !== -1 || urlStr.indexOf('store') !== -1 || urlStr.indexOf('hub') !== -1 || urlStr.indexOf('cub') !== -1 || urlStr.indexOf('market') !== -1) return;
+            
             var componentStr = (e.component || (e.data && e.data.component) || '').toLowerCase();
-            if (componentStr.indexOf('extension') !== -1 || componentStr.indexOf('plugin') !== -1) return;
+            if (componentStr.indexOf('extension') !== -1 || componentStr.indexOf('plugin') !== -1 || componentStr.indexOf('hub') !== -1 || componentStr.indexOf('cub') !== -1 || componentStr.indexOf('store') !== -1 || componentStr.indexOf('market') !== -1) return;
+            
             if (e.data.results.length === 0) return;
             
             var hasMediaContent = e.data.results.some(function(item) { return isMediaContent(item); });
@@ -506,3 +506,4 @@
     if (window.appready) initPlugin();
     else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') initPlugin(); });
 })();
+
